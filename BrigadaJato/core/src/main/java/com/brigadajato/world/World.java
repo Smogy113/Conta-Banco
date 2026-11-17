@@ -24,6 +24,8 @@ public class World {
     public final boolean authority;
     public final Random rng;
     public final Pathfinder pathfinder;
+    /** gravidade do mapa */
+    public final float gravity;
 
     public final Array<Player> players = new Array<>();
     public final Array<Projectile> projectiles = new Array<>();
@@ -45,6 +47,7 @@ public class World {
         this.authority = authority;
         this.rng = new Random(seed);
         this.pathfinder = new Pathfinder(map);
+        this.gravity = C.GRAVITY * map.gravity;
         this.mode = GameMode.create(this, config.mode);
     }
 
@@ -280,7 +283,7 @@ public class World {
             if (p.fuelDelay > 0) p.fuelDelay -= dt;
             else p.fuel = Math.min(C.FUEL_MAX, p.fuel + (p.onGround ? C.FUEL_REGEN_GROUND : C.FUEL_REGEN_AIR) * dt);
         }
-        p.vy -= C.GRAVITY * dt;
+        p.vy -= gravity * dt;
         if (p.vy < -C.MAX_FALL) p.vy = -C.MAX_FALL;
         if (p.vx > 900) p.vx = 900;
         if (p.vx < -900) p.vx = -900;
@@ -802,7 +805,7 @@ public class World {
     }
 
     private void moveBouncy(Projectile pr, float dt, float bounce, float friction, boolean explodeOnPlayer) {
-        pr.vy -= C.GRAVITY * 0.85f * dt;
+        pr.vy -= gravity * 0.85f * dt;
         boolean bounced = false;
         float nx = pr.x + pr.vx * dt;
         if (map.solidAt(nx, pr.y)) {
@@ -848,7 +851,7 @@ public class World {
 
     private void moveMine(Projectile pr, float dt) {
         if (!pr.stuck) {
-            pr.vy -= C.GRAVITY * 0.85f * dt;
+            pr.vy -= gravity * 0.85f * dt;
             float nx = pr.x + pr.vx * dt, ny = pr.y + pr.vy * dt;
             if (map.solidAt(nx, pr.y)) {
                 pr.stuck = true;
@@ -1090,7 +1093,7 @@ public class World {
                     continue;
                 }
                 if (!map.solidAt(pk.x, pk.y - 1) && !crossesPlatform(pk.x, pk.y, pk.y - 1)) {
-                    pk.vy -= C.GRAVITY * dt;
+                    pk.vy -= gravity * dt;
                     float ny = pk.y + pk.vy * dt;
                     if (map.solidAt(pk.x, ny) || (pk.vy < 0 && crossesPlatform(pk.x, pk.y, ny))) {
                         pk.y = (float) (Math.floor(ny / C.TILE) + 1) * C.TILE;
@@ -1247,7 +1250,7 @@ public class World {
                 moveBullet(pr, dt);
             } else {
                 if (pr.kind == Projectile.Kind.FRAG || pr.kind == Projectile.Kind.SHELL || (pr.kind == Projectile.Kind.MINE && !pr.stuck)) {
-                    pr.vy -= C.GRAVITY * 0.85f * dt;
+                    pr.vy -= gravity * 0.85f * dt;
                     float nx = pr.x + pr.vx * dt, ny = pr.y + pr.vy * dt;
                     if (!map.solidAt(nx, ny)) {
                         pr.x = nx;

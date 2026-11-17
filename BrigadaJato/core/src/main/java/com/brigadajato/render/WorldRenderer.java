@@ -43,7 +43,7 @@ public class WorldRenderer implements Disposable {
     private Texture tileTex, skyTex;
     private TextureRegion[] solid = new TextureRegion[4];
     private TextureRegion topRegion, platRegion, spikeRegion;
-    private final Array<float[]> bgFar = new Array<>(), bgMid = new Array<>(), bgNear = new Array<>(), clouds = new Array<>();
+    private final Array<float[]> bgFar = new Array<>(), bgMid = new Array<>(), bgNear = new Array<>(), clouds = new Array<>(), stars = new Array<>();
 
     public float shake;
     public float time;
@@ -153,7 +153,7 @@ public class WorldRenderer implements Disposable {
                 }
             }
             // pedras grandes
-            if (t == Theme.SKY || t == Theme.DESERT) {
+            if (t == Theme.SKY || t == Theme.DESERT || t == Theme.SPACE || t == Theme.JUNGLE) {
                 for (int k = 0; k < 3; k++) {
                     int cx = ox + 8 + r.nextInt(48), cy = 10 + r.nextInt(44), rr = 3 + r.nextInt(4);
                     pm.setColor(new Color(rgba(mix(t.tileDark, t.tile, 0.4f), 1)));
@@ -212,6 +212,9 @@ public class WorldRenderer implements Disposable {
         for (int i = 0; i < 8; i++) bgMid.add(new float[]{i * period / 8 + r.nextFloat() * 120, 0, 300 + r.nextFloat() * 220, 90 + r.nextFloat() * 140});
         for (int i = 0; i < 12; i++) bgNear.add(new float[]{i * period / 12 + r.nextFloat() * 80, 0, 40 + r.nextFloat() * 50, 70 + r.nextFloat() * 110});
         for (int i = 0; i < 8; i++) clouds.add(new float[]{r.nextFloat() * period, 120 + r.nextFloat() * 260, 34 + r.nextFloat() * 30, 8 + r.nextFloat() * 14});
+        stars.clear();
+        if (t == Theme.SPACE || t == Theme.ICE)
+            for (int i = 0; i < 140; i++) stars.add(new float[]{r.nextFloat(), r.nextFloat(), 0.6f + r.nextFloat() * 1.6f, r.nextFloat() * 6});
     }
 
     // ------------------------------------------------------------------ eventos -> efeitos
@@ -539,16 +542,39 @@ public class WorldRenderer implements Disposable {
         Theme t = world.map.theme;
         float camX = cam.position.x, camY = cam.position.y;
         float period = 2400;
-        // sol / lua
-        d.color(1, 1, 0.9f, t == Theme.ICE || t == Theme.FACTORY ? 0.5f : 0.85f);
+        // estrelas
+        for (float[] st : stars) {
+            float sx = minX + st[0] * vw, sy = minY + vh * 0.25f + st[1] * vh * 0.75f;
+            d.color(1, 1, 1, 0.45f + 0.35f * MathUtils.sin(time * 2 + st[3]));
+            d.circle(sx, sy, st[2]);
+        }
         float sunX = minX + vw * 0.78f, sunY = minY + vh * 0.78f;
-        d.additive(true);
-        d.soft(sunX, sunY, 140);
-        d.additive(false);
-        d.color(1, 1, 0.92f, 1);
-        d.circle(sunX, sunY, t == Theme.ICE ? 28 : 40);
+        if (t == Theme.SPACE) {
+            // planeta azul no ceu da lua
+            d.additive(true);
+            d.color(0.3f, 0.6f, 1f, 0.35f);
+            d.soft(sunX, sunY, 120);
+            d.additive(false);
+            d.rgb(0x1e88e5, 1);
+            d.circle(sunX, sunY, 54);
+            d.rgb(0x43a047, 1);
+            d.ellipse(sunX - 14, sunY + 10, 20, 14, 20);
+            d.ellipse(sunX + 18, sunY - 16, 14, 18, -10);
+            d.rgb(0xffffff, 0.6f);
+            d.ellipse(sunX + 4, sunY + 30, 26, 6, 0);
+            d.rgb(0x000000, 0.35f);
+            d.batch.draw(a.half, sunX - 54, sunY - 54, 54, 54, 108, 54, 1, 1, -60);
+        } else {
+            // sol / lua
+            d.color(1, 1, 0.9f, t == Theme.ICE || t == Theme.FACTORY ? 0.5f : 0.85f);
+            d.additive(true);
+            d.soft(sunX, sunY, 140);
+            d.additive(false);
+            d.color(1, 1, 0.92f, 1);
+            d.circle(sunX, sunY, t == Theme.ICE ? 28 : 40);
+        }
         // nuvens
-        if (t != Theme.FACTORY && t != Theme.ICE) {
+        if (t != Theme.FACTORY && t != Theme.ICE && t != Theme.SPACE) {
             for (float[] c : clouds) {
                 float k = 0.1f;
                 float cx = wrap(c[0] + time * c[3] - camX * k, period) + camX - period / 2;
@@ -621,6 +647,12 @@ public class WorldRenderer implements Disposable {
                         break;
                     case ICE:
                         d.batch.draw(a.tri, x - w * 0.3f, baseY, w * 0.6f, h);
+                        break;
+                    case SPACE:
+                        d.batch.draw(a.half, x - w, baseY, w * 2, w);
+                        d.rect(x - 2, baseY + w * 0.9f, 4, h * 0.6f);
+                        d.rgb(0xff5252, 0.8f + 0.2f * MathUtils.sin(time * 4 + x));
+                        d.circle(x, baseY + w * 0.9f + h * 0.6f, 3);
                         break;
                     default:
                         d.rect(x - 4, baseY - 900, 8, h * 0.6f + 900);

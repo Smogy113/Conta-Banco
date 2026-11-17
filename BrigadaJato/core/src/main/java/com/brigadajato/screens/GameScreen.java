@@ -177,6 +177,7 @@ public class GameScreen extends ScreenAdapter {
             if (!resultsShown) togglePause();
         }
 
+        if (TOUCH_TEST && mobile) fakeFingers();
         // ---- entrada do jogador local
         PlayerInput target = client != null ? clientInput : (local != null ? local.input : null);
         if (target != null && local != null && !paused && !AUTOPLAY) {
@@ -280,6 +281,27 @@ public class GameScreen extends ScreenAdapter {
     private void dispatch(WorldEvent e) {
         renderer.handle(e, local);
         hud.handle(e, local);
+    }
+
+    /** Teste dos joysticks no PC: dois "dedos" falsos (--touchtest=true --touch=true). */
+    private static final boolean TOUCH_TEST = "true".equals(System.getProperty("brigadajato.touchtest"));
+    private boolean fingersDown;
+
+    private void fakeFingers() {
+        int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+        int lx = (int) (w * 0.14f), ly = (int) (h * 0.76f), rx = (int) (w * 0.74f), ry = (int) (h * 0.7f);
+        if (!fingersDown && lifeTime > 1) {
+            controls.touchDown(lx, ly, 0, 0);
+            controls.touchDown(rx, ry, 1, 0);
+            fingersDown = true;
+        }
+        if (fingersDown) {
+            float t = lifeTime;
+            // esquerdo: anda para a direita e liga o jetpack de vez em quando
+            controls.touchDragged(lx + 70, ly - (int) (Math.sin(t * 1.5f) > 0 ? 75 : 10), 0);
+            // direito: gira a mira e empurra ate a borda (atira)
+            controls.touchDragged(rx + (int) (MathUtils.cos(t * 0.8f) * 110), ry - (int) (MathUtils.sin(t * 0.8f) * 110), 1);
+        }
     }
 
     private float aimAssist(Player me, float aim) {

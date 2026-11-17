@@ -10,6 +10,8 @@ public class GameMap {
     public final String id;
     public String name = "?", nameEn = "?";
     public Theme theme = Theme.DESERT;
+    /** multiplicador da gravidade (Base Lunar = 0.55) */
+    public float gravity = 1f;
     public int w, h;
     public byte[] tiles;
 
@@ -63,6 +65,7 @@ public class GameMap {
                 if (key.equals("name")) m.name = val;
                 else if (key.equals("name_en")) m.nameEn = val;
                 else if (key.equals("theme")) m.theme = Theme.parse(val);
+                else if (key.equals("gravity")) m.gravity = Float.parseFloat(val);
                 continue;
             }
             if (line.trim().isEmpty()) continue;
@@ -131,8 +134,8 @@ public class GameMap {
     }
 
     /** Ids dos mapas disponiveis (arquivos em assets/maps). */
-    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "treino"};
+    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "treino"};
 
     /** Mapas jogaveis nos modos normais (sem o campo de treino). */
-    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna"};
+    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua"};
 }
