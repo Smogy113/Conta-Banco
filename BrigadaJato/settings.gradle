@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'com.android.application' version '8.10.1'
+    }
+}
+
+rootProject.name = 'BrigadaJato'
+include 'core', 'desktop'
+
+// O modulo Android so entra quando existe um Android SDK (Android Studio cria o
+// local.properties com sdk.dir; o GitHub Actions define ANDROID_HOME).
+if (file('local.properties').exists() || System.getenv('ANDROID_HOME') != null || System.getenv('ANDROID_SDK_ROOT') != null) {
+    include 'android'
+}
