@@ -136,6 +136,12 @@ public class LobbyScreen extends BaseScreen {
             host.updateLobby();
             while (host.notices.size > 0) status.setText(host.notices.removeIndex(0));
             refreshList(host.entries(), host.cfg);
+            // teste automatico no PC: --autostart=N inicia quando N clientes entrarem
+            String auto = System.getProperty("brigadajato.autostart");
+            if (auto != null && host.entries().size() > Integer.parseInt(auto)) {
+                startMatch();
+                return;
+            }
         } else if (client != null) {
             client.updateLobby();
             if (client.net.state == NetClient.State.CONNECTED) {

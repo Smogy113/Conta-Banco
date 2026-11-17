@@ -96,6 +96,7 @@ public class GameScreen extends ScreenAdapter {
 
     public static GameScreen host(BrigadaJatoGame game, HostSession h) {
         World w = h.startMatch(BrigadaJatoGame.loadMap(h.cfg.mapId));
+        if (AUTOPLAY) w.player(0).bot = new com.brigadajato.world.ai.BotBrain(w.player(0), 2, 1);
         return new GameScreen(game, w, 0, h, null);
     }
 
@@ -133,6 +134,13 @@ public class GameScreen extends ScreenAdapter {
         Gdx.input.setInputProcessor(new InputMultiplexer(stage, controls));
         game.audio.music(false);
         resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    }
+
+    @Override
+    public void pause() {
+        // app foi para segundo plano: pausa partidas offline
+        game.audio.jetpack(false);
+        if (!paused && !resultsShown && host == null && client == null) togglePause();
     }
 
     @Override

@@ -18,7 +18,7 @@ public class MultiplayerScreen extends BaseScreen {
     private final Label status;
     private final TextField ipField;
     private float refresh;
-    private String lastSig = "";
+    private String lastSig = null;
 
     public MultiplayerScreen(BrigadaJatoGame game) {
         this(game, null);

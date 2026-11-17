@@ -12,8 +12,18 @@ pluginManagement {
 rootProject.name = 'BrigadaJato'
 include 'core', 'desktop'
 
-// O modulo Android so entra quando existe um Android SDK (Android Studio cria o
-// local.properties com sdk.dir; o GitHub Actions define ANDROID_HOME).
-if (file('local.properties').exists() || System.getenv('ANDROID_HOME') != null || System.getenv('ANDROID_SDK_ROOT') != null) {
+// O modulo Android so entra quando existe um Android SDK. Se o local.properties nao existir,
+// procura o SDK nos lugares padrao do Android Studio (Windows, Mac e Linux) e cria o arquivo.
+def localProps = file('local.properties')
+def home = System.getProperty('user.home')
+def sdkCandidates = [System.getenv('ANDROID_HOME'), System.getenv('ANDROID_SDK_ROOT'),
+                     System.getenv('LOCALAPPDATA') ? System.getenv('LOCALAPPDATA') + '/Android/Sdk' : null,
+                     home + '/AppData/Local/Android/Sdk', home + '/Library/Android/sdk', home + '/Android/Sdk']
+if (!localProps.exists()) {
+    def found = sdkCandidates.find { it != null && new File(it).isDirectory() }
+    if (found != null) localProps.text = 'sdk.dir=' + found.replace('\\', '/') + '\n'
+}
+boolean fromIde = gradle.startParameter.projectProperties.containsKey('android.injected.invoked.from.ide')
+if (localProps.exists() || System.getenv('ANDROID_HOME') != null || System.getenv('ANDROID_SDK_ROOT') != null || fromIde) {
     include 'android'
 }

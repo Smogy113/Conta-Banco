@@ -25,7 +25,7 @@ public class AndroidLauncher extends AndroidApplication implements Platform {
         config.useAccelerometer = false;
         config.useCompass = false;
         config.useGyroscope = false;
-        config.numSamples = 2;
+        config.numSamples = 0;
         initialize(new BrigadaJatoGame(this), config);
     }
 
