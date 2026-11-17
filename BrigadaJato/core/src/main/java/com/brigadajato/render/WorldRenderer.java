@@ -563,7 +563,7 @@ public class WorldRenderer implements Disposable {
             d.rgb(0xffffff, 0.6f);
             d.ellipse(sunX + 4, sunY + 30, 26, 6, 0);
             d.rgb(0x000000, 0.35f);
-            d.batch.draw(a.half, sunX - 54, sunY - 54, 54, 54, 108, 54, 1, 1, -60);
+            d.batch.draw(a.half, sunX - 54, sunY, 54, 0, 108, 54, 1, 1, -70);
         } else {
             // sol / lua
             d.color(1, 1, 0.9f, t == Theme.ICE || t == Theme.FACTORY ? 0.5f : 0.85f);

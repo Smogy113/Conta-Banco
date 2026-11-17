@@ -5,6 +5,11 @@ Soldadinhos cartoon, duplo joystick, bots com inteligência artificial e **multi
 
 Tudo é original: personagens, mapas, sons e música foram gerados por código (pasta `tools/`).
 
+| | |
+|---|---|
+| ![Menu](docs/menu.jpg) | ![Caverna Gelada](docs/caverna.jpg) |
+| ![Base Lunar](docs/lua.jpg) | ![Plantar a Bomba](docs/bomba.jpg) |
+
 ## Como jogar no celular
 
 ### Opção 1: baixar o APK pronto (sem Android Studio)
@@ -53,7 +58,7 @@ Tudo é original: personagens, mapas, sons e música foram gerados por código (
 ## Conteúdo
 - **12 armas**: pistola, magnum, submetralhadora, fuzil, escopeta, sniper, metralhadora, bazuca, lança-granadas, lança-chamas, laser e disco serra. Mais soco, granadas e minas.
 - **Itens**: vida, granadas, colete, dano em dobro, jetpack infinito e super velocidade.
-- **5 mapas**: Fortaleza do Deserto, Fábrica Abandonada, Ilhas do Céu, Caverna Gelada e Campo de Treino.
+- **7 mapas**: Fortaleza do Deserto, Fábrica Abandonada, Ilhas do Céu, Caverna Gelada, Templo da Selva, Base Lunar (gravidade baixa!) e Campo de Treino.
 - **Bots** com 3 dificuldades: buscam caminho (algoritmo de Dijkstra), economizam o jetpack, pegam armas e itens, jogam granadas e seguem o objetivo de cada modo.
 - **Personalização**: nome, cores do uniforme, chapéu, óculos, pele e 7 estilos de chapéu.
 - **Estatísticas**: partidas, vitórias, abates, nível e recorde da sobrevivência.

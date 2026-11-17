@@ -278,9 +278,12 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
+    private int killerId = -1;
+
     private void dispatch(WorldEvent e) {
         renderer.handle(e, local);
         hud.handle(e, local);
+        if (e.type == WorldEvent.Type.KILL && e.b == localId) killerId = e.a;
     }
 
     /** Teste dos joysticks no PC: dois "dedos" falsos (--touchtest=true --touch=true). */
@@ -343,6 +346,11 @@ public class GameScreen extends ScreenAdapter {
 
     private void updateCamera(float dt) {
         Player focus = local;
+        if (focus != null && !focus.alive && killerId >= 0 && killerId != localId) {
+            // camera mostra quem te abateu enquanto espera renascer
+            Player k = world.player(killerId);
+            if (k != null && k.alive) focus = k;
+        }
         if (focus == null || !focus.alive) {
             // espectador: segue um aliado vivo (modo bomba) ou fica parado
             if (world.mode instanceof BombMode || world.mode instanceof SurvivalMode) {
