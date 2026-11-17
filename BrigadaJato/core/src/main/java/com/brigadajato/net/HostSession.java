@@ -32,7 +32,8 @@ public class HostSession {
 
     public final NetHost net = new NetHost();
     public final MatchConfig cfg;
-    private final Settings settings;
+    private final String hostName;
+    private final Look hostLook;
     public int hostTeam = C.TEAM_RED;
     public boolean inGame;
     private int lastRoster;
@@ -41,8 +42,13 @@ public class HostSession {
     public final Array<String> notices = new Array<>();
 
     public HostSession(MatchConfig cfg, Settings settings) {
+        this(cfg, settings.name, settings.look);
+    }
+
+    public HostSession(MatchConfig cfg, String hostName, Look hostLook) {
         this.cfg = cfg;
-        this.settings = settings;
+        this.hostName = hostName;
+        this.hostLook = hostLook;
     }
 
     public boolean start() {
@@ -51,7 +57,7 @@ public class HostSession {
     }
 
     public void updateInfo() {
-        net.roomName = settings.name;
+        net.roomName = hostName;
         net.modeName = I18n.pt ? cfg.mode.pt : cfg.mode.en;
         net.mapName = cfg.mapId;
     }
@@ -60,8 +66,8 @@ public class HostSession {
         List<Entry> out = new ArrayList<>();
         Entry h = new Entry();
         h.id = 0;
-        h.name = settings.name;
-        h.look = settings.look;
+        h.name = hostName;
+        h.look = hostLook;
         h.team = hostTeam;
         h.host = true;
         out.add(h);
@@ -165,7 +171,7 @@ public class HostSession {
         long seed = rng.nextLong();
         World w = new World(map, cfg, true, seed);
         boolean teams = cfg.mode.teams && cfg.mode != ModeType.SURVIVAL && cfg.mode != ModeType.TRAINING;
-        Player hp = w.addPlayerWithId(0, settings.name, teams ? hostTeam : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE), settings.look.copy(), false);
+        Player hp = w.addPlayerWithId(0, hostName, teams ? hostTeam : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE), hostLook.copy(), false);
         hp.netClient = -1;
         for (NetHost.Conn c : net.conns) {
             if (!c.alive || !c.hello) continue;
