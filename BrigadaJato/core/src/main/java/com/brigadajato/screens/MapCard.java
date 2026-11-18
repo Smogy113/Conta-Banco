@@ -27,12 +27,12 @@ public class MapCard extends Actor {
             {"Destrói", "Alavancas", "Barris", "2 áreas", "Maré", "Lava", "Desaba", "Noite", "Gravidade", "Bomba", "Bandeira", "Gigante", "Espinhos", "Luzes"},
             {"Breakable", "Levers", "Barrels", "2 areas", "Tide", "Lava", "Collapse", "Night", "Gravity", "Bomb", "Flags", "Giant", "Spikes", "Lights"}};
     private static final String[][] DESC = {
-            {"Caixas quebram com tiros e explosões", "Alavancas abrem portas e escotilhas", "Barris explodem quando atingidos",
+            {"Caixas e paredes quebram com tiros e explosões", "Alavancas abrem portas e escotilhas", "Barris explodem quando atingidos",
                     "Duas áreas ligadas por portas e caixas", "A maré sobe e desce e alaga a parte de baixo", "A lava sobe e queima quem ficar embaixo",
                     "Uma estrutura desaba no meio da partida", "Mapa escuro: luzes e explosões iluminam", "Gravidade baixa: pulos e voos mais longos",
                     "Bombsites A e B para o modo bomba", "Bases com bandeiras para captura", "Mapa enorme, ideal para o Battle Royale",
                     "Espinhos no chão machucam", "Lâmpadas espalhadas pelo cenário"},
-            {"Crates break with bullets and explosions", "Levers open doors and hatches", "Barrels explode when hit",
+            {"Crates and walls break with bullets and explosions", "Levers open doors and hatches", "Barrels explode when hit",
                     "Two areas linked by doors and crates", "The tide rises and floods the lower part", "Lava rises and burns anyone below",
                     "A structure collapses mid-match", "Dark map: lights and explosions light it up", "Low gravity: longer jumps and flights",
                     "Bomb sites A and B for bomb mode", "Flag bases for capture the flag", "Huge map, great for Battle Royale",
@@ -66,7 +66,7 @@ public class MapCard extends Actor {
         features.clear();
         boolean breaks = false, spikes = false;
         for (byte t : m.tiles) {
-            if (t == GameMap.BREAKABLE) breaks = true;
+            if (t == GameMap.BREAKABLE || t == GameMap.WALL) breaks = true;
             if (t == GameMap.SPIKES) spikes = true;
         }
         if (breaks) features.add(F_BREAK);
@@ -96,6 +96,7 @@ public class MapCard extends Actor {
                 float k = y / (float) m.h;
                 switch (t) {
                     case GameMap.SOLID: c = th.tile; break;
+                    case GameMap.WALL: c = SoldierPainter.mix(th.tile, 0xffffff, 0.25f); break;
                     case GameMap.PLATFORM: c = th.platform; break;
                     case GameMap.SPIKES: c = 0xe53935; break;
                     case GameMap.BREAKABLE: c = 0xb07a3c; break;

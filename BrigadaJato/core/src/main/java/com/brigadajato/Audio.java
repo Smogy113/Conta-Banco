@@ -150,10 +150,22 @@ public class Audio {
     }
 
     public void vibrate(int ms) {
-        if (settings.vibration && !muted && volumeScale >= 1f) {
+        vibrate(ms, 0.6f);
+    }
+
+    /** Vibra com forca de 0 a 1 (multiplicada pela intensidade escolhida nas configuracoes). */
+    public void vibrate(int ms, float strength) {
+        int lvl = settings.vibeLevel;
+        if (lvl <= 0 || muted || volumeScale < 1f) return;
+        float mul = lvl == 1 ? 0.45f : (lvl == 2 ? 0.75f : 1f);
+        int amp = Math.max(1, Math.min(255, Math.round(255 * Math.min(1f, strength) * mul)));
+        int dur = Math.max(8, Math.round(ms * (lvl == 1 ? 0.7f : (lvl == 3 ? 1.3f : 1f))));
+        try {
+            Gdx.input.vibrate(dur, amp, true);
+        } catch (Throwable e) {
             try {
-                Gdx.input.vibrate(ms);
-            } catch (Exception ignored) {
+                Gdx.input.vibrate(dur);
+            } catch (Throwable ignored) {
             }
         }
     }

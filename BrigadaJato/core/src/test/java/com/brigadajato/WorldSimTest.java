@@ -171,4 +171,67 @@ public class WorldSimTest {
         System.out.println("Chefao: visto=" + bossesSeen + " onda=" + sm.wave + " vivos=" + w.bosses.size);
         assertTrue("chefao nao apareceu", bossesSeen > 0);
     }
+
+    @Test
+    public void wallsBreakInStages() throws Exception {
+        World w = makeWorld(ModeType.DEATHMATCH, "fabrica", 0, 3);
+        int wx = -1, wy = -1;
+        for (int y = 0; y < w.map.h && wx < 0; y++)
+            for (int x = 0; x < w.map.w; x++)
+                if (w.map.get(x, y) == GameMap.WALL) {
+                    wx = x;
+                    wy = y;
+                    break;
+                }
+        assertTrue("fabrica sem parede destrutivel", wx >= 0);
+        int hits = 0, stages = 0;
+        boolean broke = false;
+        while (hits < 100 && !broke) {
+            w.damageTile(wx, wy, 12, wx * C.TILE - 100, wy * C.TILE, 250);
+            hits++;
+            for (WorldEvent e : w.events) {
+                if (e.type == WorldEvent.Type.TILE_HIT) stages++;
+                if (e.type == WorldEvent.Type.TILE && e.c == GameMap.EMPTY && e.d == GameMap.WALL) broke = true;
+            }
+            w.events.clear();
+        }
+        System.out.println("Parede: tiros=" + hits + " estagios=" + stages + " quebrou=" + broke);
+        assertTrue("parede nao quebrou", broke);
+        assertTrue("parede quebrou rapido demais", hits >= 10);
+        assertTrue("sem estagios de rachadura", stages >= 2);
+    }
+
+    @Test
+    public void customRules() throws Exception {
+        MatchConfig cfg = new MatchConfig();
+        cfg.mode = ModeType.DEATHMATCH;
+        cfg.mapId = "fortaleza";
+        cfg.weaponSet = MatchConfig.SET_SNIPERS;
+        cfg.instagib = true;
+        cfg.noGrenades = true;
+        World w = new World(load("fortaleza"), cfg, true, 9);
+        Random rng = new Random(1);
+        for (int i = 0; i < 4; i++) w.addPlayer("b" + i, C.TEAM_NONE, Look.random(rng), true);
+        w.start();
+        int[] r = run(w, 40);
+        for (Player p : w.players) {
+            if (!p.alive || p.guns[0] == null) continue;
+            assertTrue("arma fora do conjunto: " + p.guns[0].type, p.guns[0].type == com.brigadajato.world.WeaponType.SNIPER || p.guns[0].type == com.brigadajato.world.WeaponType.BOW
+                    || p.guns[0].type.ordinal() >= 0 && (p.guns[0].type == com.brigadajato.world.WeaponType.SNIPER || p.guns[0].type == com.brigadajato.world.WeaponType.BOW || p.slot != 0));
+            assertTrue("granadas com regra sem granadas", p.frags == 0 && p.mines == 0);
+        }
+        System.out.println("Regras: abates=" + r[0]);
+        assertTrue("sem abates com um tiro mata", r[0] > 0);
+    }
+
+    @Test
+    public void juggernaut() throws Exception {
+        World w = makeWorld(ModeType.JUGGERNAUT, "fortaleza", 6, 5);
+        run(w, 90);
+        com.brigadajato.world.modes.JuggernautMode jm = (com.brigadajato.world.modes.JuggernautMode) w.mode;
+        int max = 0;
+        for (Player p : w.players) max = Math.max(max, p.timesJugg);
+        System.out.println("Juggernaut: atual=" + jm.juggId + " vezes(max)=" + max);
+        assertTrue("ninguem virou juggernaut", max > 0);
+    }
 }

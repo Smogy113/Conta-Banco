@@ -93,7 +93,11 @@ public class SettingsScreen extends BaseScreen {
                     }
                 });
                 choice(I18n.t("fire_mode"), new String[]{I18n.t("fire_auto"), I18n.t("fire_button")}, s.aimToFire ? 0 : 1, v -> s.aimToFire = v == 0);
-                check(I18n.t("vibration"), s.vibration, v -> s.vibration = v);
+                choice(I18n.t("vibe"), new String[]{t2("Desligada", "Off"), t2("Fraca", "Light"), t2("Média", "Medium"), t2("Forte", "Strong")}, s.vibeLevel, v -> {
+                    s.vibeLevel = v;
+                    s.vibration = v > 0;
+                    game.audio.vibrate(60, 0.8f);
+                });
                 check(I18n.t("auto_aim_help"), s.aimAssist, v -> s.aimAssist = v);
                 check(t2("Killcam (ver quem te matou)", "Killcam (see who killed you)"), s.killcam, v -> s.killcam = v);
                 check(t2("Melhores jogadas no fim da partida", "Best plays at the end of the match"), s.highlights, v -> s.highlights = v);
@@ -117,7 +121,10 @@ public class SettingsScreen extends BaseScreen {
                 slider(t2("Tamanho do HUD", "HUD size"), 0.75f, 1.25f, s.hudScale, v -> s.hudScale = v);
                 check(t2("Minimapa", "Minimap"), s.minimap, v -> s.minimap = v);
                 check(t2("Nomes acima dos jogadores", "Names above players"), s.showNames, v -> s.showNames = v);
-                check(I18n.t("damage_numbers"), s.damageNumbers, v -> s.damageNumbers = v);
+                choice(I18n.t("dmg_style"), new String[]{I18n.t("dmg_0"), I18n.t("dmg_1"), I18n.t("dmg_2")}, s.damageStyle, v -> {
+                    s.damageStyle = v;
+                    s.damageNumbers = v > 0;
+                });
                 check(t2("Clima e partículas de ambiente (neve, folhas, poeira)", "Weather and ambient particles"), s.ambient, v -> s.ambient = v);
                 choice(I18n.t("day_night"), new String[]{I18n.t("dn_day"), I18n.t("dn_cycle"), I18n.t("dn_night")}, s.dayNight, v -> s.dayNight = v);
                 check(I18n.t("dyn_lights"), s.dynamicLights, v -> s.dynamicLights = v);

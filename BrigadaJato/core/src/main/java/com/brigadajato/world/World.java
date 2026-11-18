@@ -756,6 +756,7 @@ public class World {
         if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return;
         int idx = tx + ty * map.w;
         if (map.tiles[idx] == type) return;
+        prevTile = map.tiles[idx];
         map.tiles[idx] = type;
         changedTiles.put(idx, type);
         pathfinder.refresh(tx, ty);
@@ -764,10 +765,18 @@ public class World {
             e.a = tx;
             e.b = ty;
             e.c = type;
+            e.d = prevTile;
             e.x = tx * C.TILE + C.TILE / 2f;
             e.y = ty * C.TILE + C.TILE / 2f;
+            e.x2 = tileHitX;
+            e.y2 = tileHitY;
+            e.f = tileHitPower;
         }
     }
+
+    // de onde veio o ultimo golpe num bloco (os pedacos voam para o outro lado)
+    private float tileHitX, tileHitY, tileHitPower = 250;
+    private int prevTile;
 
     /** Aplica uma mudanca vinda da rede (cliente). */
     public void applyTile(int idx, int type) {
@@ -778,10 +787,33 @@ public class World {
     }
 
     public void damageTile(int tx, int ty, float dmg) {
-        if (map.get(tx, ty) != GameMap.BREAKABLE) return;
+        damageTile(tx, ty, dmg, tx * C.TILE + C.TILE / 2f, ty * C.TILE - 10, 220);
+    }
+
+    /** Dano num bloco quebravel vindo de (sx, sy); power = forca com que os pedacos voam. */
+    public void damageTile(int tx, int ty, float dmg, float sx, float sy, float power) {
+        int t = map.get(tx, ty);
+        if (t != GameMap.BREAKABLE && t != GameMap.WALL) return;
         int idx = tx + ty * map.w;
+        int max = t == GameMap.WALL ? GameMap.WALL_HP : GameMap.BREAKABLE_HP;
+        int before = map.tileHp[idx];
         map.tileHp[idx] -= (short) Math.max(1, Math.round(dmg));
+        tileHitX = sx;
+        tileHitY = sy;
+        tileHitPower = power;
         if (map.tileHp[idx] <= 0) setTile(tx, ty, GameMap.EMPTY);
+        else if (authority && before * 4 / max != map.tileHp[idx] * 4 / max) {
+            // mudou o estagio das rachaduras: avisa (clientes e lascas voando)
+            WorldEvent e = emit(WorldEvent.Type.TILE_HIT);
+            e.a = tx;
+            e.b = ty;
+            e.c = map.tileHp[idx];
+            e.d = t;
+            e.x = tx * C.TILE + C.TILE / 2f;
+            e.y = ty * C.TILE + C.TILE / 2f;
+            e.x2 = sx;
+            e.y2 = sy;
+        }
     }
 
     private void breakTilesAround(float x, float y, float radius, float damage) {
@@ -789,10 +821,11 @@ public class World {
         int cx = (int) Math.floor(x / C.TILE), cy = (int) Math.floor(y / C.TILE);
         for (int ty = cy - r; ty <= cy + r; ty++)
             for (int tx = cx - r; tx <= cx + r; tx++) {
-                if (map.get(tx, ty) != GameMap.BREAKABLE) continue;
+                int bt = map.get(tx, ty);
+                if (bt != GameMap.BREAKABLE && bt != GameMap.WALL) continue;
                 float dx = tx * C.TILE + C.TILE / 2f - x, dy = ty * C.TILE + C.TILE / 2f - y;
                 float d = (float) Math.sqrt(dx * dx + dy * dy);
-                if (d < radius) damageTile(tx, ty, damage * 2.2f * (1 - d / radius) + 10);
+                if (d < radius) damageTile(tx, ty, damage * 2.2f * (1 - d / radius) + 10, x, y, 520 * (1 - d / radius) + 200);
             }
     }
 
@@ -1130,7 +1163,7 @@ public class World {
         float tt = rayTile(sx, sy, ex, ey);
         if (tt <= 1) {
             float hx = sx + (ex - sx) * tt, hy = sy + (ey - sy) * tt;
-            damageTile((int) Math.floor((hx + MathUtils.cos(angle) * 3) / C.TILE), (int) Math.floor((hy + MathUtils.sin(angle) * 3) / C.TILE), dmg);
+            damageTile((int) Math.floor((hx + MathUtils.cos(angle) * 3) / C.TILE), (int) Math.floor((hy + MathUtils.sin(angle) * 3) / C.TILE), dmg, sx, sy, 260);
             ex = hx;
             ey = hy;
         }
@@ -1335,7 +1368,7 @@ public class World {
             }
         }
         // soco quebra caixas
-        damageTile((int) Math.floor((p.x + p.facing * (C.PLAYER_HW + 12)) / C.TILE), (int) Math.floor(p.centerY() / C.TILE), dmg * 0.8f);
+        damageTile((int) Math.floor((p.x + p.facing * (C.PLAYER_HW + 12)) / C.TILE), (int) Math.floor(p.centerY() / C.TILE), dmg * 0.8f, p.x, p.centerY(), 300);
     }
 
     private void throwGrenade(Player p) {
@@ -1683,7 +1716,7 @@ public class World {
                 pr.y = hy;
                 if (!pr.visual) {
                     float dmgT = pr.damage * (pr.kind == Projectile.Kind.FLAME || pr.kind == Projectile.Kind.FROST ? 0.4f : 0.8f);
-                    damageTile((int) Math.floor((hx + pr.vx / len * 3) / C.TILE), (int) Math.floor((hy + pr.vy / len * 3) / C.TILE), dmgT);
+                    damageTile((int) Math.floor((hx + pr.vx / len * 3) / C.TILE), (int) Math.floor((hy + pr.vy / len * 3) / C.TILE), dmgT, hx - pr.vx / len * 20, hy - pr.vy / len * 20, 240);
                 }
                 if (pr.kind == Projectile.Kind.ARROW || pr.kind == Projectile.Kind.HARPOON) {
                     pr.stuck = true;

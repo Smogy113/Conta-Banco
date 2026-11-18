@@ -325,6 +325,8 @@ public class GameScreen extends ScreenAdapter {
         }
         if (SHOT_WHEN != null) { // testes: screenshot automatica em momentos especiais
             if ("finalkill".equals(SHOT_WHEN) && finalSlow > 0 && finalTotal - finalSlow > 0.8f) game.shotNow();
+            if ("wall".equals(SHOT_WHEN) && renderer.time() - renderer.lastWallBreak > 0.25f && renderer.time() - renderer.lastWallBreak < 0.4f) game.shotNow();
+            if ("dmgnum".equals(SHOT_WHEN) && renderer.biggestDamageText() > 40) game.shotNow();
             if ("ach".equals(SHOT_WHEN) && AchievementToast.active()) {
                 shotWait += dt;
                 if (shotWait > 0.8f) game.shotNow();

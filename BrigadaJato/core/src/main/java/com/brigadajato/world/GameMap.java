@@ -5,8 +5,10 @@ import com.badlogic.gdx.utils.Array;
 
 /** Mapa em grade de blocos. Linha 0 do arquivo = topo; no mundo y cresce para cima. */
 public class GameMap {
-    public static final byte EMPTY = 0, SOLID = 1, PLATFORM = 2, SPIKES = 3, BREAKABLE = 4, DOOR = 5, DOOR_OPEN = 6;
+    public static final byte EMPTY = 0, SOLID = 1, PLATFORM = 2, SPIKES = 3, BREAKABLE = 4, DOOR = 5, DOOR_OPEN = 6, WALL = 7;
     public static final int BREAKABLE_HP = 45;
+    /** parede destrutivel: aguenta bem mais que uma caixa e cai em pedacos */
+    public static final int WALL_HP = 170;
 
     public final String id;
     public String name = "?", nameEn = "?";
@@ -65,7 +67,7 @@ public class GameMap {
 
     public boolean solid(int tx, int ty) {
         int t = get(tx, ty);
-        return t == SOLID || t == SPIKES || t == BREAKABLE || t == DOOR;
+        return t == SOLID || t == SPIKES || t == BREAKABLE || t == DOOR || t == WALL;
     }
 
     /** Tema de uma linha do mapa (regiao de baixo usa theme2). */
@@ -139,6 +141,7 @@ public class GameMap {
                     case '=': t = PLATFORM; break;
                     case '^': t = SPIKES; break;
                     case 'D': t = BREAKABLE; m.tileHp[tx + ty * m.w] = BREAKABLE_HP; break;
+                    case 'V': t = WALL; m.tileHp[tx + ty * m.w] = WALL_HP; break;
                     case 'O': t = DOOR; break;
                     case 'L': m.levers.add(new Vector2(px, py)); break;
                     case 'X': m.barrels.add(new Vector2(px, py)); break;

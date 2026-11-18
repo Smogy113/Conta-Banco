@@ -85,6 +85,7 @@ public class Hud implements Disposable {
                 int t = m.get(x, m.h - 1 - y);
                 int c;
                 if (t == GameMap.SOLID) c = Color.rgba8888(0.8f, 0.82f, 0.78f, 0.9f);
+                else if (t == GameMap.WALL) c = Color.rgba8888(0.72f, 0.66f, 0.6f, 0.9f);
                 else if (t == GameMap.PLATFORM) c = Color.rgba8888(0.95f, 0.72f, 0.35f, 0.85f);
                 else if (t == GameMap.SPIKES) c = Color.rgba8888(0.95f, 0.3f, 0.3f, 0.85f);
                 else c = Color.rgba8888(0.05f, 0.07f, 0.1f, 0.55f);

@@ -16,6 +16,10 @@ public class Settings {
     /** true = joystick direito atira ao empurrar ate a borda; false = botao de tiro separado */
     public boolean aimToFire = true;
     public float sfxVolume = 0.8f, musicVolume = 0.45f;
+    /** 0 desligada, 1 fraca, 2 media, 3 forte */
+    public int vibeLevel = 2;
+    /** numeros de dano: 0 desligado, 1 cada acerto, 2 somando */
+    public int damageStyle = 2;
     public boolean vibration = true, showFps = false, leftHanded = false, highQuality = true, damageNumbers = true, aimAssist = true;
     public float controlsScale = 1f, controlsOpacity = 0.55f;
 
@@ -100,10 +104,12 @@ public class Settings {
         fireThreshold = prefs.getFloat("ctl.fireAt", 0.72f);
         moveCurve = prefs.getFloat("ctl.curve", 1f);
         vibration = prefs.getBoolean("vibration", true);
+        vibeLevel = prefs.getInteger("vibe", vibration ? 2 : 0);
         showFps = prefs.getBoolean("fps", false);
         leftHanded = prefs.getBoolean("leftHanded", false);
         highQuality = prefs.getBoolean("hq", true);
         damageNumbers = prefs.getBoolean("dmgNumbers", true);
+        damageStyle = prefs.getInteger("dmgStyle", damageNumbers ? 2 : 0);
         aimAssist = prefs.getBoolean("aimAssist", true);
         controlsScale = prefs.getFloat("ctrlScale", 1f);
         controlsOpacity = prefs.getFloat("ctrlOpacity", 0.55f);
@@ -181,11 +187,15 @@ public class Settings {
         prefs.putFloat("ctl.deadzone", deadzone);
         prefs.putFloat("ctl.fireAt", fireThreshold);
         prefs.putFloat("ctl.curve", moveCurve);
+        vibration = vibeLevel > 0;
         prefs.putBoolean("vibration", vibration);
+        prefs.putInteger("vibe", vibeLevel);
         prefs.putBoolean("fps", showFps);
         prefs.putBoolean("leftHanded", leftHanded);
         prefs.putBoolean("hq", highQuality);
+        damageNumbers = damageStyle > 0;
         prefs.putBoolean("dmgNumbers", damageNumbers);
+        prefs.putInteger("dmgStyle", damageStyle);
         prefs.putBoolean("aimAssist", aimAssist);
         prefs.putFloat("ctrlScale", controlsScale);
         prefs.putFloat("ctrlOpacity", controlsOpacity);

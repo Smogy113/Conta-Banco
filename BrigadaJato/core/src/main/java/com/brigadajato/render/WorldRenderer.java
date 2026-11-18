@@ -81,6 +81,10 @@ public class WorldRenderer implements Disposable {
         String text;
         float r, g, b;
         float scale;
+        // numero de dano
+        boolean damage, head;
+        int victim = -1;
+        float total, pop, rise, vx;
     }
 
     private final Array<FloatText> texts = new Array<>();
@@ -193,6 +197,8 @@ public class WorldRenderer implements Disposable {
                 audio.play(wt.sound, e.x, e.y, vol, 1f);
                 if (e.a == localId) {
                     shake = Math.max(shake, wt.recoil > 60 ? 6 : (wt.kind == Projectile.Kind.FLAME ? 0.5f : 1.8f));
+                    // coice das armas pesadas no celular
+                    if (wt.recoil > 60 || wt.isExplosive()) audio.vibrate(wt.isExplosive() ? 45 : 30, wt.isExplosive() ? 0.7f : 0.45f);
                 }
                 if (p != null && p.netClient >= -1) p.lastShotTime = w.time;
                 break;
@@ -233,14 +239,13 @@ public class WorldRenderer implements Disposable {
                 }
                 if (e.b == localId) {
                     audio.ui("hitmarker");
-                    if (settings.damageNumbers) floatText("" + Math.max(1, Math.round(e.f)), e.x + MathUtils.random(-10, 10), e.y + 26,
-                            e.c == 1 ? 1f : 1f, e.c == 1 ? 0.3f : 0.92f, e.c == 1 ? 0.2f : 0.3f, e.c == 1 ? 1.2f : 0.85f);
+                    if (settings.damageStyle > 0) floatDamage(e.a, e.f, e.c == 1, e.x, e.y + 26);
                 }
                 Player v = w.player(e.a);
                 if (v != null) v.hurtFlash = 0.12f;
                 if (e.a == localId) {
                     audio.ui("hit");
-                    audio.vibrate(35);
+                    audio.vibrate(25 + (int) Math.min(70, e.f * 0.8f), 0.35f + Math.min(0.65f, e.f / 80f));
                     shake = Math.max(shake, 3);
                 } else audio.play("hit", e.x, e.y, 0.5f, 1f);
                 break;
@@ -271,7 +276,7 @@ public class WorldRenderer implements Disposable {
                         audio.ui("kill" + lvl);
                         if (e.f > 0) audio.ui("headshot");
                     }
-                    audio.vibrate(40 + lvl * 25);
+                    audio.vibrate(40 + lvl * 25, 0.55f + lvl * 0.09f);
                 }
                 break;
             }
@@ -353,23 +358,68 @@ public class WorldRenderer implements Disposable {
                 break;
             case TILE: {
                 if (!w.authority) w.applyTile(e.a + e.b * w.map.w, e.c);
-                if (e.c == GameMap.EMPTY) { // caixa quebrou
-                    for (int i = 0; i < 10; i++) {
-                        Particles.P pl = fx.spawn(Particles.RECT, e.x + MathUtils.random(-12, 12), e.y + MathUtils.random(-12, 12), MathUtils.random(-260, 260),
-                                MathUtils.random(60, 380), 1.3f, MathUtils.random(5, 12), 3.5f, i % 3 == 0 ? 0x6d4422 : 0xb07a3c, 1);
-                        pl.grav = 1100;
-                        pl.vrot = MathUtils.random(-700, 700);
-                        pl.a2 = 1;
+                if (e.c == GameMap.EMPTY) {
+                    int prev = e.d;
+                    TileArt art = artAt(e.a >= 0 ? e.b : 0);
+                    float sx = e.x2 != 0 || e.y2 != 0 ? e.x2 : e.x, sy = e.x2 != 0 || e.y2 != 0 ? e.y2 : e.y - 20;
+                    float power = e.f > 0 ? e.f : 250;
+                    if (prev == GameMap.WALL || prev == GameMap.SOLID) { // parede desmoronando em pedacos
+                        lastWallBreak = time;
+                        debris.shatter(art.solid[hashTile(e.a, e.b)], e.a, e.b, prev == GameMap.WALL ? 4 : 3, sx, sy, power);
+                        for (int i = 0; i < 5; i++) {
+                            Particles.P sm = fx.spawn(Particles.SOFT, e.x + MathUtils.random(-14, 14), e.y + MathUtils.random(-14, 14), MathUtils.random(-60, 60),
+                                    MathUtils.random(0, 70), 1.2f, 10, 34, SoldierPainter.mix(art.theme.tile, 0xbdbdbd, 0.6f), 0.55f);
+                            sm.drag = 2.2f;
+                            sm.grav = -20;
+                        }
+                        for (int i = 0; i < 8 && !fx.skip(); i++) {
+                            Particles.P gr = fx.spawn(Particles.RECT, e.x + MathUtils.random(-14, 14), e.y + MathUtils.random(-10, 14), MathUtils.random(-200, 200),
+                                    MathUtils.random(40, 260), 1.1f, MathUtils.random(2.5f, 5), 2, SoldierPainter.darker(art.theme.tile, 0.6f), 1);
+                            gr.grav = 1200;
+                            gr.vrot = MathUtils.random(-600, 600);
+                            gr.a2 = 1;
+                        }
+                        audio.play("crate_break", e.x, e.y, 1f, 0.6f);
+                        if (prev == GameMap.WALL) audio.play("explosion_small", e.x, e.y, 0.35f, 1.3f);
+                        if (local != null) {
+                            float dx = local.x - e.x, dy = local.centerY() - e.y;
+                            if (dx * dx + dy * dy < 500 * 500) shake = Math.max(shake, 3);
+                        }
+                    } else { // caixa quebrou
+                        debris.shatter(art.crate, e.a, e.b, 3, sx, sy, power);
+                        for (int i = 0; i < 6; i++) {
+                            Particles.P pl = fx.spawn(Particles.RECT, e.x + MathUtils.random(-12, 12), e.y + MathUtils.random(-12, 12), MathUtils.random(-260, 260),
+                                    MathUtils.random(60, 380), 1.3f, MathUtils.random(4, 8), 3.5f, i % 3 == 0 ? 0x6d4422 : 0xb07a3c, 1);
+                            pl.grav = 1100;
+                            pl.vrot = MathUtils.random(-700, 700);
+                            pl.a2 = 1;
+                        }
+                        for (int i = 0; i < 4; i++) {
+                            Particles.P sm = fx.spawn(Particles.SOFT, e.x, e.y, MathUtils.random(-50, 50), MathUtils.random(10, 60), 0.8f, 8, 26, 0xbcaaa4, 0.5f);
+                            sm.drag = 2;
+                        }
+                        audio.at("crate_break", e.x, e.y);
                     }
-                    for (int i = 0; i < 4; i++) {
-                        Particles.P sm = fx.spawn(Particles.SOFT, e.x, e.y, MathUtils.random(-50, 50), MathUtils.random(10, 60), 0.8f, 8, 26, 0xbcaaa4, 0.5f);
-                        sm.drag = 2;
-                    }
-                    audio.at("crate_break", e.x, e.y);
                 } else if (e.c == GameMap.DOOR || e.c == GameMap.DOOR_OPEN) {
                     Particles.P sm = fx.spawn(Particles.SOFT, e.x, e.y - 12, MathUtils.random(-30, 30), 10, 0.5f, 6, 16, 0x9e9e9e, 0.35f);
                     sm.drag = 2;
                 }
+                break;
+            }
+            case TILE_HIT: { // bloco rachando: lascas voam de volta para quem acertou
+                int idx = e.a + e.b * w.map.w;
+                if (!w.authority && w.map.tileHp != null && idx >= 0 && idx < w.map.tileHp.length) w.map.tileHp[idx] = (short) e.c;
+                TileArt art = artAt(e.b);
+                int col = e.d == GameMap.WALL ? art.theme.tile : 0xb07a3c;
+                float dx = e.x2 - e.x, dy = e.y2 - e.y, len = Math.max(1, (float) Math.sqrt(dx * dx + dy * dy));
+                for (int i = 0; i < 5 && !fx.skip(); i++) {
+                    Particles.P ch = fx.spawn(Particles.RECT, e.x + dx / len * 14, e.y + dy / len * 14, dx / len * MathUtils.random(80, 200) + MathUtils.random(-80, 80),
+                            dy / len * MathUtils.random(80, 200) + MathUtils.random(40, 160), 0.9f, MathUtils.random(2, 4), 1.5f, SoldierPainter.darker(col, MathUtils.random(0.6f, 1f)), 1);
+                    ch.grav = 1100;
+                    ch.vrot = MathUtils.random(-700, 700);
+                }
+                Particles.P sm = fx.spawn(Particles.SOFT, e.x + dx / len * 16, e.y + dy / len * 16, 0, 20, 0.7f, 6, 18, SoldierPainter.mix(col, 0xbdbdbd, 0.6f), 0.45f);
+                sm.drag = 2;
                 break;
             }
             case PROP: {
@@ -596,8 +646,52 @@ public class WorldRenderer implements Disposable {
             float d = (float) Math.sqrt(dx * dx + dy * dy);
             float s = MathUtils.clamp(1 - d / 900f, 0, 1) * 16 * k;
             shake = Math.max(shake, s);
-            if (d < 300) audio.vibrate(90);
+            if (d < 700) audio.vibrate((int) (60 + 90 * (1 - d / 700f) * Math.min(1.5f, k)), 0.3f + 0.7f * (1 - d / 700f));
         }
+    }
+
+    /** teste: quando a ultima parede desmoronou */
+    public float lastWallBreak = -99;
+
+    public float time() {
+        return time;
+    }
+
+    /** teste: maior numero de dano somado na tela agora */
+    public float biggestDamageText() {
+        float m = 0;
+        for (int i = 0; i < texts.size; i++) if (texts.get(i).damage) m = Math.max(m, texts.get(i).total);
+        return m;
+    }
+
+    /** Numero de dano: no modo "somando", acertos seguidos no mesmo alvo viram um numero so que cresce. */
+    public void floatDamage(int victim, float amount, boolean head, float x, float y) {
+        if (settings.damageStyle == 2) {
+            for (int i = texts.size - 1; i >= 0; i--) {
+                FloatText t = texts.get(i);
+                if (t.damage && t.victim == victim && t.life > 0.35f) {
+                    t.total += amount;
+                    t.head |= head;
+                    t.life = 1.0f;
+                    t.pop = 1;
+                    t.text = Integer.toString(Math.max(1, Math.round(t.total)));
+                    return;
+                }
+            }
+        }
+        FloatText ft = new FloatText();
+        ft.damage = true;
+        ft.victim = victim;
+        ft.total = amount;
+        ft.head = head;
+        ft.text = Integer.toString(Math.max(1, Math.round(amount)));
+        ft.x = x + MathUtils.random(-10, 10);
+        ft.y = y;
+        ft.vx = MathUtils.random(-18, 18);
+        ft.life = 1.0f;
+        ft.pop = 1;
+        ft.scale = 0.9f;
+        texts.add(ft);
     }
 
     public void floatText(String text, float x, float y, float r, float g, float b, float scale) {
@@ -625,7 +719,17 @@ public class WorldRenderer implements Disposable {
         for (int i = texts.size - 1; i >= 0; i--) {
             FloatText t = texts.get(i);
             t.life -= dt;
-            t.y += 40 * dt;
+            if (t.damage) {
+                t.pop = Math.max(0, t.pop - dt * 5);
+                t.rise += 34 * dt;
+                t.x += t.vx * dt;
+                // acompanha o alvo enquanto ele estiver vivo
+                Player v = world != null && settings.damageStyle == 2 ? world.player(t.victim) : null;
+                if (v != null && v.alive) {
+                    t.x += (v.x - t.x) * Math.min(1, dt * 6);
+                    t.y += (v.y + v.height() + 18 - t.y) * Math.min(1, dt * 6);
+                }
+            } else t.y += 40 * dt;
             if (t.life <= 0) texts.removeIndex(i);
         }
         for (int i = bolts.size - 1; i >= 0; i--) {
@@ -749,6 +853,7 @@ public class WorldRenderer implements Disposable {
         }
         com.brigadajato.Perf.mark(d.batch, "players");
         debris.drawCasings(d, minX, minY, maxX, maxY);
+        debris.drawChunks(d, 4, minX, minY, maxX, maxY);
         drawSmoke(d, w, minX, minY, maxX, maxY);
         drawFlood(d, w, minX, minY, maxX, maxY);
         com.brigadajato.Perf.mark(d.batch, "smoke");
@@ -774,6 +879,27 @@ public class WorldRenderer implements Disposable {
         for (int i54_ = 0; i54_ < texts.size; i54_++) {
             FloatText t = texts.get(i54_);
             BitmapFont f = a.normal;
+            if (t.damage) {
+                // cor pelo tamanho do dano; na cabeca fica vermelho e maior
+                float tot = t.total, r, g, b;
+                if (t.head) { r = 1; g = 0.25f; b = 0.2f; }
+                else if (tot < 25) { r = 1; g = 1; b = 1; }
+                else if (tot < 50) { r = 1; g = 0.92f; b = 0.3f; }
+                else if (tot < 90) { r = 1; g = 0.62f; b = 0.15f; }
+                else { r = 1; g = 0.32f; b = 0.18f; }
+                float grow = Math.min(1.5f, 0.85f + tot / 220f) * (t.head ? 1.2f : 1f);
+                float sc = t.scale * grow * (1 + 0.45f * t.pop * t.pop);
+                float al = MathUtils.clamp(t.life * 3, 0, 1);
+                String txt = t.head ? t.text + "!" : t.text;
+                float ty = t.y + t.rise;
+                f.getData().setScale(sc / a.fontScale * 0.9f);
+                f.setColor(0, 0, 0, al * 0.7f);
+                f.draw(d.batch, txt, t.x + 1.5f, ty - 1.5f, 0, Align.center, false);
+                f.setColor(r, g, b, al);
+                f.draw(d.batch, txt, t.x, ty, 0, Align.center, false);
+                f.getData().setScale(1f / a.fontScale);
+                continue;
+            }
             f.getData().setScale(t.scale / a.fontScale * 0.9f);
             f.setColor(t.r, t.g, t.b, MathUtils.clamp(t.life * 2, 0, 1));
             f.draw(d.batch, t.text, t.x, t.y, 0, Align.center, false);
@@ -895,6 +1021,21 @@ public class WorldRenderer implements Disposable {
                             }
                         } else d.batch.draw(art.spike, x, y, T, T);
                         break;
+                    case GameMap.WALL: { // parede destrutivel: bloco com tijolos e rachaduras pelo dano
+                        d.color(0.93f, 0.9f, 0.86f, 1);
+                        d.batch.draw(art.solid[hashTile(tx, ty)], x, y, T, T);
+                        d.color(0.1f, 0.08f, 0.07f, 0.32f);
+                        d.rect(x, y + T * 0.5f - 1, T, 2);
+                        d.rect(x, y + T - 2, T, 2);
+                        float off = (ty & 1) == 0 ? T * 0.3f : T * 0.7f;
+                        d.rect(x + off - 1, y + T * 0.5f, 2, T * 0.5f);
+                        d.rect(x + (off + T * 0.5f) % T - 1, y, 2, T * 0.5f);
+                        int idx = tx + ty * m.w;
+                        float frac = m.tileHp != null && idx >= 0 && idx < m.tileHp.length ? m.tileHp[idx] / (float) GameMap.WALL_HP : 1;
+                        if (frac < 0.95f) cracks(d, x, y, T, 1 - frac, tx * 37 + ty * 11);
+                        d.color(1, 1, 1, 1);
+                        break;
+                    }
                     case GameMap.BREAKABLE: {
                         d.batch.draw(art.crate, x, y, T, T);
                         int idx = tx + ty * m.w;
@@ -918,7 +1059,8 @@ public class WorldRenderer implements Disposable {
         for (int ty = y0; ty <= y1; ty++) {
             TileArt art = artAt(ty);
             for (int tx = x0; tx <= x1; tx++) {
-                if (m.get(tx, ty) != GameMap.SOLID) continue;
+                int tt = m.get(tx, ty);
+                if (tt != GameMap.SOLID && tt != GameMap.WALL) continue;
                 float x = tx * T, y = ty * T;
                 boolean up = m.solid(tx, ty + 1), down = m.solid(tx, ty - 1), left = m.solid(tx - 1, ty), right = m.solid(tx + 1, ty);
                 d.rgb(SoldierPainter.OUTLINE, 0.9f);
@@ -928,7 +1070,7 @@ public class WorldRenderer implements Disposable {
                 if (!up) {
                     d.rect(x - (left ? 0 : 1.5f), y + T - 1.5f, T + (left ? 0 : 1.5f) + (right ? 0 : 1.5f), 3);
                     d.color(1, 1, 1, 1);
-                    d.batch.draw(art.top, x - 1, y + T - 9, T + 2, 11);
+                    if (tt == GameMap.SOLID) d.batch.draw(art.top, x - 1, y + T - 9, T + 2, 11);
                 }
                 if (!down && art.theme.tiles != Theme.Tiles.METAL) {
                     d.color(0, 0, 0, 0.18f);
