@@ -189,7 +189,7 @@ public class SurvivalMode extends GameMode {
                 spawnEnemy();
                 spawnTimer = Math.max(0.4f, 1.6f - wave * 0.1f);
             }
-            if (toSpawn == 0 && enemiesAlive == 0) {
+            if (toSpawn == 0 && enemiesAlive == 0 && w.bosses.size == 0) {
                 state = BREAK;
                 timer = 7f;
                 for (int i39_ = 0; i39_ < w.players.size; i39_++) {
@@ -216,6 +216,25 @@ public class SurvivalMode extends GameMode {
         spawnTimer = 0.5f;
         WorldEvent e = w.emit(WorldEvent.Type.WAVE);
         e.a = wave;
+        if (wave % 5 == 0) {
+            // onda de chefao: helicoptero, robo gigante, depois os dois juntos
+            int bossWave = wave / 5;
+            float hp = 1400 + wave * 90 + 250 * Math.max(0, humans() - 1);
+            if (bossWave % 3 == 1) w.spawnBoss(com.brigadajato.world.Boss.HELI, hp);
+            else if (bossWave % 3 == 2) w.spawnBoss(com.brigadajato.world.Boss.ROBOT, hp * 1.2f);
+            else {
+                w.spawnBoss(com.brigadajato.world.Boss.HELI, hp * 0.8f);
+                w.spawnBoss(com.brigadajato.world.Boss.ROBOT, hp);
+            }
+            toSpawn = 2 + wave / 2;
+            w.message("surv_boss", wave, -1, 1);
+        }
+    }
+
+    private int humans() {
+        int n = 0;
+        for (int i = 0; i < w.players.size; i++) if (!isEnemy(w.players.get(i))) n++;
+        return n;
     }
 
     private void spawnEnemy() {
@@ -251,7 +270,7 @@ public class SurvivalMode extends GameMode {
 
     @Override
     public String hud(Player local) {
-        String s = I18n.t("wave") + " " + Math.max(1, wave) + "    " + I18n.t("enemies") + ": " + (enemiesAlive + toSpawn);
+        String s = I18n.t("wave") + " " + Math.max(1, wave) + "    " + I18n.t("enemies") + ": " + (enemiesAlive + toSpawn + w.bosses.size);
         if (local != null) s += "    " + I18n.t("lives") + ": " + Math.max(0, local.lives);
         return s;
     }

@@ -13,6 +13,9 @@ public class Player {
     public BotBrain bot;
     /** jogador conectado pela rede (indice da conexao) ou -1 */
     public int netClient = -1;
+    /** aparelho do jogador (reconexao) e nome original (antes de virar bot) */
+    public long netToken;
+    public String baseName;
     public boolean dummy; // boneco de treino
 
     public final PlayerInput input = new PlayerInput();
@@ -46,6 +49,22 @@ public class Player {
     public int carryingFlag = 0; // time da bandeira carregada
     public boolean hasBomb;
     public float actionProgress; // plantar/desarmar (0..1)
+
+    // ---- gancho
+    /** 0 = guardado, 1 = voando, 2 = preso na parede */
+    public int hookState;
+    public float hookX, hookY, hookVX, hookVY, hookTimer, hookCd;
+    // ---- efeitos
+    /** frio acumulado (congelante); congelado e atordoado (segundos) */
+    public float chill, frozen, stun;
+    public boolean zombie;
+    // ---- emotes
+    public int emote = -1;
+    public float emoteTimer, emoteCd;
+    public boolean prevUse;
+    public boolean dualFlip;
+    /** nivel no Gun Game */
+    public int gunLevel;
 
     // ---- somente visual / rede
     public float anim;
@@ -119,6 +138,11 @@ public class Player {
         hasBomb = false;
         actionProgress = 0;
         streak = 0;
+        hookState = 0;
+        hookCd = 0;
+        chill = frozen = stun = 0;
+        emote = -1;
+        emoteTimer = 0;
         crouching = false;
         lastAttacker = -1;
         input.reset();

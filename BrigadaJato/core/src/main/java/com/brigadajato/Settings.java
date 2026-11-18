@@ -37,6 +37,14 @@ public class Settings {
     public int colorFilter = 0;
     /** espessura do contorno dos personagens (0..3) */
     public int outline = 2;
+    /** 0 sempre dia, 1 ciclo dia/noite, 2 sempre noite */
+    public int dayNight = 1;
+    /** luzes dinamicas (explosoes, lampadas, tiros iluminam o escuro) */
+    public boolean dynamicLights = true;
+    /** musica diferente em cada mapa */
+    public boolean mapMusic = true;
+    /** posicoes personalizadas dos botoes (x,y normalizados por botao; vazio = padrao) */
+    public String controlLayout = "";
     public static final int[] CROSSHAIR_COLORS = {0xffffff, 0x76ff03, 0xff1744, 0x00e5ff, 0xffea00, 0xff4081};
     public final MatchConfig lastMatch = new MatchConfig();
 
@@ -74,6 +82,10 @@ public class Settings {
         aimToFire = prefs.getBoolean("aimToFire", true);
         sfxVolume = prefs.getFloat("sfx", 0.8f);
         musicVolume = prefs.getFloat("music", 0.45f);
+        dayNight = prefs.getInteger("v.daynight", 1);
+        dynamicLights = prefs.getBoolean("v.lights", true);
+        mapMusic = prefs.getBoolean("mapmusic", true);
+        controlLayout = prefs.getString("ctl.layout", "");
         vibration = prefs.getBoolean("vibration", true);
         showFps = prefs.getBoolean("fps", false);
         leftHanded = prefs.getBoolean("leftHanded", false);
@@ -143,6 +155,10 @@ public class Settings {
         prefs.putBoolean("aimToFire", aimToFire);
         prefs.putFloat("sfx", sfxVolume);
         prefs.putFloat("music", musicVolume);
+        prefs.putInteger("v.daynight", dayNight);
+        prefs.putBoolean("v.lights", dynamicLights);
+        prefs.putBoolean("mapmusic", mapMusic);
+        prefs.putString("ctl.layout", controlLayout);
         prefs.putBoolean("vibration", vibration);
         prefs.putBoolean("fps", showFps);
         prefs.putBoolean("leftHanded", leftHanded);

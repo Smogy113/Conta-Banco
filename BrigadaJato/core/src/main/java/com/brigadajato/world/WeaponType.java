@@ -14,7 +14,37 @@ public enum WeaponType {
     GRENADE_LAUNCHER("Lança-granadas", "Grenade Launcher", 85, 1.2f, 4, 16, 2.2f, 2f, 800, 1800, 1, Projectile.Kind.SHELL, 1.15f, 0.9f, 30, 11, 0x3d5c3d, "rocket", 420, 5, 3500, 60, 3),
     FLAMETHROWER("Lança-chamas", "Flamethrower", 5, 24f, 120, 240, 2.4f, 9f, 560, 270, 1, Projectile.Kind.FLAME, 1.0f, 0.95f, 32, 10, 0xb03a2e, "flame", 160, 5, 2500, 0, 2),
     LASER("Laser", "Laser Rifle", 65, 1.1f, 5, 15, 1.8f, 0f, 0, 2200, 1, Projectile.Kind.BULLET, 1.4f, 0.95f, 36, 8, 0x1abc9c, "laser", 700, 4, 4200, 30, 3),
-    SAW("Disco Serra", "Saw Launcher", 50, 1.6f, 5, 20, 1.8f, 1f, 950, 2000, 1, Projectile.Kind.DISC, 1.1f, 0.95f, 28, 10, 0xc0392b, "disc", 450, 5, 3000, 0, 2);
+    SAW("Disco Serra", "Saw Launcher", 50, 1.6f, 5, 20, 1.8f, 1f, 950, 2000, 1, Projectile.Kind.DISC, 1.1f, 0.95f, 28, 10, 0xc0392b, "disc", 450, 5, 3000, 0, 2),
+    DUAL_PISTOLS("Pistolas Duplas", "Dual Pistols", 15, 9f, 24, 144, 1.6f, 4f, 1500, 950, 1, Projectile.Kind.BULLET, 1.0f, 1.0f, 16, 6, 0x5d6d7e, "pistol", 420, 5, 1500, 0, 1),
+    DUAL_SMG("Uzis Duplas", "Dual SMGs", 8, 22f, 60, 240, 2.0f, 9f, 1500, 700, 1, Projectile.Kind.BULLET, 1.0f, 0.95f, 20, 8, 0x2c3e50, "smg", 300, 4, 2600, 0, 2),
+    SHIELD("Escudo", "Riot Shield", 45, 1.6f, 1, 0, 0.1f, 0f, 0, 60, 1, Projectile.Kind.BULLET, 1.0f, 0.85f, 10, 34, 0x37474f, "melee", 60, 3, 1200, 0, 1),
+    BOW("Arco", "Bow", 62, 1.25f, 1, 24, 0.55f, 0.5f, 1350, 2000, 1, Projectile.Kind.ARROW, 1.35f, 1.0f, 26, 6, 0x8d6e63, "bow", 650, 5, 2200, 0, 2),
+    BOOMERANG("Bumerangue", "Boomerang", 42, 1.8f, 1, 3, 1.0f, 0f, 950, 3000, 1, Projectile.Kind.BOOMERANG, 1.1f, 1.0f, 18, 8, 0xff7043, "boomerang", 400, 4, 1800, 0, 2),
+    FROST("Congelante", "Freeze Ray", 3, 22f, 140, 280, 2.2f, 8f, 600, 300, 1, Projectile.Kind.FROST, 1.0f, 0.95f, 32, 10, 0x4fc3f7, "frost", 180, 4, 2400, 0, 2),
+    TESLA("Raio em Cadeia", "Tesla Gun", 34, 1.6f, 6, 24, 1.8f, 0f, 0, 500, 1, Projectile.Kind.BULLET, 1.1f, 0.95f, 30, 10, 0x7e57c2, "tesla", 380, 4, 3600, 20, 3),
+    GRAVITY("Gravitacional", "Gravity Gun", 40, 0.7f, 2, 8, 2.0f, 0f, 620, 600, 1, Projectile.Kind.VORTEX, 1.15f, 0.9f, 32, 12, 0x512da8, "gravity", 450, 3, 4200, 40, 3),
+    HARPOON("Arpão", "Harpoon", 52, 1.0f, 1, 12, 1.1f, 0.5f, 1750, 1300, 1, Projectile.Kind.HARPOON, 1.2f, 0.95f, 36, 8, 0x455a64, "harpoon", 500, 4, 2900, 60, 2);
+
+    /** duas armas, uma em cada mao */
+    public boolean dual;
+
+    static {
+        DUAL_PISTOLS.dual = true;
+        DUAL_SMG.dual = true;
+    }
+
+    public boolean isTesla() {
+        return this == TESLA;
+    }
+
+    public boolean isShield() {
+        return this == SHIELD;
+    }
+
+    /** dispara na hora (sem projetil) */
+    public boolean instant() {
+        return this == LASER || this == TESLA;
+    }
 
     public final String pt, en;
     public final float damage, rate;
@@ -64,7 +94,7 @@ public enum WeaponType {
     }
 
     public boolean isExplosive() {
-        return kind == Projectile.Kind.ROCKET || kind == Projectile.Kind.SHELL;
+        return kind == Projectile.Kind.ROCKET || kind == Projectile.Kind.SHELL || kind == Projectile.Kind.VORTEX;
     }
 
     public float lifetime() {

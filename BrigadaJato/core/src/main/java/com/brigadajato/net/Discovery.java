@@ -18,6 +18,9 @@ public final class Discovery {
     public static class Room {
         public String ip, name, mode, map;
         public int players, max;
+        public boolean locked, inGame;
+        /** "bt:<endereco>" para salas por Bluetooth */
+        public String btAddress;
         public long seen;
     }
 
@@ -46,7 +49,8 @@ public final class Discovery {
                         String msg = new String(p.getData(), 0, p.getLength(), StandardCharsets.UTF_8);
                         if (!msg.startsWith(Net.DISCOVER)) continue;
                         String ans = Net.ANSWER + "|" + host.roomName + "|" + host.modeName + "|" + host.mapName + "|"
-                                + host.playerCount() + "|" + Net.MAX_PLAYERS + "|" + Net.PROTOCOL;
+                                + host.playerCount() + "|" + Net.MAX_PLAYERS + "|" + Net.PROTOCOL + "|" + (host.locked ? 1 : 0)
+                                + "|" + (host.inGame ? 1 : 0);
                         byte[] out = ans.getBytes(StandardCharsets.UTF_8);
                         socket.send(new DatagramPacket(out, out.length, p.getAddress(), p.getPort()));
                     }
@@ -119,6 +123,10 @@ public final class Discovery {
                             r.map = parts[3];
                             r.players = Integer.parseInt(parts[4]);
                             r.max = Integer.parseInt(parts[5]);
+                            if (parts.length >= 9) {
+                                r.locked = "1".equals(parts[7]);
+                                r.inGame = "1".equals(parts[8]);
+                            }
                             r.seen = System.currentTimeMillis();
                             synchronized (rooms) {
                                 // a mesma sala pode responder por 127.0.0.1 e pelo IP real

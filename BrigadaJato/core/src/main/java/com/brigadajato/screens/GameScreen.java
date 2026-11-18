@@ -88,13 +88,14 @@ public class GameScreen extends ScreenAdapter {
     public static GameScreen offline(BrigadaJatoGame game, MatchConfig cfg) {
         World w = new World(BrigadaJatoGame.loadMap(cfg.mapId), cfg, true, System.nanoTime());
         Random rng = new Random();
-        boolean teams = cfg.mode.teams && cfg.mode != ModeType.SURVIVAL && cfg.mode != ModeType.TRAINING;
+        boolean teams = cfg.mode.chooseTeams();
         int team = teams ? (cfg.playerTeam == 0 ? C.TEAM_RED : cfg.playerTeam) : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE);
         Player me = w.addPlayer(game.settings.name, team, game.settings.look.copy(), false);
         if (AUTOPLAY) me.bot = new com.brigadajato.world.ai.BotBrain(me, 2, rng.nextLong());
         int start = rng.nextInt(Names.BOTS.length);
-        for (int i = 0; i < cfg.bots; i++) {
-            int t = teams ? w.balancedTeam() : (cfg.mode == ModeType.SURVIVAL ? C.TEAM_RED : C.TEAM_NONE);
+        int nb = cfg.mode == ModeType.DUEL ? 1 : cfg.bots;
+        for (int i = 0; i < nb; i++) {
+            int t = teams ? w.balancedTeam() : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE);
             w.addPlayer(Names.BOTS[(start + i) % Names.BOTS.length], t, Look.random(rng), true);
         }
         w.start();
@@ -217,7 +218,7 @@ public class GameScreen extends ScreenAdapter {
 
         // ---- simulacao
         if (client != null) {
-            client.receive(world, netEvents, localId);
+            client.receive(world, netEvents, localId, dt);
             for (int i62_ = 0; i62_ < netEvents.size; i62_++) {
                 WorldEvent e = netEvents.get(i62_); dispatch(e);
             }

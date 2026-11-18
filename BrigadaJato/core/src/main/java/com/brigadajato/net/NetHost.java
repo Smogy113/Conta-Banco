@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 public class NetHost {
     public static class Conn {
         public final int id;
-        final Socket socket;
+        final Link link;
         final LinkedBlockingQueue<byte[]> sendQ = new LinkedBlockingQueue<>();
         volatile boolean alive = true;
         public volatile boolean hello;
@@ -31,10 +31,15 @@ public class NetHost {
         public final PlayerInput pending = new PlayerInput();
         /** id do jogador no mundo durante a partida */
         public int playerId = -1;
+        /** identificador do aparelho (para reconectar no mesmo jogador) */
+        public long token;
+        /** voto de mapa na sala (-1 = nenhum) */
+        public int vote = -1;
+        public boolean bluetooth;
 
-        Conn(int id, Socket s) {
+        Conn(int id, Link l) {
             this.id = id;
-            this.socket = s;
+            this.link = l;
         }
     }
 
@@ -49,6 +54,7 @@ public class NetHost {
 
     // informacoes anunciadas na descoberta
     public volatile String roomName = "?", modeName = "?", mapName = "?";
+    public volatile boolean locked, inGame;
 
     public boolean start() {
         try {
@@ -78,28 +84,43 @@ public class NetHost {
         while (running) {
             try {
                 Socket s = server.accept();
-                s.setTcpNoDelay(true);
                 if (playerCount() >= Net.MAX_PLAYERS) {
                     s.close();
                     continue;
                 }
-                Conn c = new Conn(nextId++, s);
-                conns.add(c);
-                Thread r = new Thread(() -> readLoop(c), "bj-read-" + c.id);
-                r.setDaemon(true);
-                r.start();
-                Thread w = new Thread(() -> writeLoop(c), "bj-write-" + c.id);
-                w.setDaemon(true);
-                w.start();
+                addLink(new TcpLink(s), false);
             } catch (IOException e) {
                 if (!running) return;
             }
         }
     }
 
+    /** Registra um canal novo (TCP ou Bluetooth) e comeca a ler/escrever nele. */
+    public synchronized void addLink(Link l, boolean bluetooth) {
+        if (!running || playerCount() >= Net.MAX_PLAYERS) {
+            l.close();
+            return;
+        }
+        final Conn c = new Conn(nextId++, l);
+        c.bluetooth = bluetooth;
+        conns.add(c);
+        Thread r = new Thread(() -> readLoop(c), "bj-read-" + c.id);
+        r.setDaemon(true);
+        r.start();
+        Thread w = new Thread(() -> writeLoop(c), "bj-write-" + c.id);
+        w.setDaemon(true);
+        w.start();
+    }
+
+    /** Sem Wi-Fi: so aceita canais adicionados (Bluetooth). */
+    public boolean startWithoutTcp() {
+        running = true;
+        return true;
+    }
+
     private void readLoop(Conn c) {
         try {
-            DataInputStream in = new DataInputStream(new BufferedInputStream(c.socket.getInputStream()));
+            DataInputStream in = new DataInputStream(new BufferedInputStream(c.link.in()));
             while (running && c.alive) {
                 byte[] frame = Net.readFrame(in);
                 byte type = frame[0];
@@ -109,6 +130,7 @@ public class NetHost {
                     int flags = d.readByte();
                     int presses = d.readByte() & 0xff;
                     int buy = d.readShort();
+                    int emote = d.readByte();
                     synchronized (c.pending) {
                         c.pending.moveX = mx;
                         c.pending.moveY = my;
@@ -117,6 +139,7 @@ public class NetHost {
                         c.pending.use = (flags & 2) != 0;
                         c.pending.presses |= presses;
                         if (buy >= 0) c.pending.buy = buy;
+                        if (emote >= 0) c.pending.emote = emote;
                     }
                 } else {
                     byte[] body = new byte[frame.length - 1];
@@ -129,15 +152,12 @@ public class NetHost {
         }
         c.alive = false;
         inbox.add(new Net.Packet(Net.C_BYE, new byte[0], c.id));
-        try {
-            c.socket.close();
-        } catch (IOException ignored) {
-        }
+        c.link.close();
     }
 
     private void writeLoop(Conn c) {
         try {
-            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(c.socket.getOutputStream(), 16384));
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(c.link.out(), 16384));
             while (running && c.alive) {
                 byte[] msg = c.sendQ.poll(500, TimeUnit.MILLISECONDS);
                 if (msg == null) continue;
@@ -177,10 +197,21 @@ public class NetHost {
 
     public void kick(Conn c) {
         c.alive = false;
-        try {
-            c.socket.close();
-        } catch (IOException ignored) {
-        }
+        c.link.close();
+    }
+
+    /** Envia uma mensagem e fecha logo depois (expulsao). */
+    public void sendAndClose(final Conn c, byte[] msg) {
+        send(c, msg);
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(400);
+            } catch (InterruptedException ignored) {
+            }
+            kick(c);
+        }, "bj-kick");
+        t.setDaemon(true);
+        t.start();
     }
 
     public void close() {

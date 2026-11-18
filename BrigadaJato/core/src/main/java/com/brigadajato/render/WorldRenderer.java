@@ -15,8 +15,13 @@ import com.badlogic.gdx.utils.Disposable;
 import com.brigadajato.Assets;
 import com.brigadajato.Audio;
 import com.brigadajato.Settings;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.brigadajato.I18n;
+import com.brigadajato.world.Boss;
 import com.brigadajato.world.C;
 import com.brigadajato.world.GameMap;
+import com.brigadajato.world.Prop;
 import com.brigadajato.world.Pickup;
 import com.brigadajato.world.Player;
 import com.brigadajato.world.Projectile;
@@ -25,7 +30,9 @@ import com.brigadajato.world.WeaponType;
 import com.brigadajato.world.World;
 import com.brigadajato.world.WorldEvent;
 import com.brigadajato.world.modes.BombMode;
+import com.brigadajato.world.modes.BattleRoyaleMode;
 import com.brigadajato.world.modes.CtfMode;
+import com.brigadajato.world.modes.KingHillMode;
 
 import java.util.Random;
 
@@ -40,10 +47,14 @@ public class WorldRenderer implements Disposable {
     private final GlyphLayout layout = new GlyphLayout();
 
     private World world;
-    private Texture tileTex, skyTex;
-    private TextureRegion[] solid = new TextureRegion[4];
-    private TextureRegion topRegion, platRegion, spikeRegion;
-    private final Array<float[]> bgFar = new Array<>(), bgMid = new Array<>(), bgNear = new Array<>(), clouds = new Array<>(), stars = new Array<>();
+    private TileArt art1, art2;
+    private Backdrop bg1, bg2;
+    public final Lighting lighting = new Lighting();
+    /** 0 dia .. 1 noite; posicao do sol; cor do ambiente para a luz */
+    public float night, sunPos;
+    private float ambR = 1, ambG = 1, ambB = 1;
+    private final Array<float[]> lavaSeen = new Array<>();
+    private int lavaCount;
 
     public float shake;
     public float time;
@@ -55,6 +66,14 @@ public class WorldRenderer implements Disposable {
     }
 
     private final Array<Beam> beams = new Array<>();
+
+    /** raio em zigue-zague (arma tesla) */
+    private static class Bolt {
+        float[] pts;
+        float life;
+    }
+
+    private final Array<Bolt> bolts = new Array<>();
 
     private static class FloatText {
         float x, y, life;
@@ -77,146 +96,35 @@ public class WorldRenderer implements Disposable {
         this.world = w;
         fx.clear();
         beams.clear();
+        bolts.clear();
         texts.clear();
+        lighting.clear();
         applySettings();
-        if (tileTex != null) tileTex.dispose();
-        if (skyTex != null) skyTex.dispose();
-        Theme t = w.map.theme;
-        buildTiles(t);
-        buildSky(t);
-        buildBackground(t, w.map);
-    }
-
-    private static int rgba(int rgb, float alpha) {
-        return Color.rgba8888(((rgb >> 16) & 0xff) / 255f, ((rgb >> 8) & 0xff) / 255f, (rgb & 0xff) / 255f, alpha);
-    }
-
-    private static int mix(int c1, int c2, float t) {
-        t = MathUtils.clamp(t, 0, 1);
-        int r = (int) (((c1 >> 16) & 0xff) * (1 - t) + ((c2 >> 16) & 0xff) * t);
-        int g = (int) (((c1 >> 8) & 0xff) * (1 - t) + ((c2 >> 8) & 0xff) * t);
-        int b = (int) ((c1 & 0xff) * (1 - t) + (c2 & 0xff) * t);
-        return (r << 16) | (g << 8) | b;
-    }
-
-    private void buildSky(Theme t) {
-        Pixmap pm = new Pixmap(1, 128, Pixmap.Format.RGBA8888);
-        for (int y = 0; y < 128; y++) pm.drawPixel(0, y, rgba(mix(t.skyTop, t.skyBottom, y / 127f), 1));
-        skyTex = new Texture(pm);
-        skyTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
-        pm.dispose();
-    }
-
-    private void buildTiles(Theme t) {
-        Pixmap pm = new Pixmap(256, 128, Pixmap.Format.RGBA8888);
-        pm.setBlending(Pixmap.Blending.None);
-        pm.setColor(0, 0, 0, 0);
-        pm.fill();
-        Random r = new Random(t.ordinal() * 31L + 7);
-        for (int v = 0; v < 4; v++) {
-            int ox = v * 64;
-            for (int y = 0; y < 64; y++) {
-                for (int x = 0; x < 64; x++) {
-                    float shade = 1f - y / 64f * 0.25f;
-                    int base = t.tile;
-                    boolean line = false;
-                    switch (t) {
-                        case DESERT: { // tijolos de arenito
-                            int row = y / 16;
-                            int bx = (x + (row % 2) * 16 + v * 8) % 32;
-                            line = y % 16 == 0 || bx == 0;
-                            break;
-                        }
-                        case FACTORY: { // placas de metal com rebites
-                            line = x == 0 || y == 0 || x == 63 || y == 63;
-                            int dx = x % 32 - 6, dy = y % 32 - 6;
-                            if (dx * dx + dy * dy < 5) base = mix(base, 0xffffff, 0.35f);
-                            if ((x + y + v * 5) % 23 == 0) base = mix(base, 0x000000, 0.15f);
-                            break;
-                        }
-                        case ICE: { // blocos de gelo com brilho
-                            line = (x + y) % 61 == 0;
-                            if ((x - y + 64) % 37 < 3) base = mix(base, 0xffffff, 0.35f);
-                            break;
-                        }
-                        case TRAINING: {
-                            line = x % 32 == 0 || y % 32 == 0;
-                            break;
-                        }
-                        default: { // terra com pedrinhas
-                            if (r.nextFloat() < 0.012f) base = mix(base, 0x5d4037, 0.6f);
-                            break;
-                        }
-                    }
-                    float noise = 0.92f + r.nextFloat() * 0.12f;
-                    int c = mix(0x000000, base, shade * noise);
-                    if (line) c = mix(c, t.tileDark, 0.85f);
-                    pm.drawPixel(ox + x, y, rgba(c, 1));
-                }
-            }
-            // pedras grandes
-            if (t == Theme.SKY || t == Theme.DESERT || t == Theme.SPACE || t == Theme.JUNGLE) {
-                for (int k = 0; k < 3; k++) {
-                    int cx = ox + 8 + r.nextInt(48), cy = 10 + r.nextInt(44), rr = 3 + r.nextInt(4);
-                    pm.setColor(new Color(rgba(mix(t.tileDark, t.tile, 0.4f), 1)));
-                    pm.fillCircle(cx, cy, rr);
-                }
-            }
+        disposeArt();
+        art1 = new TileArt(w.map.theme);
+        bg1 = new Backdrop(w.map.theme, w.map.id, w.map.worldH());
+        if (w.map.theme2 != null) {
+            art2 = new TileArt(w.map.theme2);
+            bg2 = new Backdrop(w.map.theme2, w.map.id + "2", w.map.worldH());
         }
-        // camada de cima (grama / areia / neve)
-        for (int y = 0; y < 22; y++)
-            for (int x = 0; x < 64; x++) {
-                float edge = 15 + 4 * MathUtils.sin(x * 0.45f) + 2 * MathUtils.sin(x * 1.3f + 1);
-                if (y > edge) continue;
-                int c = mix(t.tileTop, 0xffffff, y < 4 ? 0.25f : 0);
-                c = mix(c, 0x000000, y / 40f + (r.nextFloat() * 0.08f));
-                pm.drawPixel(x, 64 + y, rgba(c, 1));
-            }
-        // plataforma
-        for (int y = 0; y < 22; y++)
-            for (int x = 0; x < 64; x++) {
-                int c = t.platform;
-                if (y < 3 || y > 18) c = mix(c, 0x000000, 0.45f);
-                else if (x % 32 == 0) c = mix(c, 0x000000, 0.35f);
-                else if (y % 7 == 0) c = mix(c, 0x000000, 0.12f);
-                c = mix(c, 0xffffff, y >= 3 && y < 6 ? 0.2f : 0);
-                pm.drawPixel(64 + x, 64 + y, rgba(c, 1));
-            }
-        // espinhos
-        for (int y = 0; y < 64; y++)
-            for (int x = 0; x < 64; x++) {
-                int sx = x % 16;
-                float hgt = 40 - Math.abs(sx - 7.5f) * 5;
-                int yy = 63 - y;
-                if (yy < hgt) {
-                    int c = sx < 8 ? 0xb0bec5 : 0x78909c;
-                    if (yy < 10) c = 0x546e7a;
-                    pm.drawPixel(128 + x, 64 + y - 0, rgba(c, 1));
-                } else if (yy < 6) pm.drawPixel(128 + x, 64 + y, rgba(0x37474f, 1));
-            }
-        tileTex = new Texture(pm, true);
-        tileTex.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
-        pm.dispose();
-        for (int v = 0; v < 4; v++) solid[v] = new TextureRegion(tileTex, v * 64, 0, 64, 64);
-        topRegion = new TextureRegion(tileTex, 0, 64, 64, 22);
-        platRegion = new TextureRegion(tileTex, 64, 64, 64, 22);
-        spikeRegion = new TextureRegion(tileTex, 128, 64, 64, 64);
+        for (int i = 0; i < 60; i++) lavaSeen.add(new float[2]);
     }
 
-    private void buildBackground(Theme t, GameMap map) {
-        bgFar.clear();
-        bgMid.clear();
-        bgNear.clear();
-        clouds.clear();
-        Random r = new Random(map.id.hashCode());
-        float period = 2400;
-        for (int i = 0; i < 6; i++) bgFar.add(new float[]{i * period / 6 + r.nextFloat() * 150, 0, 520 + r.nextFloat() * 380, 230 + r.nextFloat() * 220});
-        for (int i = 0; i < 8; i++) bgMid.add(new float[]{i * period / 8 + r.nextFloat() * 120, 0, 300 + r.nextFloat() * 220, 90 + r.nextFloat() * 140});
-        for (int i = 0; i < 12; i++) bgNear.add(new float[]{i * period / 12 + r.nextFloat() * 80, 0, 40 + r.nextFloat() * 50, 70 + r.nextFloat() * 110});
-        for (int i = 0; i < 8; i++) clouds.add(new float[]{r.nextFloat() * period, 120 + r.nextFloat() * 260, 34 + r.nextFloat() * 30, 8 + r.nextFloat() * 14});
-        stars.clear();
-        if (t == Theme.SPACE || t == Theme.ICE)
-            for (int i = 0; i < 140; i++) stars.add(new float[]{r.nextFloat(), r.nextFloat(), 0.6f + r.nextFloat() * 1.6f, r.nextFloat() * 6});
+    private void disposeArt() {
+        if (art1 != null) art1.dispose();
+        if (art2 != null) art2.dispose();
+        if (bg1 != null) bg1.dispose();
+        if (bg2 != null) bg2.dispose();
+        art1 = art2 = null;
+        bg1 = bg2 = null;
+    }
+
+    private TileArt artAt(int ty) {
+        return art2 != null && ty <= world.map.lowerTop ? art2 : art1;
+    }
+
+    private Theme themeAtY(float y) {
+        return world.map.themeAt((int) Math.floor(y / C.TILE));
     }
 
     /** Reaplica as opcoes visuais (qualidade, particulas, contorno). */
@@ -267,6 +175,7 @@ public class WorldRenderer implements Disposable {
                     }
                 }
                 if (!w.authority && !replayMode) w.spawnVisualShot(e);
+                if (wt.kind != Projectile.Kind.FLAME && wt.kind != Projectile.Kind.FROST) lighting.flash(mx, my, 120, 0xffd08a, 1f, 0.07f);
                 float vol = e.a == localId ? 0.75f : 1f;
                 audio.play(wt.sound, e.x, e.y, vol, 1f);
                 if (e.a == localId) {
@@ -294,6 +203,7 @@ public class WorldRenderer implements Disposable {
             }
             case EXPLOSION:
                 explosion(e.x, e.y, e.f, local);
+                lighting.flash(e.x, e.y, e.f * 3.2f, 0xffa040, 1.3f, 0.6f);
                 break;
             case HIT: {
                 int n = settings.blood == 2 ? 0 : (settings.highQuality ? 6 : 3);
@@ -356,7 +266,7 @@ public class WorldRenderer implements Disposable {
                     s.additive = true;
                     s.grav = 600;
                 }
-                Particles.P dust = fx.spawn(Particles.SOFT, e.x, e.y, 0, 15, 0.45f, 4, 13, world.map.theme.tile, 0.6f);
+                Particles.P dust = fx.spawn(Particles.SOFT, e.x, e.y, 0, 15, 0.45f, 4, 13, themeAtY(e.y).tile, 0.6f);
                 dust.drag = 1;
                 break;
             }
@@ -424,6 +334,140 @@ public class WorldRenderer implements Disposable {
             case ROUND:
                 if (e.a > 0 && local != null) audio.ui(local.team == e.a ? "win" : "lose");
                 break;
+            case TILE: {
+                if (!w.authority) w.applyTile(e.a + e.b * w.map.w, e.c);
+                if (e.c == GameMap.EMPTY) { // caixa quebrou
+                    for (int i = 0; i < 10; i++) {
+                        Particles.P pl = fx.spawn(Particles.RECT, e.x + MathUtils.random(-12, 12), e.y + MathUtils.random(-12, 12), MathUtils.random(-260, 260),
+                                MathUtils.random(60, 380), 1.3f, MathUtils.random(5, 12), 3.5f, i % 3 == 0 ? 0x6d4422 : 0xb07a3c, 1);
+                        pl.grav = 1100;
+                        pl.vrot = MathUtils.random(-700, 700);
+                        pl.a2 = 1;
+                    }
+                    for (int i = 0; i < 4; i++) {
+                        Particles.P sm = fx.spawn(Particles.SOFT, e.x, e.y, MathUtils.random(-50, 50), MathUtils.random(10, 60), 0.8f, 8, 26, 0xbcaaa4, 0.5f);
+                        sm.drag = 2;
+                    }
+                    audio.at("crate_break", e.x, e.y);
+                } else if (e.c == GameMap.DOOR || e.c == GameMap.DOOR_OPEN) {
+                    Particles.P sm = fx.spawn(Particles.SOFT, e.x, e.y - 12, MathUtils.random(-30, 30), 10, 0.5f, 6, 16, 0x9e9e9e, 0.35f);
+                    sm.drag = 2;
+                }
+                break;
+            }
+            case PROP: {
+                for (int i = 0; i < 8; i++) {
+                    Particles.P pl = fx.spawn(Particles.RECT, e.x, e.y + 16, MathUtils.random(-300, 300), MathUtils.random(150, 520), 1.6f, MathUtils.random(6, 12), 5, i % 2 == 0 ? 0xc62828 : 0x37474f, 1);
+                    pl.grav = 1100;
+                    pl.vrot = MathUtils.random(-800, 800);
+                    pl.a2 = 1;
+                }
+                break;
+            }
+            case LEVER:
+                audio.at("lever", e.x, e.y);
+                audio.play("door", e.x, e.y, 0.8f, e.b == 1 ? 1f : 0.85f);
+                if (!w.authority && e.a >= 0 && e.a < w.leverOn.length) w.leverOn[e.a] = e.b == 1;
+                break;
+            case HOOK:
+                if (e.b == 0) audio.at("hook", e.x, e.y);
+                else {
+                    audio.at("hook_hit", e.x, e.y);
+                    for (int i = 0; i < 5; i++) {
+                        Particles.P sp = fx.spawn(Particles.LINE, e.x, e.y, MathUtils.random(-200, 200), MathUtils.random(-200, 200), 0.2f, 2.5f, 0.5f, 0xffe082, 1);
+                        sp.additive = true;
+                    }
+                }
+                break;
+            case BLOCK: {
+                for (int i = 0; i < 7; i++) {
+                    Particles.P sp = fx.spawn(Particles.LINE, e.x, e.y, MathUtils.random(-280, 280), MathUtils.random(-120, 260), 0.22f, 3, 0.5f, 0xfff59d, 1);
+                    sp.additive = true;
+                    sp.grav = 700;
+                }
+                lighting.flash(e.x, e.y, 70, 0xfff2b0, 1f, 0.08f);
+                audio.at("block", e.x, e.y);
+                break;
+            }
+            case LIGHTNING: {
+                if (e.angles != null && e.angles.length >= 4) {
+                    Bolt b = new Bolt();
+                    b.pts = e.angles;
+                    b.life = 0.22f;
+                    bolts.add(b);
+                    for (int k = 2; k + 1 < e.angles.length; k += 2) {
+                        lighting.flash(e.angles[k], e.angles[k + 1], 200, 0x9fd4ff, 1.2f, 0.15f);
+                        for (int i = 0; i < 6; i++) {
+                            Particles.P sp = fx.spawn(Particles.LINE, e.angles[k], e.angles[k + 1], MathUtils.random(-260, 260), MathUtils.random(-260, 260), 0.2f, 3, 0.5f, 0xb3e5fc, 1);
+                            sp.additive = true;
+                        }
+                    }
+                }
+                audio.at("tesla", e.x, e.y);
+                if (e.a == localId) shake = Math.max(shake, 3);
+                break;
+            }
+            case EMOTE: {
+                Player p = w.player(e.a);
+                if (p != null) {
+                    p.emote = e.b;
+                    p.emoteTimer = 2.4f;
+                }
+                audio.play(e.b >= C.EMOTE_DANCE_FIRST ? "dance" : "emote", e.x, e.y, 0.8f, 1f);
+                break;
+            }
+            case FREEZE: {
+                for (int i = 0; i < 12; i++) {
+                    Particles.P ic = fx.spawn(Particles.RECT, e.x, e.y, MathUtils.random(-200, 200), MathUtils.random(-50, 260), 0.8f, MathUtils.random(3, 7), 3, 0xe1f5fe, 1);
+                    ic.grav = 800;
+                    ic.vrot = MathUtils.random(-600, 600);
+                }
+                audio.at("freeze", e.x, e.y);
+                break;
+            }
+            case BOSS: {
+                if (e.b == 0) {
+                    audio.ui("boss");
+                    shake = Math.max(shake, 6);
+                } else if (e.b == 1) {
+                    audio.ui("boss_down");
+                    shake = Math.max(shake, 18);
+                    lighting.flash(e.x, e.y, 600, 0xffa040, 1.5f, 1.2f);
+                } else if (e.b == 2) {
+                    audio.at("charge", e.x, e.y);
+                } else if (e.b == 3 || e.b == 4) {
+                    shake = Math.max(shake, e.b == 3 ? 12 : 8);
+                    audio.at("stomp", e.x, e.y);
+                    for (int i = 0; i < 14; i++) {
+                        Particles.P dd = fx.spawn(Particles.SOFT, e.x + MathUtils.random(-60, 60), e.y + 4, MathUtils.random(-320, 320), MathUtils.random(20, 120), 0.9f, 10, 30, 0xa1887f, 0.55f);
+                        dd.drag = 3;
+                    }
+                }
+                break;
+            }
+            case LEVEL_UP: {
+                Player p = w.player(e.a);
+                if (p != null) floatText(I18n.t("level") + " " + (e.b + 1), p.x, p.y + 70, 1f, 0.85f, 0.2f, 1.1f);
+                if (e.a == localId) audio.ui("levelup");
+                for (int i = 0; i < 14; i++) {
+                    float ang = i / 14f * MathUtils.PI2;
+                    Particles.P sp = fx.spawn(Particles.SOFT, e.x, e.y + 24, MathUtils.cos(ang) * 120, MathUtils.sin(ang) * 120, 0.5f, 5, 1, 0xffd740, 1);
+                    sp.additive = true;
+                }
+                break;
+            }
+            case INFECT: {
+                for (int i = 0; i < 18; i++) {
+                    Particles.P g = fx.spawn(Particles.SOFT, e.x, e.y + 22, MathUtils.random(-160, 160), MathUtils.random(-40, 200), 0.8f, 6, 14, 0x76ff03, 0.8f);
+                    g.drag = 2;
+                    g.additive = true;
+                }
+                audio.at("infect", e.x, e.y);
+                break;
+            }
+            case ROUND_END:
+                audio.ui(local != null && e.a == local.id ? "win" : "round");
+                break;
             default:
                 break;
         }
@@ -449,7 +493,7 @@ public class WorldRenderer implements Disposable {
             s.grav = -40;
         }
         for (int i = 0; i < (int) (8 * fx.quality) + 2; i++) {
-            Particles.P d = fx.spawn(Particles.RECT, x, y, MathUtils.random(-380, 380), MathUtils.random(80, 520), 1.2f, MathUtils.random(4, 9), 4, world.map.theme.tileDark, 1);
+            Particles.P d = fx.spawn(Particles.RECT, x, y, MathUtils.random(-380, 380), MathUtils.random(80, 520), 1.2f, MathUtils.random(4, 9), 4, themeAtY(y).tileDark, 1);
             d.grav = 1200;
             d.vrot = MathUtils.random(-900, 900);
             d.a2 = 1;
@@ -498,8 +542,14 @@ public class WorldRenderer implements Disposable {
             t.y += 40 * dt;
             if (t.life <= 0) texts.removeIndex(i);
         }
+        for (int i = bolts.size - 1; i >= 0; i--) {
+            bolts.get(i).life -= dt;
+            if (bolts.get(i).life <= 0) bolts.removeIndex(i);
+        }
         shake = Math.max(0, shake - dt * 30);
         hitMarker = Math.max(0, hitMarker - dt * 5);
+        lighting.update(dt);
+        updateDayNight();
         updateAmbient(dt);
         // efeitos continuos (jetpack, foguetes, chamas)
         if (world == null) return;
@@ -530,6 +580,15 @@ public class WorldRenderer implements Disposable {
                 f.additive = true;
             } else if (pr.kind == Projectile.Kind.FRAG && settings.highQuality && MathUtils.randomBoolean(0.3f)) {
                 fx.spawn(Particles.SOFT, pr.x, pr.y + 4, 0, 30, 0.3f, 2, 5, 0x9e9e9e, 0.4f);
+            } else if (pr.kind == Projectile.Kind.VORTEX && pr.stuck && !fx.skip()) {
+                // poeira sendo sugada para o buraco negro
+                float ang = MathUtils.random(MathUtils.PI2), rr = MathUtils.random(90, 240);
+                float px = pr.x + MathUtils.cos(ang) * rr, py = pr.y + MathUtils.sin(ang) * rr;
+                Particles.P sp = fx.spawn(Particles.SOFT, px, py, (pr.x - px) * 2.4f - MathUtils.sin(ang) * 120, (pr.y - py) * 2.4f + MathUtils.cos(ang) * 120, 0.4f, 4, 1, 0xb388ff, 0.9f);
+                sp.additive = true;
+            } else if (pr.kind == Projectile.Kind.BOOMERANG && settings.highQuality && MathUtils.randomBoolean(0.4f)) {
+                Particles.P sp = fx.spawn(Particles.SOFT, pr.x, pr.y, 0, 0, 0.25f, 5, 2, 0xffe082, 0.35f);
+                sp.additive = true;
             }
         }
     }
@@ -545,10 +604,15 @@ public class WorldRenderer implements Disposable {
         cam_zoom = cam.zoom;
         drawBackground(d, cam, minX, minY, vw, vh);
         drawZones(d, w);
+        drawLamps(d, w, minX, minY, maxX, maxY, true);
         drawTiles(d, w.map, minX, minY, maxX, maxY);
+        drawLevers(d, w);
+        drawProps(d, w, minX, minY, maxX, maxY);
         drawPickups(d, w, minX, minY, maxX, maxY);
         drawModeObjects(d, w);
         drawProjectilesSolid(d, w, minX, minY, maxX, maxY);
+        drawHooks(d, w);
+        for (int i = 0; i < w.bosses.size; i++) drawBoss(d, w.bosses.get(i));
         for (int i52_ = 0; i52_ < w.players.size; i52_++) {
             Player p = w.players.get(i52_);
             if (!p.alive) continue;
@@ -567,8 +631,12 @@ public class WorldRenderer implements Disposable {
             d.color(1, 1, 1, 0.9f * t);
             d.line(b.x1, b.y1, b.x2, b.y2, 3 * t + 1);
         }
+        drawBolts(d);
+        drawLamps(d, w, minX, minY, maxX, maxY, false);
         d.additive(false);
+        drawBossBars(d, w);
         if (settings.showNames) drawNames(d, w, local, minX, minY, maxX, maxY);
+        drawEmotes(d, w, minX, minY, maxX, maxY);
         for (int i54_ = 0; i54_ < texts.size; i54_++) {
             FloatText t = texts.get(i54_);
             BitmapFont f = a.normal;
@@ -582,159 +650,90 @@ public class WorldRenderer implements Disposable {
     }
 
     private void drawBackground(Draw d, OrthographicCamera cam, float minX, float minY, float vw, float vh) {
-        d.color(1, 1, 1, 1);
-        d.batch.draw(skyTex, minX, minY, vw, vh);
-        Theme t = world.map.theme;
         float camX = cam.position.x, camY = cam.position.y;
-        float period = 2400;
-        // estrelas
-        for (int i55_ = 0; i55_ < stars.size; i55_++) {
-            float[] st = stars.get(i55_);
-            float sx = minX + st[0] * vw, sy = minY + vh * 0.25f + st[1] * vh * 0.75f;
-            d.color(1, 1, 1, 0.45f + 0.35f * MathUtils.sin(time * 2 + st[3]));
-            d.circle(sx, sy, st[2]);
+        if (bg2 == null) {
+            bg1.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+            return;
         }
-        float sunX = minX + vw * 0.78f, sunY = minY + vh * 0.78f;
-        if (t == Theme.SPACE) {
-            // planeta azul no ceu da lua
-            d.additive(true);
-            d.color(0.3f, 0.6f, 1f, 0.35f);
-            d.soft(sunX, sunY, 120);
-            d.additive(false);
-            d.rgb(0x1e88e5, 1);
-            d.circle(sunX, sunY, 54);
-            d.rgb(0x43a047, 1);
-            d.ellipse(sunX - 14, sunY + 10, 20, 14, 20);
-            d.ellipse(sunX + 18, sunY - 16, 14, 18, -10);
-            d.rgb(0xffffff, 0.6f);
-            d.ellipse(sunX + 4, sunY + 30, 26, 6, 0);
-            d.rgb(0x000000, 0.35f);
-            d.batch.draw(a.half, sunX - 54, sunY, 54, 0, 108, 54, 1, 1, -70);
-        } else {
-            // sol / lua
-            d.color(1, 1, 0.9f, t == Theme.ICE || t == Theme.FACTORY ? 0.5f : 0.85f);
-            d.additive(true);
-            d.soft(sunX, sunY, 140);
-            d.additive(false);
-            d.color(1, 1, 0.92f, 1);
-            d.circle(sunX, sunY, t == Theme.ICE ? 28 : 40);
+        // duas regioes: o fundo de baixo aparece so abaixo da linha de divisao
+        float boundary = (world.map.lowerTop + 1) * C.TILE;
+        float f = (boundary - minY) / vh;
+        if (f <= 0) {
+            bg1.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+            return;
         }
-        // nuvens
-        if (t != Theme.FACTORY && t != Theme.ICE && t != Theme.SPACE) {
-            for (int i56_ = 0; i56_ < clouds.size; i56_++) {
-                float[] c = clouds.get(i56_);
-                float k = 0.1f;
-                float cx = wrap(c[0] + time * c[3] - camX * k, period) + camX - period / 2;
-                float cy = minY + vh * 0.55f + c[1] * 0.6f;
-                d.color(1, 1, 1, 0.85f);
-                d.circle(cx, cy, c[2]);
-                d.circle(cx + c[2] * 0.9f, cy - c[2] * 0.25f, c[2] * 0.75f);
-                d.circle(cx - c[2] * 0.9f, cy - c[2] * 0.3f, c[2] * 0.65f);
-            }
+        if (f >= 1) {
+            bg2.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+            return;
         }
-        layer(d, bgFar, 0.18f, t.far, 0.9f, camX, camY, period, 0, t);
-        layer(d, bgMid, 0.38f, t.mid, 0.95f, camX, camY, period, 1, t);
-        layer(d, bgNear, 0.6f, t.near, 1f, camX, camY, period, 2, t);
+        bg1.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+        d.batch.flush();
+        Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+        int bh = Gdx.graphics.getBackBufferHeight();
+        Gdx.gl.glScissor(0, 0, Gdx.graphics.getBackBufferWidth(), Math.max(0, (int) (f * bh)));
+        bg2.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+        d.batch.flush();
+        Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+        // faixa escura na divisa (teto/piso entre os dois ambientes)
+        d.color(0, 0, 0, 0.35f);
+        d.rect(minX, boundary - 6, vw, 6);
     }
 
-    private static float wrap(float v, float p) {
-        v %= p;
-        if (v < 0) v += p;
-        return v;
-    }
-
-    private void layer(Draw d, Array<float[]> shapes, float k, int color, float alpha, float camX, float camY, float period, int depth, Theme t) {
-        float baseY = (camY - world.map.worldH() * 0.5f) * (1 - k * 0.7f) + world.map.worldH() * (0.18f - depth * 0.06f);
-        float half = period / 2;
-        for (int i57_ = 0; i57_ < shapes.size; i57_++) {
-            float[] s = shapes.get(i57_);
-            float sx = wrap(s[0] - camX * k + half, period) - half;
-            float x = camX + sx;
-            float w = s[2], h = s[3];
-            d.rgb(color, alpha);
-            if (depth == 0) {
-                // montanhas / predios ao longe
-                if (t == Theme.FACTORY) {
-                    d.rect(x - w * 0.3f, baseY - 900, w * 0.45f, h + 900);
-                    d.rect(x + w * 0.2f, baseY - 900, w * 0.12f, h * 1.4f + 900);
-                } else {
-                    d.batch.draw(a.tri, x - w / 2, baseY, w, h);
-                    d.rect(x - w / 2, baseY - 900, w, 900);
-                    if (t == Theme.ICE || t == Theme.TRAINING || t == Theme.SKY) {
-                        d.rgb(0xffffff, 0.55f);
-                        d.batch.draw(a.tri, x - w * 0.16f, baseY + h * 0.68f, w * 0.32f, h * 0.32f);
-                    }
-                }
-            } else if (depth == 1) {
-                if (t == Theme.FACTORY) {
-                    d.rect(x - w * 0.25f, baseY - 900, w * 0.5f, h + 900);
-                    d.rgb(0xffeb3b, 0.3f);
-                    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++)
-                        d.rect(x - w * 0.2f + i * w * 0.15f, baseY + h - 30 - j * 34, 10, 14);
-                } else if (t == Theme.ICE) {
-                    d.batch.draw(a.tri, x - w * 0.25f, baseY, w * 0.5f, h * 1.3f);
-                    d.rect(x - w * 0.25f, baseY - 900, w * 0.5f, 900);
-                } else {
-                    // morros / dunas arredondados
-                    d.ellipse(x, baseY, w * 0.6f, h, 0);
-                    d.rect(x - w * 0.6f, baseY - 900, w * 1.2f, 900);
-                }
-            } else {
-                switch (t) {
-                    case DESERT:
-                        d.rect(x - 6, baseY, 12, h);
-                        d.circle(x, baseY + h, 6);
-                        d.rect(x - 20, baseY + h * 0.45f, 8, h * 0.3f);
-                        d.rect(x + 12, baseY + h * 0.55f, 8, h * 0.28f);
-                        d.rect(x - 20, baseY + h * 0.45f, 20, 7);
-                        d.rect(x, baseY + h * 0.55f, 20, 7);
-                        break;
-                    case FACTORY:
-                        d.rect(x - 5, baseY - 900, 10, h + 900);
-                        d.rect(x - 14, baseY + h, 28, 8);
-                        break;
-                    case ICE:
-                        d.batch.draw(a.tri, x - w * 0.3f, baseY, w * 0.6f, h);
-                        break;
-                    case SPACE:
-                        d.batch.draw(a.half, x - w, baseY, w * 2, w);
-                        d.rect(x - 2, baseY + w * 0.9f, 4, h * 0.6f);
-                        d.rgb(0xff5252, 0.8f + 0.2f * MathUtils.sin(time * 4 + x));
-                        d.circle(x, baseY + w * 0.9f + h * 0.6f, 3);
-                        break;
-                    default:
-                        d.rect(x - 4, baseY - 900, 8, h * 0.6f + 900);
-                        d.circle(x, baseY + h * 0.7f, w * 0.55f);
-                        d.circle(x - w * 0.3f, baseY + h * 0.5f, w * 0.4f);
-                        d.circle(x + w * 0.3f, baseY + h * 0.5f, w * 0.4f);
-                        break;
-                }
-            }
-        }
+    private static int hashTile(int tx, int ty) {
+        return (((tx + 64) * 7 + (ty + 64) * 13) & 0xff) % 4;
     }
 
     private void drawTiles(Draw d, GameMap m, float minX, float minY, float maxX, float maxY) {
         int x0 = Math.max(-12, (int) Math.floor(minX / C.TILE) - 1), x1 = Math.min(m.w + 11, (int) (maxX / C.TILE) + 1);
         int y0 = Math.max(-12, (int) Math.floor(minY / C.TILE) - 1), y1 = Math.min(m.h + 11, (int) (maxY / C.TILE) + 1);
         float T = C.TILE;
-        Theme th = m.theme;
+        lavaCount = 0;
         d.color(1, 1, 1, 1);
         for (int ty = y0; ty <= y1; ty++) {
+            TileArt art = artAt(ty);
             for (int tx = x0; tx <= x1; tx++) {
                 int t = m.get(tx, ty);
                 float x = tx * T, y = ty * T;
-                if (t == GameMap.SOLID) {
-                    int v = (((tx + 64) * 7 + (ty + 64) * 13) & 0xff) % 4;
-                    d.batch.draw(solid[v], x, y, T, T);
-                } else if (t == GameMap.PLATFORM) {
-                    d.batch.draw(platRegion, x, y + T - 11, T, 11);
-                } else if (t == GameMap.SPIKES) {
-                    d.batch.draw(spikeRegion, x, y, T, T);
+                switch (t) {
+                    case GameMap.SOLID:
+                        d.batch.draw(art.solid[hashTile(tx, ty)], x, y, T, T);
+                        break;
+                    case GameMap.PLATFORM:
+                        d.batch.draw(art.plat, x, y + T - 11, T, 11);
+                        break;
+                    case GameMap.SPIKES:
+                        if (art.lava) {
+                            float bob = MathUtils.sin(time * 2 + tx * 0.7f) * 1.5f;
+                            d.batch.draw(art.spike, x, y + bob, T, T);
+                            if (lavaCount < lavaSeen.size) {
+                                lavaSeen.get(lavaCount)[0] = x + T / 2;
+                                lavaSeen.get(lavaCount)[1] = y + T * 0.6f;
+                                lavaCount++;
+                            }
+                        } else d.batch.draw(art.spike, x, y, T, T);
+                        break;
+                    case GameMap.BREAKABLE: {
+                        d.batch.draw(art.crate, x, y, T, T);
+                        int idx = tx + ty * m.w;
+                        float frac = m.tileHp != null && idx >= 0 && idx < m.tileHp.length ? m.tileHp[idx] / (float) GameMap.BREAKABLE_HP : 1;
+                        if (frac < 0.95f) cracks(d, x, y, T, 1 - frac, tx * 31 + ty * 17);
+                        d.color(1, 1, 1, 1);
+                        break;
+                    }
+                    case GameMap.DOOR:
+                        d.batch.draw(art.door, x, y, T, T);
+                        break;
+                    case GameMap.DOOR_OPEN:
+                        d.batch.draw(art.doorOpen, x, y, T, T);
+                        break;
+                    default:
+                        break;
                 }
             }
         }
-        // bordas e topo
+        // bordas e topo (so blocos solidos normais)
         for (int ty = y0; ty <= y1; ty++) {
+            TileArt art = artAt(ty);
             for (int tx = x0; tx <= x1; tx++) {
                 if (m.get(tx, ty) != GameMap.SOLID) continue;
                 float x = tx * T, y = ty * T;
@@ -746,17 +745,391 @@ public class WorldRenderer implements Disposable {
                 if (!up) {
                     d.rect(x - (left ? 0 : 1.5f), y + T - 1.5f, T + (left ? 0 : 1.5f) + (right ? 0 : 1.5f), 3);
                     d.color(1, 1, 1, 1);
-                    d.batch.draw(topRegion, x - 1, y + T - 9, T + 2, 11);
+                    d.batch.draw(art.top, x - 1, y + T - 9, T + 2, 11);
                 }
-                if (!down && th != Theme.FACTORY) {
+                if (!down && art.theme.tiles != Theme.Tiles.METAL) {
                     d.color(0, 0, 0, 0.18f);
                     d.rect(x, y, T, 6);
                 }
             }
         }
+        d.color(1, 1, 1, 1);
+    }
+
+    /** Rachaduras na caixa conforme o dano. */
+    private void cracks(Draw d, float x, float y, float T, float dmg, int seed) {
+        int lines = 1 + (int) (dmg * 5);
+        d.rgb(0x2b1a0c, 0.85f);
+        for (int i = 0; i < lines; i++) {
+            int h = (seed * 2654435761L + i * 40503L) > 0 ? (int) ((seed * 2654435761L + i * 40503L) & 0xffff) : i * 977;
+            float cx = x + T * 0.5f + ((h & 31) - 16) * 0.4f, cy = y + T * 0.5f + (((h >> 5) & 31) - 16) * 0.4f;
+            float ang = ((h >> 10) & 63) / 63f * 360;
+            float len = T * (0.25f + 0.25f * dmg);
+            d.rect(cx, cy - 1, len, 2, 0, 1, ang);
+            d.rect(cx + MathUtils.cosDeg(ang) * len, cy + MathUtils.sinDeg(ang) * len - 1, len * 0.6f, 1.6f, 0, 0.8f, ang + 40);
+        }
+    }
+
+    private void drawLevers(Draw d, World w) {
+        for (int i = 0; i < w.map.levers.size; i++) {
+            Vector2 l = w.map.levers.get(i);
+            boolean on = i < w.leverOn.length && w.leverOn[i];
+            float x = l.x, y = l.y + 14;
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x - 10, y - 9, 20, 18);
+            d.rgb(0x607d8b, 1);
+            d.rect(x - 8.5f, y - 7.5f, 17, 15);
+            float ang = on ? 50 : 130;
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x, y - 2.5f, 20, 5, 0, 2.5f, ang);
+            d.rgb(0xcfd8dc, 1);
+            d.rect(x, y - 1.5f, 19, 3, 0, 1.5f, ang);
+            d.rgb(on ? 0x66bb6a : 0xef5350, 1);
+            d.circle(x + MathUtils.cosDeg(ang) * 20, y + MathUtils.sinDeg(ang) * 20, 4.5f);
+            d.rgb(on ? 0x69f0ae : 0xff5252, 0.9f);
+            d.circle(x + 6, y - 4, 2);
+        }
+    }
+
+    private void drawProps(Draw d, World w, float minX, float minY, float maxX, float maxY) {
+        for (int i = 0; i < w.props.size; i++) {
+            Prop pr = w.props.get(i);
+            if (!pr.alive || pr.x < minX - 40 || pr.x > maxX + 40 || pr.y < minY - 50 || pr.y > maxY + 50) continue;
+            boolean flash = pr.hurtFlash > 0;
+            float wob = flash ? MathUtils.sin(time * 80) * 1.5f : 0;
+            float x = pr.x + wob, y = pr.y, hw = Prop.W / 2, h = Prop.H;
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x - hw - 1.5f, y - 1, Prop.W + 3, h + 2);
+            d.rgb(flash ? 0xffffff : 0xc62828, 1);
+            d.rect(x - hw, y, Prop.W, h);
+            d.rgb(0x8e0000, 1);
+            d.rect(x - hw, y + 6, Prop.W, 2.5f);
+            d.rect(x - hw, y + h - 8, Prop.W, 2.5f);
+            d.rgb(0xff8a80, 0.7f);
+            d.rect(x - hw + 3, y + 2, 3, h - 4);
+            // simbolo de inflamavel
+            d.rgb(0xffeb3b, 1);
+            d.rect(x - 6, y + 11, 12, 10);
+            d.rgb(0xd84315, 1);
+            d.region(a.tri, x, y + 16, 7, 8, 0);
+            if (pr.hp < Prop.HP * 0.5f && (time * 5) % 1 < 0.5f) {
+                d.rgb(0xffab00, 0.9f);
+                d.circle(x + 5, y + h + 1, 2);
+            }
+        }
+    }
+
+    /** Lampadas do mapa: o objeto (passo normal) e o brilho (passo aditivo). */
+    private void drawLamps(Draw d, World w, float minX, float minY, float maxX, float maxY, boolean body) {
+        GameMap m = w.map;
+        for (int i = 0; i < m.lamps.size; i++) {
+            Vector2 l = m.lamps.get(i);
+            if (l.x < minX - 200 || l.x > maxX + 200 || l.y < minY - 200 || l.y > maxY + 200) continue;
+            int tx = (int) Math.floor(l.x / C.TILE), ty = (int) Math.floor(l.y / C.TILE);
+            boolean ceiling = m.solid(tx, ty + 1);
+            float bx = l.x, by = ceiling ? l.y + C.TILE - 18 : l.y + 52;
+            float flick = 0.85f + 0.15f * MathUtils.sin(time * 9 + i * 3.1f) * MathUtils.sin(time * 4.3f + i);
+            if (body) {
+                d.rgb(SoldierPainter.OUTLINE, 1);
+                if (ceiling) {
+                    d.rect(bx - 1, by + 4, 2, l.y + C.TILE - by - 4);
+                    d.batch.draw(a.half, bx - 10, by - 1, 20, 9);
+                    d.rgb(0x455a64, 1);
+                    d.batch.draw(a.half, bx - 8.5f, by, 17, 7.5f);
+                } else {
+                    d.rect(bx - 2.5f, l.y, 5, by - l.y);
+                    d.rect(bx - 7, l.y, 14, 4);
+                    d.rgb(0x37474f, 1);
+                    d.rect(bx - 1.5f, l.y, 3, by - l.y);
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.rect(bx - 7, by, 14, 9);
+                }
+                d.color(1, 0.93f, 0.7f, 1);
+                d.circle(bx, by - (ceiling ? 1 : -5), 4);
+            } else {
+                d.color(1, 0.85f, 0.5f, 0.22f * flick);
+                d.soft(bx, by, 60);
+            }
+        }
+    }
+
+    private void drawHooks(Draw d, World w) {
+        for (int i = 0; i < w.players.size; i++) {
+            Player p = w.players.get(i);
+            if (!p.alive || p.hookState == 0) continue;
+            float sx = p.x + MathUtils.cos(p.aim) * 6, sy = p.shoulderY() + MathUtils.sin(p.aim) * 6;
+            d.rgb(SoldierPainter.OUTLINE, 0.9f);
+            d.line(sx, sy, p.hookX, p.hookY, 3.5f);
+            d.rgb(0xbcaaa4, 1);
+            d.line(sx, sy, p.hookX, p.hookY, 1.8f);
+            float ang = MathUtils.atan2(p.hookY - sy, p.hookX - sx) * MathUtils.radiansToDegrees;
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.region(a.tri, p.hookX, p.hookY, 11, 11, ang - 90);
+            d.rgb(0x90a4ae, 1);
+            d.region(a.tri, p.hookX, p.hookY, 8, 8, ang - 90);
+        }
+    }
+
+    private void drawBolts(Draw d) {
+        for (int i = 0; i < bolts.size; i++) {
+            Bolt b = bolts.get(i);
+            float k = b.life / 0.22f;
+            for (int pass = 0; pass < 2; pass++) {
+                if (pass == 0) d.color(0.45f, 0.75f, 1f, 0.55f * k);
+                else d.color(1, 1, 1, 0.95f * k);
+                float th = pass == 0 ? 7 * k + 2 : 2.2f;
+                for (int p = 0; p + 3 < b.pts.length; p += 2) {
+                    float x1 = b.pts[p], y1 = b.pts[p + 1], x2 = b.pts[p + 2], y2 = b.pts[p + 3];
+                    float px = x1, py = y1;
+                    int seg = 6;
+                    for (int s2 = 1; s2 <= seg; s2++) {
+                        float t = s2 / (float) seg;
+                        float nx = x1 + (x2 - x1) * t, ny = y1 + (y2 - y1) * t;
+                        if (s2 < seg) {
+                            nx += MathUtils.random(-12, 12);
+                            ny += MathUtils.random(-12, 12);
+                        }
+                        d.line(px, py, nx, ny, th);
+                        px = nx;
+                        py = ny;
+                    }
+                }
+            }
+        }
+    }
+
+    private void drawBoss(Draw d, Boss b) {
+        boolean flash = b.hurtFlash > 0;
+        int f = b.facing;
+        if (b.type == Boss.HELI) {
+            float x = b.x, y = b.y + 10, tilt = MathUtils.clamp(-b.vx * 0.05f, -14, 14);
+            int body = flash ? 0xffffff : 0x4e5d3a, dark = 0x2f3a22;
+            // cauda
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x, y + 20, 80, 12, 0, 6, 180 * (f > 0 ? 1 : 0) + tilt);
+            d.rgb(body, 1);
+            d.rect(x, y + 21.5f, 78, 9, 0, 4.5f, 180 * (f > 0 ? 1 : 0) + tilt);
+            float tx = x - f * 78, ty = y + 26;
+            d.rgb(0x9e9e9e, 0.6f);
+            d.ellipse(tx, ty + 6, 4, 18 * Math.abs(MathUtils.sin(time * 40)) + 4, 0);
+            // corpo
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.ellipse(x, y + 22, 52, 26, tilt);
+            d.rgb(body, 1);
+            d.ellipse(x, y + 22, 49.5f, 23.5f, tilt);
+            d.rgb(dark, 1);
+            d.rect(x - 40, y + 4, 80, 6, 40, 0, tilt);
+            // cabine
+            d.rgb(0x80deea, 0.9f);
+            d.ellipse(x + f * 26, y + 28, 18, 12, tilt);
+            d.rgb(0xffffff, 0.5f);
+            d.ellipse(x + f * 30, y + 33, 7, 3, tilt);
+            // esquis
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x - 40, y - 8, 80, 4, 40, 0, tilt);
+            d.rect(x - 24, y - 6, 3, 12);
+            d.rect(x + 22, y - 6, 3, 12);
+            // metralhadora no nariz
+            float gx = x + f * 46, gy = y + 12;
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(gx, gy - 3, 26, 6, 0, 3, b.aim * MathUtils.radiansToDegrees);
+            d.rgb(0x424242, 1);
+            d.rect(gx, gy - 2, 25, 4, 0, 2, b.aim * MathUtils.radiansToDegrees);
+            // helice principal (borrada)
+            float blur = Math.abs(MathUtils.sin(time * 30));
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x - 2, y + 44, 4, 10);
+            d.rgb(0x212121, 0.55f);
+            d.rect(x - 90 * blur, y + 54, 180 * blur, 4);
+            d.rgb(0xbdbdbd, 0.18f);
+            d.ellipse(x, y + 56, 92, 5, 0);
+        } else {
+            float x = b.x, y = b.y;
+            int body = flash ? 0xffffff : 0x546e7a, dark = 0x263238, accent = 0xff6f00;
+            float walk = MathUtils.sin(b.anim * 2.2f) * 18;
+            // pernas
+            for (int k = 0; k < 2; k++) {
+                float ang = k == 0 ? walk : -walk;
+                float hx = x + (k == 0 ? -14 : 14), hy = y + 52;
+                d.rgb(SoldierPainter.OUTLINE, 1);
+                d.rect(hx - 9, hy - 52, 18, 54, 9, 52, ang);
+                d.rgb(k == 0 ? dark : body, 1);
+                d.rect(hx - 7.5f, hy - 50.5f, 15, 51, 7.5f, 50.5f, ang);
+                float fx = hx + MathUtils.sinDeg(ang) * 50, fy = hy - MathUtils.cosDeg(ang) * 50;
+                d.rgb(SoldierPainter.OUTLINE, 1);
+                d.rect(fx - 15, fy - 4, 30, 9);
+                d.rgb(dark, 1);
+                d.rect(fx - 13.5f, fy - 2.5f, 27, 6);
+            }
+            // tronco
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x - 36, y + 48, 72, 52);
+            d.rgb(body, 1);
+            d.rect(x - 34, y + 50, 68, 48);
+            d.rgb(0xffc107, 1);
+            for (int k = 0; k < 4; k++) d.rect(x - 34 + k * 18, y + 50, 9, 5);
+            d.rgb(dark, 1);
+            d.rect(x - 34, y + 55, 68, 4);
+            // nucleo (brilha ao carregar o laser)
+            float ch = MathUtils.clamp(b.laserCharge / 0.9f, 0, 1);
+            d.rgb(0x1a237e, 1);
+            d.circle(x, y + 76, 11);
+            d.color(1, 0.25f + 0.5f * (1 - ch), 0.2f, 1);
+            d.circle(x, y + 76, 6 + ch * 4);
+            // cabeca
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(x - 20, y + 98, 40, 22);
+            d.rgb(body, 1);
+            d.rect(x - 18.5f, y + 99.5f, 37, 19);
+            d.rgb(0xff1744, 1);
+            d.rect(x - 14 + f * 4, y + 106, 24, 6);
+            // braco canhao
+            float deg = b.aim * MathUtils.radiansToDegrees;
+            float sx = x + f * 30, sy = y + 88;
+            d.rgb(SoldierPainter.OUTLINE, 1);
+            d.rect(sx, sy - 9, 50, 18, 0, 9, deg);
+            d.rgb(dark, 1);
+            d.rect(sx, sy - 7.5f, 48, 15, 0, 7.5f, deg);
+            d.rgb(accent, 1);
+            d.rect(sx + MathUtils.cosDeg(deg) * 38, sy + MathUtils.sinDeg(deg) * 38 - 4, 8, 8, 0, 4, deg);
+            // aviso do laser
+            if (b.laserCharge > 0) {
+                float lx = x + f * 16, ly = y + 100;
+                float ex = lx + MathUtils.cos(b.laserAim) * 1300, ey = ly + MathUtils.sin(b.laserAim) * 1300;
+                float tt = world.rayTile(lx, ly, ex, ey);
+                if (tt <= 1) {
+                    ex = lx + (ex - lx) * tt;
+                    ey = ly + (ey - ly) * tt;
+                }
+                d.color(1, 0.1f, 0.1f, 0.25f + 0.5f * ch * ((time * 12) % 1 < 0.5f ? 1 : 0.5f));
+                d.line(lx, ly, ex, ey, 1.5f + ch * 3);
+            }
+        }
+    }
+
+    private void drawBossBars(Draw d, World w) {
+        for (int i = 0; i < w.bosses.size; i++) {
+            Boss b = w.bosses.get(i);
+            float bw = 110, y = b.y + b.height() + 24;
+            d.bar(b.x - bw / 2, y, bw, 7, MathUtils.clamp(b.hp / Math.max(1, b.maxHp), 0, 1), 0xff5252, 0x3a1010);
+        }
+    }
+
+    private void drawEmotes(Draw d, World w, float minX, float minY, float maxX, float maxY) {
+        BitmapFont f = a.small;
+        for (int i = 0; i < w.players.size; i++) {
+            Player p = w.players.get(i);
+            if (!p.alive || p.emoteTimer <= 0 || p.emote < 0) continue;
+            if (p.x < minX - 80 || p.x > maxX + 80 || p.y < minY - 100 || p.y > maxY + 120) continue;
+            float k = MathUtils.clamp(p.emoteTimer * 3, 0, 1) * MathUtils.clamp((2.4f - p.emoteTimer) * 8, 0, 1);
+            float bx = p.x, by = p.y + p.height() + 46 + (1 - k) * 8;
+            if (p.emote < C.EMOTE_PHRASES) {
+                String text = I18n.t("phrase_" + p.emote);
+                layout.setText(f, text);
+                float tw = layout.width + 18, th = 26;
+                d.rgb(SoldierPainter.OUTLINE, 0.9f * k);
+                d.rect(bx - tw / 2 - 1.5f, by - th / 2 - 1.5f, tw + 3, th + 3);
+                d.rgb(0xffffff, 0.95f * k);
+                d.rect(bx - tw / 2, by - th / 2, tw, th);
+                d.region(a.tri, bx, by - th / 2 - 4, 10, 8, 180);
+                f.setColor(0.08f, 0.08f, 0.1f, k);
+                f.draw(d.batch, text, bx, by + layout.height / 2, 0, Align.center, false);
+            } else if (p.emote < C.EMOTE_DANCE_FIRST) {
+                int r = p.emote - C.EMOTE_PHRASES;
+                float pop = 1 + 0.2f * MathUtils.sin(time * 10);
+                switch (r) {
+                    case 0: // joinha
+                        d.rgb(SoldierPainter.OUTLINE, k);
+                        d.circle(bx, by, 15 * pop);
+                        d.rgb(0xffca28, k);
+                        d.circle(bx, by, 13 * pop);
+                        d.rgb(0xf57f17, k);
+                        d.rect(bx - 6, by - 6, 11, 10);
+                        d.rect(bx - 1, by + 2, 5, 9);
+                        break;
+                    case 1: // risada
+                        d.rgb(SoldierPainter.OUTLINE, k);
+                        d.circle(bx, by, 15 * pop);
+                        d.rgb(0xffeb3b, k);
+                        d.circle(bx, by, 13 * pop);
+                        d.rgb(0x3e2723, k);
+                        d.rect(bx - 7, by + 3, 4, 2, 2, 1, 20);
+                        d.rect(bx + 3, by + 3, 4, 2, 2, 1, -20);
+                        d.batch.draw(a.half, bx - 7, by - 1, 7, 0, 14, 7, 1, 1, 180);
+                        break;
+                    case 2: // bravo
+                        d.rgb(SoldierPainter.OUTLINE, k);
+                        d.circle(bx, by, 15 * pop);
+                        d.rgb(0xff5252, k);
+                        d.circle(bx, by, 13 * pop);
+                        d.rgb(0x3e2723, k);
+                        d.rect(bx - 8, by + 4, 6, 2, 3, 1, -25);
+                        d.rect(bx + 2, by + 4, 6, 2, 3, 1, 25);
+                        d.rect(bx - 5, by - 6, 10, 2);
+                        break;
+                    default: // coracao
+                        d.rgb(0xff4081, k);
+                        d.circle(bx - 5 * pop, by + 3, 7 * pop);
+                        d.circle(bx + 5 * pop, by + 3, 7 * pop);
+                        d.region(a.tri, bx, by - 5, 22 * pop, 14 * pop, 180);
+                        break;
+                }
+            } else if ((int) (time * 3 + p.id) % 2 == 0) { // notas musicais da danca
+                float nx = bx + MathUtils.sin(time * 2 + p.id) * 14, ny = by - 6 + ((time * 30 + p.id * 9) % 20);
+                d.rgb(0xffffff, 0.85f * k);
+                d.circle(nx, ny, 3.5f);
+                d.rect(nx + 2.5f, ny, 1.6f, 12);
+                d.rect(nx + 2.5f, ny + 10, 6, 2);
+            }
+        }
+        f.setColor(Color.WHITE);
     }
 
     private void drawZones(Draw d, World w) {
+        if (w.mode instanceof KingHillMode) {
+            KingHillMode km = (KingHillMode) w.mode;
+            Vector2 h = km.hill();
+            int col = km.owner == C.TEAM_RED ? SoldierPainter.RED : (km.owner == C.TEAM_BLUE ? SoldierPainter.BLUE : (km.owner == -1 ? 0xffeb3b : 0xffffff));
+            float pulse = 0.5f + 0.5f * MathUtils.sin(time * 3);
+            d.rgb(col, 0.1f + 0.06f * pulse);
+            d.circle(h.x, h.y + 30, KingHillMode.RADIUS);
+            d.rgb(col, 0.6f);
+            d.ring(h.x, h.y + 30, KingHillMode.RADIUS);
+            // coroa
+            float cy = h.y + 30 + KingHillMode.RADIUS + 16 + pulse * 4;
+            d.rgb(SoldierPainter.OUTLINE, 0.9f);
+            d.rect(h.x - 15, cy - 9, 30, 13);
+            d.rgb(0xffd740, 1);
+            d.rect(h.x - 13.5f, cy - 7.5f, 27, 10);
+            for (int k = -1; k <= 1; k++) d.region(a.tri, h.x + k * 10, cy + 6, 9, 10, 0);
+        }
+        if (w.mode instanceof BattleRoyaleMode) {
+            BattleRoyaleMode br = (BattleRoyaleMode) w.mode;
+            // escurece fora da zona (anel bem grosso)
+            float thick = 2600;
+            int seg = 72;
+            float rr = br.zoneR + thick / 2;
+            d.color(0.85f, 0.1f, 0.35f, 0.22f);
+            for (int i = 0; i < seg; i++) {
+                float a1 = i / (float) seg * MathUtils.PI2, a2 = (i + 1) / (float) seg * MathUtils.PI2;
+                d.line(br.zoneX + MathUtils.cos(a1) * rr, br.zoneY + MathUtils.sin(a1) * rr,
+                        br.zoneX + MathUtils.cos(a2) * rr, br.zoneY + MathUtils.sin(a2) * rr, thick + 4);
+            }
+            d.color(1f, 0.3f, 0.5f, 0.85f);
+            for (int i = 0; i < seg; i++) {
+                float a1 = i / (float) seg * MathUtils.PI2, a2 = (i + 1) / (float) seg * MathUtils.PI2;
+                d.line(br.zoneX + MathUtils.cos(a1) * br.zoneR, br.zoneY + MathUtils.sin(a1) * br.zoneR,
+                        br.zoneX + MathUtils.cos(a2) * br.zoneR, br.zoneY + MathUtils.sin(a2) * br.zoneR, 4);
+            }
+            if (br.nextR > 0) {
+                d.color(1, 1, 1, 0.5f);
+                for (int i = 0; i < seg; i += 2) {
+                    float a1 = i / (float) seg * MathUtils.PI2, a2 = (i + 1) / (float) seg * MathUtils.PI2;
+                    d.line(br.nextX + MathUtils.cos(a1) * br.nextR, br.nextY + MathUtils.sin(a1) * br.nextR,
+                            br.nextX + MathUtils.cos(a2) * br.nextR, br.nextY + MathUtils.sin(a2) * br.nextR, 2.5f);
+                }
+            }
+        }
         if (w.mode instanceof BombMode) {
             BombMode bm = (BombMode) w.mode;
             for (int i = 0; i < 2; i++) {
@@ -960,6 +1333,61 @@ public class WorldRenderer implements Disposable {
                     d.circle(pr.x - MathUtils.sinDeg(pr.rot) * 5, pr.y + MathUtils.cosDeg(pr.rot) * 5, 1.8f);
                     break;
                 }
+                case ARROW:
+                case HARPOON: {
+                    boolean harp = pr.kind == Projectile.Kind.HARPOON;
+                    float sp = (float) Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) + 0.0001f;
+                    float dx = pr.vx / sp, dy = pr.vy / sp;
+                    float len = harp ? 30 : 22;
+                    float tx = pr.x - dx * len, ty = pr.y - dy * len;
+                    if (harp && !pr.stuck) {
+                        Player o = w.player(pr.owner);
+                        if (o != null && o.alive) {
+                            d.rgb(0x5d4037, 0.8f);
+                            d.line(o.x, o.shoulderY(), tx, ty, 1.5f);
+                        }
+                    }
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.line(tx, ty, pr.x, pr.y, harp ? 5 : 3.6f);
+                    d.rgb(harp ? 0x90a4ae : 0xa1887f, 1);
+                    d.line(tx, ty, pr.x, pr.y, harp ? 3 : 2f);
+                    float deg = MathUtils.atan2(dy, dx) * MathUtils.radiansToDegrees;
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.region(a.tri, pr.x, pr.y, harp ? 11 : 8, harp ? 12 : 9, deg - 90);
+                    d.rgb(harp ? 0xcfd8dc : 0x9e9e9e, 1);
+                    d.region(a.tri, pr.x, pr.y, harp ? 8 : 5.5f, harp ? 9 : 6.5f, deg - 90);
+                    if (!harp) {
+                        d.rgb(0xef5350, 1);
+                        d.rect(tx, ty - 3, 6, 6, 0, 3, deg + 25);
+                        d.rect(tx, ty - 3, 6, 6, 0, 3, deg - 25);
+                    }
+                    break;
+                }
+                case BOOMERANG: {
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.rect(pr.x - 1, pr.y - 3.5f, 16, 7, 1, 3.5f, pr.rot);
+                    d.rect(pr.x - 1, pr.y - 3.5f, 16, 7, 1, 3.5f, pr.rot + 100);
+                    d.rgb(0xffb300, 1);
+                    d.rect(pr.x, pr.y - 2.5f, 14, 5, 0, 2.5f, pr.rot);
+                    d.rgb(0xff8f00, 1);
+                    d.rect(pr.x, pr.y - 2.5f, 14, 5, 0, 2.5f, pr.rot + 100);
+                    break;
+                }
+                case VORTEX: {
+                    if (pr.stuck) {
+                        float r = 20 + 3 * MathUtils.sin(time * 9);
+                        d.rgb(0x000000, 0.9f);
+                        d.circle(pr.x, pr.y, r);
+                        d.rgb(0x7c4dff, 0.8f);
+                        d.ring(pr.x, pr.y, r + 3);
+                    } else {
+                        d.rgb(SoldierPainter.OUTLINE, 1);
+                        d.circle(pr.x, pr.y, 8);
+                        d.rgb(0x311b92, 1);
+                        d.circle(pr.x, pr.y, 6.5f);
+                    }
+                    break;
+                }
                 case DISC: {
                     d.rgb(SoldierPainter.OUTLINE, 1);
                     d.region(a.star, pr.x, pr.y, 24, 24, pr.rot);
@@ -1003,6 +1431,27 @@ public class WorldRenderer implements Disposable {
             } else if (pr.kind == Projectile.Kind.DISC) {
                 d.color(1f, 1f, 1f, 0.25f);
                 d.soft(pr.x, pr.y, 18);
+            } else if (pr.kind == Projectile.Kind.FROST) {
+                float t = 1 - MathUtils.clamp(pr.life / Math.max(0.01f, pr.weapon != null ? pr.weapon.lifetime() : 0.4f), 0, 1);
+                float size = 6 + t * 18;
+                d.color(0.55f, 0.85f, 1f, 0.6f * (1 - t * 0.6f));
+                d.soft(pr.x, pr.y, size);
+                d.color(1f, 1f, 1f, 0.45f * (1 - t));
+                d.soft(pr.x, pr.y, size * 0.35f);
+            } else if (pr.kind == Projectile.Kind.VORTEX) {
+                float r = pr.stuck ? 70 + 10 * MathUtils.sin(time * 6) : 22;
+                d.color(0.5f, 0.3f, 1f, pr.stuck ? 0.45f : 0.6f);
+                d.soft(pr.x, pr.y, r);
+                if (pr.stuck) {
+                    for (int k = 0; k < 3; k++) {
+                        float ang = pr.rot * 0.05f + k * 2.1f;
+                        d.color(0.75f, 0.55f, 1f, 0.5f);
+                        d.region(a.ring, pr.x, pr.y, 60 + k * 18, 22 + k * 6, ang * MathUtils.radiansToDegrees);
+                    }
+                }
+            } else if (pr.kind == Projectile.Kind.BOOMERANG) {
+                d.color(1f, 0.9f, 0.5f, 0.2f);
+                d.soft(pr.x, pr.y, 16);
             }
         }
     }
@@ -1030,6 +1479,8 @@ public class WorldRenderer implements Disposable {
         pose.alpha = 1;
         pose.vx = p.vx;
         pose.action = 0;
+        pose.zombie = p.zombie;
+        if (p.emoteTimer > 0 && p.emote >= C.EMOTE_DANCE_FIRST) pose.action = 2 + (p.emote - C.EMOTE_DANCE_FIRST);
         if (p.dmgBoost > 0) {
             d.additive(true);
             d.color(1, 0.2f, 0.2f, 0.35f + 0.1f * MathUtils.sin(time * 12));
@@ -1042,6 +1493,148 @@ public class WorldRenderer implements Disposable {
             d.rect(p.x - Math.signum(p.vx) * 40 - 10, p.y + 22, 24, 3);
         }
         painter.draw(d, pose);
+        if (p.frozen > 0) { // bloco de gelo
+            float h = p.height() + 10;
+            d.color(0.75f, 0.92f, 1f, 0.5f);
+            d.rect(p.x - 16, p.y - 2, 32, h);
+            d.color(1, 1, 1, 0.75f);
+            d.rect(p.x - 13, p.y + h - 10, 3, 7);
+            d.rect(p.x - 13, p.y + 4, 2, h * 0.5f);
+            d.rect(p.x + 8, p.y + h * 0.4f, 2, h * 0.4f, 1, 0, 20);
+            d.color(0.5f, 0.8f, 1f, 0.9f);
+            d.ring(p.x, p.y + h / 2, 3);
+        } else if (p.chill > 0.05f) {
+            d.additive(true);
+            d.color(0.4f, 0.75f, 1f, Math.min(0.4f, p.chill * 0.5f));
+            d.soft(p.x, p.y + 22, 30);
+            d.additive(false);
+        }
+        if (p.stun > 0 && p.frozen <= 0) { // estrelinhas de atordoado
+            for (int k = 0; k < 3; k++) {
+                float ang = time * 6 + k * 2.09f;
+                d.rgb(0xfff176, 1);
+                d.region(a.star, p.x + MathUtils.cos(ang) * 12, p.y + p.height() + 6 + MathUtils.sin(ang) * 3, 8, 8, time * 200);
+            }
+        }
+    }
+
+    /** Calcula a cor do ambiente: noite ao ar livre e ambientes fechados ficam escuros. */
+    private void computeAmbient(float camY) {
+        GameMap m = world.map;
+        float boundary = m.theme2 != null ? (m.lowerTop + 1) * C.TILE : -1e9f;
+        float k = m.theme2 != null ? MathUtils.clamp((boundary - camY) / 240f + 0.5f, 0, 1) : 0; // 1 = regiao de baixo
+        float r1 = 1, g1 = 1, b1 = 1, r2 = 1, g2 = 1, b2 = 1;
+        float[] c = new float[3];
+        themeAmbient(m.theme, c);
+        r1 = c[0];
+        g1 = c[1];
+        b1 = c[2];
+        if (m.theme2 != null) {
+            themeAmbient(m.theme2, c);
+            r2 = c[0];
+            g2 = c[1];
+            b2 = c[2];
+        }
+        ambR = r1 + (r2 - r1) * k;
+        ambG = g1 + (g2 - g1) * k;
+        ambB = b1 + (b2 - b1) * k;
+    }
+
+    private void themeAmbient(Theme t, float[] out) {
+        float n = night;
+        if (t.dark) {
+            boolean outdoor = t.bg == Theme.Bg.CITY_NIGHT;
+            float base = outdoor ? 0.45f : 0.42f;
+            out[0] = base + (outdoor ? -0.05f : 0.05f);
+            out[1] = base;
+            out[2] = base + (outdoor ? 0.15f : 0);
+            if (outdoor) {
+                out[0] -= 0.08f * n;
+                out[1] -= 0.08f * n;
+            }
+        } else {
+            float k = n * 0.72f;
+            out[0] = 1 - k * 0.78f;
+            out[1] = 1 - k * 0.72f;
+            out[2] = 1 - k * 0.5f;
+        }
+    }
+
+    /** Escuridao atual (0 = dia claro). */
+    public float darkness() {
+        return 1 - Math.min(ambR, Math.min(ambG, ambB));
+    }
+
+    /**
+     * Passo de luz: chamar depois de render(), com o batch fechado. Nao faz nada de dia.
+     */
+    public void renderLights(com.badlogic.gdx.graphics.g2d.SpriteBatch batch, OrthographicCamera cam, Player local) {
+        if (world == null) return;
+        computeAmbient(cam.position.y);
+        if (darkness() < 0.03f) {
+            lighting.clear();
+            return;
+        }
+        World w = world;
+        float vw = cam.viewportWidth * cam.zoom, vh = cam.viewportHeight * cam.zoom;
+        float minX = cam.position.x - vw / 2 - 300, minY = cam.position.y - vh / 2 - 300, maxX = minX + vw + 600, maxY = minY + vh + 600;
+        if (!settings.dynamicLights || settings.quality == 0) {
+            // simples: so escurece, com uma luz em volta do jogador
+            if (local != null && local.alive) lighting.light(local.x, local.centerY(), 260, 0xffffff, 0.55f);
+            lighting.render(batch, a.soft, cam, ambR, ambG, ambB);
+            return;
+        }
+        GameMap m = w.map;
+        for (int i = 0; i < m.lamps.size; i++) {
+            Vector2 l = m.lamps.get(i);
+            if (l.x < minX || l.x > maxX || l.y < minY || l.y > maxY) continue;
+            int tx = (int) Math.floor(l.x / C.TILE), ty = (int) Math.floor(l.y / C.TILE);
+            boolean ceiling = m.solid(tx, ty + 1);
+            float by = ceiling ? l.y + C.TILE - 30 : l.y + 52;
+            float flick = 0.9f + 0.1f * MathUtils.sin(time * 9 + i * 3.1f) * MathUtils.sin(time * 4.3f + i);
+            lighting.light(l.x, by, 300, 0xffd59a, 0.95f * flick);
+        }
+        for (int i = 0; i < lavaCount; i++) lighting.light(lavaSeen.get(i)[0], lavaSeen.get(i)[1], 90, 0xff6a00, 0.7f + 0.1f * MathUtils.sin(time * 3 + i));
+        for (int i = 0; i < w.players.size; i++) {
+            Player p = w.players.get(i);
+            if (!p.alive || p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue;
+            lighting.light(p.x, p.centerY(), p == local ? 230 : 120, 0xffffff, p == local ? 0.5f : 0.3f);
+            if (p.jetting) lighting.light(p.x - p.facing * 10, p.y + 4, 110, p.jetBoost > 0 ? 0x40c4ff : 0xffa040, 0.85f);
+            if (p.zombie) lighting.light(p.x, p.y + p.height() - 6, 50, 0x76ff03, 0.5f);
+        }
+        int bullets = 0;
+        for (int i = 0; i < w.projectiles.size; i++) {
+            Projectile pr = w.projectiles.get(i);
+            if (pr.x < minX || pr.x > maxX || pr.y < minY || pr.y > maxY) continue;
+            switch (pr.kind) {
+                case ROCKET: lighting.light(pr.x, pr.y, 130, 0xffa040, 0.9f); break;
+                case FLAME: if ((i & 1) == 0) lighting.light(pr.x, pr.y, 80, 0xff7a30, 0.55f); break;
+                case FROST: if ((i & 1) == 0) lighting.light(pr.x, pr.y, 60, 0x80d8ff, 0.4f); break;
+                case VORTEX: lighting.light(pr.x, pr.y, pr.stuck ? 220 : 80, 0xb388ff, 0.7f); break;
+                case BULLET: if (bullets++ < 40) lighting.light(pr.x, pr.y, 46, 0xffe0a0, 0.45f); break;
+                case DISC: lighting.light(pr.x, pr.y, 50, 0xffffff, 0.35f); break;
+                default: break;
+            }
+        }
+        for (int i = 0; i < w.pickups.size; i++) {
+            Pickup pk = w.pickups.get(i);
+            if (!pk.active || pk.x < minX || pk.x > maxX || pk.y < minY || pk.y > maxY) continue;
+            lighting.light(pk.x, pk.y + 16, 60, pickupGlow(pk), 0.55f);
+        }
+        for (int i = 0; i < beams.size; i++) {
+            Beam b = beams.get(i);
+            for (int k = 0; k <= 3; k++) lighting.light(b.x1 + (b.x2 - b.x1) * k / 3f, b.y1 + (b.y2 - b.y1) * k / 3f, 110, 0x7fffd4, b.life / 0.28f);
+        }
+        for (int i = 0; i < w.bosses.size; i++) {
+            Boss b = w.bosses.get(i);
+            if (b.type == Boss.HELI) lighting.light(b.x + b.facing * 30, b.y - 60, 180, 0xfff8e1, 0.6f);
+            else lighting.light(b.x, b.y + 100, 90 + b.laserCharge * 120, 0xff3d00, 0.7f);
+        }
+        if (w.mode instanceof KingHillMode) {
+            Vector2 h = ((KingHillMode) w.mode).hill();
+            lighting.light(h.x, h.y + 30, KingHillMode.RADIUS * 1.8f, 0xfff59d, 0.5f);
+        }
+        lighting.render(batch, a.soft, cam, ambR, ambG, ambB);
     }
 
     private void drawNames(Draw d, World w, Player local, float minX, float minY, float maxX, float maxY) {
@@ -1088,36 +1681,80 @@ public class WorldRenderer implements Disposable {
     private float ambientTimer;
     private float viewMinX, viewMinY, viewW = 1000, viewH = 600;
 
+    public static final float DAY_CYCLE = 240f;
+
+    private void updateDayNight() {
+        if (world == null) return;
+        GameMap m = world.map;
+        int mode = settings.dayNight;
+        if (m.night || mode == 2) {
+            night = 1;
+            sunPos = 0.6f;
+            return;
+        }
+        if (mode == 0) {
+            night = 0;
+            sunPos = 0.65f;
+            return;
+        }
+        float p = (world.time / DAY_CYCLE + 0.18f + (m.id.hashCode() & 7) * 0.01f) % 1f;
+        if (p < 0.5f) night = 0;
+        else if (p < 0.6f) night = (p - 0.5f) / 0.1f;
+        else if (p < 0.92f) night = 1;
+        else night = 1 - (p - 0.92f) / 0.08f;
+        night = night * night * (3 - 2 * night);
+        sunPos = p < 0.55f ? p / 0.55f : (p - 0.55f) / 0.45f;
+    }
+
     private void updateAmbient(float dt) {
         if (!settings.ambient || world == null || settings.quality == 0) return;
         ambientTimer -= dt;
         if (ambientTimer > 0) return;
-        Theme t = world.map.theme;
-        ambientTimer = t == Theme.ICE ? 0.03f : 0.09f;
+        Theme t = themeAtY(viewMinY + viewH / 2);
+        Theme.Amb amb = t.ambient;
+        ambientTimer = amb == Theme.Amb.SNOW || amb == Theme.Amb.RAIN ? 0.025f : (amb == Theme.Amb.BUBBLES ? 0.12f : 0.09f);
         float x = viewMinX + MathUtils.random(viewW), y = viewMinY + viewH + 10;
-        switch (t) {
-            case ICE: { // neve
+        switch (amb) {
+            case SNOW: {
                 Particles.P p = fx.spawn(Particles.CIRCLE, x, y, MathUtils.random(-20, 20), -MathUtils.random(40, 80), 9f, MathUtils.random(1.2f, 2.8f), 1.5f, 0xffffff, 0.85f);
                 p.a2 = 0.6f;
                 break;
             }
-            case JUNGLE: { // folhas
+            case RAIN: {
+                Particles.P p = fx.spawn(Particles.LINE, x, y, -60, -900, 1.2f, 14, 1.2f, 0x9fb7e0, 0.45f);
+                p.rot = 0;
+                break;
+            }
+            case LEAVES: {
                 Particles.P p = fx.spawn(Particles.RECT, x, y, MathUtils.random(-40, 20), -MathUtils.random(30, 60), 9f, 6, 6, MathUtils.randomBoolean() ? 0x7cb342 : 0x558b2f, 0.9f);
                 p.vrot = MathUtils.random(-160, 160);
                 p.a2 = 0.8f;
                 break;
             }
-            case DESERT: { // poeira levada pelo vento
-                Particles.P p = fx.spawn(Particles.SOFT, viewMinX - 10, viewMinY + MathUtils.random(viewH), MathUtils.random(80, 160), MathUtils.random(-10, 10), 7f, MathUtils.random(3, 8), 10, 0xe9c46a, 0.25f);
+            case DUST:
+                fx.spawn(Particles.SOFT, viewMinX - 10, viewMinY + MathUtils.random(viewH), MathUtils.random(80, 160), MathUtils.random(-10, 10), 7f, MathUtils.random(3, 8), 10, 0xe9c46a, 0.25f);
                 break;
-            }
-            case SPACE: { // poeira estelar
+            case STARS: {
                 Particles.P p = fx.spawn(Particles.SOFT, x, viewMinY + MathUtils.random(viewH), 0, 6, 3f, 2, 0, 0xb3e5fc, 0.6f);
                 p.additive = true;
                 break;
             }
-            case FACTORY: { // fuligem
-                Particles.P p = fx.spawn(Particles.CIRCLE, x, y, MathUtils.random(-10, 10), -MathUtils.random(25, 45), 10f, 1.4f, 1f, 0x424242, 0.6f);
+            case SOOT:
+                fx.spawn(Particles.CIRCLE, x, y, MathUtils.random(-10, 10), -MathUtils.random(25, 45), 10f, 1.4f, 1f, 0x424242, 0.6f);
+                break;
+            case DRIPS: {
+                Particles.P p = fx.spawn(Particles.CIRCLE, x, y, 0, -420, 1.8f, 1.6f, 1.2f, 0x90a4ae, 0.7f);
+                p.grav = 300;
+                break;
+            }
+            case EMBERS: {
+                Particles.P p = fx.spawn(Particles.SOFT, x, viewMinY - 10, MathUtils.random(-30, 30), MathUtils.random(60, 140), 5f, MathUtils.random(1.5f, 3f), 0.5f, MathUtils.randomBoolean() ? 0xff9100 : 0xffd180, 0.9f);
+                p.additive = true;
+                break;
+            }
+            case BUBBLES: {
+                Particles.P p = fx.spawn(Particles.RING, x, viewMinY - 10, MathUtils.random(-10, 10), MathUtils.random(50, 110), 7f, MathUtils.random(2, 5), MathUtils.random(2, 5), 0xe1f5fe, 0.6f);
+                p.a2 = 0.6f;
                 break;
             }
             default:
@@ -1127,7 +1764,7 @@ public class WorldRenderer implements Disposable {
 
     @Override
     public void dispose() {
-        if (tileTex != null) tileTex.dispose();
-        if (skyTex != null) skyTex.dispose();
+        disposeArt();
+        lighting.dispose();
     }
 }

@@ -8,8 +8,6 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -20,26 +18,34 @@ public class NetClient {
 
     public volatile State state = State.CONNECTING;
     public volatile String error;
-    private Socket socket;
+    private volatile Link link;
     private final ConcurrentLinkedQueue<Net.Packet> inbox = new ConcurrentLinkedQueue<>();
     private final LinkedBlockingQueue<byte[]> sendQ = new LinkedBlockingQueue<>();
     private volatile boolean running = true;
     public final String host;
+    public final Link.Factory factory;
 
     public NetClient(final String host, final String name, final Look look) {
-        this.host = host;
-        Thread t = new Thread(() -> run(name, look), "bj-client");
+        this(TcpLink.to(host), name, look, "", 0L);
+    }
+
+    public NetClient(final Link.Factory factory, final String name, final Look look, final String password, final long token) {
+        this.factory = factory;
+        this.host = factory.describe();
+        Thread t = new Thread(() -> run(name, look, password, token), "bj-client");
         t.setDaemon(true);
         t.start();
     }
 
-    private void run(String name, Look look) {
+    private void run(String name, Look look, String password, long token) {
         try {
-            socket = new Socket();
-            socket.connect(new InetSocketAddress(host, Net.TCP_PORT), 5000);
-            socket.setTcpNoDelay(true);
-            DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 8192));
+            link = factory.open();
+            if (!running) {
+                link.close();
+                return;
+            }
+            DataInputStream in = new DataInputStream(new BufferedInputStream(link.in()));
+            final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(link.out(), 8192));
             Thread writer = new Thread(() -> {
                 try {
                     while (running) {
@@ -60,6 +66,8 @@ public class NetClient {
             hello.out.writeInt(Net.PROTOCOL);
             hello.out.writeUTF(name);
             Net.writeLook(hello.out, look);
+            hello.out.writeUTF(password == null ? "" : password);
+            hello.out.writeLong(token);
             sendQ.add(hello.build());
             state = State.CONNECTED;
             while (running) {
@@ -78,6 +86,8 @@ public class NetClient {
         error = e.getMessage();
         state = state == State.CONNECTING ? State.FAILED : State.CLOSED;
         running = false;
+        Link l = link;
+        if (l != null) l.close();
     }
 
     public Net.Packet poll() {
@@ -94,9 +104,15 @@ public class NetClient {
             w.out.writeByte((in.fire ? 1 : 0) | (in.use ? 2 : 0));
             w.out.writeByte(in.presses);
             w.out.writeShort(in.buy);
+            w.out.writeByte(in.emote);
             if (sendQ.size() < 60) sendQ.add(w.build());
         } catch (IOException ignored) {
         }
+    }
+
+    public void send(byte[] msg) {
+        if (state == State.CLOSED || state == State.FAILED) return;
+        sendQ.add(msg);
     }
 
     public void requestTeam(int team) {
@@ -108,12 +124,19 @@ public class NetClient {
         }
     }
 
+    public void vote(int option) {
+        try {
+            Net.Writer w = new Net.Writer(Net.C_VOTE);
+            w.out.writeByte(option);
+            sendQ.add(w.build());
+        } catch (IOException ignored) {
+        }
+    }
+
     public void close() {
         running = false;
         state = State.CLOSED;
-        try {
-            if (socket != null) socket.close();
-        } catch (IOException ignored) {
-        }
+        Link l = link;
+        if (l != null) l.close();
     }
 }

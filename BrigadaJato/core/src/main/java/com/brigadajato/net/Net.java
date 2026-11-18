@@ -1,7 +1,10 @@
 package com.brigadajato.net;
 
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.IntIntMap;
+import com.brigadajato.world.Boss;
 import com.brigadajato.world.Gun;
+import com.brigadajato.world.Prop;
 import com.brigadajato.world.Look;
 import com.brigadajato.world.Pickup;
 import com.brigadajato.world.Player;
@@ -28,13 +31,13 @@ public final class Net {
 
     public static final int TCP_PORT = 47130;
     public static final int UDP_PORT = 47131;
-    public static final int PROTOCOL = 5;
+    public static final int PROTOCOL = 6;
     public static final String DISCOVER = "BRIGADAJATO?";
     public static final String ANSWER = "BRIGADAJATO!";
     public static final int MAX_PLAYERS = 8;
 
     // cliente -> anfitriao
-    public static final byte C_HELLO = 1, C_INPUT = 2, C_TEAM = 3, C_BYE = 4;
+    public static final byte C_HELLO = 1, C_INPUT = 2, C_TEAM = 3, C_BYE = 4, C_VOTE = 5;
     // anfitriao -> cliente
     public static final byte S_WELCOME = 10, S_LOBBY = 11, S_START = 12, S_SNAP = 13, S_EVENTS = 14, S_ROSTER = 15,
             S_LOBBY_RETURN = 16, S_KICK = 17;
@@ -203,8 +206,18 @@ public final class Net {
             o.writeFloat(p.aim);
             int flags = (p.alive ? 1 : 0) | (p.onGround ? 2 : 0) | (p.crouching ? 4 : 0) | (p.jetting ? 8 : 0)
                     | (p.facing > 0 ? 16 : 0) | (p.spawnShield > 0 ? 32 : 0) | (p.hasBomb ? 64 : 0)
-                    | (p.recentlyFired ? 128 : 0) | (p.fuelLocked ? 256 : 0);
+                    | (p.recentlyFired ? 128 : 0) | (p.fuelLocked ? 256 : 0) | (p.frozen > 0 ? 512 : 0)
+                    | (p.zombie ? 1024 : 0) | (p.hookState != 0 ? 2048 : 0) | (p.stun > 0 ? 4096 : 0) | (p.dualFlip ? 8192 : 0);
             o.writeShort(flags);
+            if (p.hookState != 0) {
+                o.writeByte(p.hookState);
+                o.writeFloat(p.hookX);
+                o.writeFloat(p.hookY);
+            }
+            o.writeByte(p.emoteTimer > 0 ? p.emote : -1);
+            o.writeByte(clampByte(p.emoteTimer * 50));
+            o.writeByte(clampByte(p.chill * 200));
+            o.writeByte(p.gunLevel);
             o.writeByte(p.carryingFlag);
             o.writeByte(clampByte(p.health));
             o.writeByte(clampByte(p.armor));
@@ -263,6 +276,30 @@ public final class Net {
             o.writeBoolean(pk.dropped);
             o.writeFloat(pk.life);
         }
+        o.writeByte(w.bosses.size);
+        for (int i = 0; i < w.bosses.size; i++) {
+            Boss b = w.bosses.get(i);
+            o.writeInt(b.id);
+            o.writeByte(b.type);
+            o.writeFloat(b.x);
+            o.writeFloat(b.y);
+            o.writeFloat(b.vx);
+            o.writeFloat(b.vy);
+            o.writeFloat(b.hp);
+            o.writeFloat(b.maxHp);
+            o.writeFloat(b.aim);
+            o.writeByte(b.facing);
+            o.writeFloat(b.laserCharge);
+            o.writeFloat(b.laserAim);
+        }
+        o.writeShort(w.props.size);
+        for (int i = 0; i < w.props.size; i++) {
+            Prop pr = w.props.get(i);
+            o.writeBoolean(pr.alive);
+            o.writeByte(clampByte(pr.hp));
+        }
+        o.writeByte(w.leverOn.length);
+        for (boolean b : w.leverOn) o.writeBoolean(b);
         w.mode.write(o);
     }
 
@@ -294,6 +331,23 @@ public final class Net {
             p.hasBomb = (flags & 64) != 0;
             p.recentlyFired = (flags & 128) != 0;
             p.fuelLocked = (flags & 256) != 0;
+            p.frozen = (flags & 512) != 0 ? 0.5f : 0;
+            p.zombie = (flags & 1024) != 0;
+            p.stun = (flags & 4096) != 0 ? 0.3f : 0;
+            p.dualFlip = (flags & 8192) != 0;
+            if ((flags & 2048) != 0) {
+                p.hookState = in.readByte();
+                p.hookX = in.readFloat();
+                p.hookY = in.readFloat();
+            } else p.hookState = 0;
+            int emote = in.readByte();
+            float et = in.readUnsignedByte() / 50f;
+            if (emote != p.emote || Math.abs(et - p.emoteTimer) > 0.3f) {
+                p.emote = emote;
+                p.emoteTimer = emote >= 0 ? et : 0;
+            }
+            p.chill = in.readUnsignedByte() / 200f;
+            p.gunLevel = in.readByte();
             p.carryingFlag = in.readByte();
             p.health = in.readUnsignedByte();
             p.armor = in.readUnsignedByte();
@@ -407,7 +461,75 @@ public final class Net {
             pk.life = in.readFloat();
             w.pickups.add(pk);
         }
+        int nb = in.readByte();
+        Array<Boss> oldB = new Array<>(w.bosses);
+        w.bosses.clear();
+        for (int i = 0; i < nb; i++) {
+            int id = in.readInt();
+            Boss b = null;
+            for (int k = 0; k < oldB.size; k++) if (oldB.get(k).id == id) b = oldB.get(k);
+            if (b == null) {
+                b = new Boss();
+                b.id = id;
+            }
+            b.type = in.readByte();
+            float bx = in.readFloat(), by = in.readFloat();
+            if (Math.abs(bx - b.x) + Math.abs(by - b.y) > 120 || b.maxHp == 0) {
+                b.x = bx;
+                b.y = by;
+            } else {
+                b.x += (bx - b.x) * 0.5f;
+                b.y += (by - b.y) * 0.5f;
+            }
+            b.vx = in.readFloat();
+            b.vy = in.readFloat();
+            float hp = in.readFloat();
+            if (hp < b.hp) b.hurtFlash = 0.08f;
+            b.hp = hp;
+            b.maxHp = in.readFloat();
+            b.aim = in.readFloat();
+            b.facing = in.readByte();
+            b.laserCharge = in.readFloat();
+            b.laserAim = in.readFloat();
+            w.bosses.add(b);
+        }
+        int npr = in.readShort();
+        for (int i = 0; i < npr; i++) {
+            boolean alive = in.readBoolean();
+            int hp = in.readUnsignedByte();
+            if (i < w.props.size) {
+                Prop pr = w.props.get(i);
+                if (hp < pr.hp && alive) pr.hurtFlash = 0.1f;
+                pr.alive = alive;
+                pr.hp = hp;
+            }
+        }
+        int nl = in.readByte();
+        for (int i = 0; i < nl; i++) {
+            boolean b = in.readBoolean();
+            if (i < w.leverOn.length) w.leverOn[i] = b;
+        }
         w.mode.read(in);
+    }
+
+    /** Estado do cenario para quem entra no meio da partida (blocos quebrados, portas). */
+    public static void writeWorldState(DataOutputStream o, World w) throws IOException {
+        o.writeFloat(w.time);
+        o.writeInt(w.changedTiles.size);
+        for (IntIntMap.Entry e : w.changedTiles.entries()) {
+            o.writeInt(e.key);
+            o.writeByte(e.value);
+        }
+    }
+
+    public static void readWorldState(DataInputStream in, World w) throws IOException {
+        w.time = in.readFloat();
+        int n = in.readInt();
+        for (int i = 0; i < n; i++) {
+            int idx = in.readInt();
+            int t = in.readByte();
+            w.applyTile(idx, t);
+        }
     }
 
     // ------------------------------------------------------------------ eventos

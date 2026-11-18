@@ -33,20 +33,40 @@ public class Pathfinder {
         closedMark = new int[n];
         heap = new int[n * 4];
         heapKey = new float[n * 4];
-        for (int y = 0; y < map.h; y++) {
-            for (int x = 0; x < map.w; x++) {
-                int i = x + y * map.w;
-                passable[i] = !map.solid(x, y) && !map.solid(x, y + 1);
-                int below = map.get(x, y - 1);
-                boolean ground = below == GameMap.SOLID || below == GameMap.PLATFORM;
-                int below2 = map.get(x, y - 2);
-                boolean nearGround = ground || below2 == GameMap.SOLID || below2 == GameMap.PLATFORM;
-                boolean danger = below == GameMap.SPIKES || below2 == GameMap.SPIKES;
-                // paredes dos lados tambem atrapalham (corpo raspa); penaliza levemente
-                boolean tight = map.solid(x - 1, y) && map.solid(x + 1, y);
-                cost[i] = (ground ? 1f : (nearGround ? 1.6f : 2.4f)) + (danger ? 6f : 0f) + (tight ? 0.6f : 0f);
-            }
-        }
+        for (int y = 0; y < map.h; y++)
+            for (int x = 0; x < map.w; x++) computeCell(x, y);
+    }
+
+    private boolean hard(int x, int y) {
+        int t = map.get(x, y);
+        return map.solid(x, y) && t != GameMap.BREAKABLE && t != GameMap.DOOR;
+    }
+
+    private boolean soft(int x, int y) {
+        int t = map.get(x, y);
+        return t == GameMap.BREAKABLE || t == GameMap.DOOR;
+    }
+
+    private void computeCell(int x, int y) {
+        int i = x + y * map.w;
+        // caixas e portas fechadas contam como "passaveis caras": o bot quebra a caixa ou abre a porta
+        passable[i] = !hard(x, y) && !hard(x, y + 1);
+        int below = map.get(x, y - 1);
+        boolean ground = below == GameMap.SOLID || below == GameMap.PLATFORM || below == GameMap.BREAKABLE || below == GameMap.DOOR;
+        int below2 = map.get(x, y - 2);
+        boolean nearGround = ground || below2 == GameMap.SOLID || below2 == GameMap.PLATFORM;
+        boolean danger = below == GameMap.SPIKES || below2 == GameMap.SPIKES;
+        // paredes dos lados tambem atrapalham (corpo raspa); penaliza levemente
+        boolean tight = map.solid(x - 1, y) && map.solid(x + 1, y);
+        boolean blocked = soft(x, y) || soft(x, y + 1);
+        cost[i] = (ground ? 1f : (nearGround ? 1.6f : 2.4f)) + (danger ? 6f : 0f) + (tight ? 0.6f : 0f) + (blocked ? 9f : 0f);
+    }
+
+    /** Um bloco mudou (quebrou, porta abriu): recalcula as celulas vizinhas. */
+    public void refresh(int tx, int ty) {
+        for (int y = ty - 2; y <= ty + 2; y++)
+            for (int x = tx - 1; x <= tx + 1; x++)
+                if (x >= 0 && y >= 0 && x < map.w && y < map.h) computeCell(x, y);
     }
 
     public boolean passable(int tx, int ty) {

@@ -54,4 +54,18 @@ public final class C {
     public static final int KILL_SPIKES = 103;
     public static final int KILL_BOMB = 104;
     public static final int KILL_SUICIDE = 105;
+    public static final int KILL_BARREL = 106;
+    public static final int KILL_BOSS = 107;
+    public static final int KILL_ZONE = 108;
+    public static final int KILL_INFECT = 109;
+
+    // emotes: 0..5 frases rapidas, 6..9 reacoes, 10..13 dancas
+    public static final int EMOTE_PHRASES = 6;
+    public static final int EMOTE_DANCE_FIRST = 10;
+    public static final int EMOTE_COUNT = 14;
+
+    /** dono dos tiros dos chefoes */
+    public static final int BOSS_OWNER = -2;
+
+    public static final float HOOK_SPEED = 1700f, HOOK_RANGE = 520f, HOOK_PULL = 3000f;
 }

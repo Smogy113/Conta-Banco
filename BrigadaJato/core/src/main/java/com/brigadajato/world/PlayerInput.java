@@ -2,7 +2,7 @@ package com.brigadajato.world;
 
 /** Comandos de um jogador num instante (humano, bot ou remoto). */
 public class PlayerInput {
-    public static final int P_MELEE = 1, P_GRENADE = 2, P_SWAP = 4, P_RELOAD = 8, P_PICKUP = 16, P_GRENADE_TYPE = 32, P_ZOOM = 64;
+    public static final int P_MELEE = 1, P_GRENADE = 2, P_SWAP = 4, P_RELOAD = 8, P_PICKUP = 16, P_GRENADE_TYPE = 32, P_ZOOM = 64, P_HOOK = 128;
 
     /** -1..1 */
     public float moveX, moveY;
@@ -15,6 +15,8 @@ public class PlayerInput {
     public int presses;
     /** compra pedida no modo bomba (ordinal da arma, -1 = nada) */
     public int buy = -1;
+    /** emote pedido (-1 = nenhum) */
+    public int emote = -1;
 
     public boolean pressed(int flag) {
         return (presses & flag) != 0;
@@ -27,6 +29,7 @@ public class PlayerInput {
     public void clearPresses() {
         presses = 0;
         buy = -1;
+        emote = -1;
     }
 
     public void reset() {
@@ -34,6 +37,7 @@ public class PlayerInput {
         fire = use = false;
         presses = 0;
         buy = -1;
+        emote = -1;
     }
 
     public void copyFrom(PlayerInput o) {
@@ -44,5 +48,6 @@ public class PlayerInput {
         use = o.use;
         presses |= o.presses;
         if (o.buy >= 0) buy = o.buy;
+        if (o.emote >= 0) emote = o.emote;
     }
 }

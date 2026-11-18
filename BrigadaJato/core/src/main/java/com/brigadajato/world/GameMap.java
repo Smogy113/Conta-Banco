@@ -5,13 +5,26 @@ import com.badlogic.gdx.utils.Array;
 
 /** Mapa em grade de blocos. Linha 0 do arquivo = topo; no mundo y cresce para cima. */
 public class GameMap {
-    public static final byte EMPTY = 0, SOLID = 1, PLATFORM = 2, SPIKES = 3;
+    public static final byte EMPTY = 0, SOLID = 1, PLATFORM = 2, SPIKES = 3, BREAKABLE = 4, DOOR = 5, DOOR_OPEN = 6;
+    public static final int BREAKABLE_HP = 45;
 
     public final String id;
     public String name = "?", nameEn = "?";
     public Theme theme = Theme.DESERT;
     /** multiplicador da gravidade (Base Lunar = 0.55) */
     public float gravity = 1f;
+    /** tema da regiao de baixo (null = mapa de um tema so) e primeira linha (ty) que ja e "de cima" */
+    public Theme theme2;
+    public int lowerTop = -1;
+    /** mapa sempre de noite */
+    public boolean night;
+    public short[] tileHp;
+    public final Array<Vector2> levers = new Array<>();
+    public final Array<Vector2> barrels = new Array<>();
+    public final Array<Vector2> lamps = new Array<>();
+    public final Array<Vector2> hills = new Array<>();
+    /** indices das portas de cada alavanca */
+    public final Array<com.badlogic.gdx.utils.IntArray> leverDoors = new Array<>();
     public int w, h;
     public byte[] tiles;
 
@@ -46,7 +59,12 @@ public class GameMap {
 
     public boolean solid(int tx, int ty) {
         int t = get(tx, ty);
-        return t == SOLID || t == SPIKES;
+        return t == SOLID || t == SPIKES || t == BREAKABLE || t == DOOR;
+    }
+
+    /** Tema de uma linha do mapa (regiao de baixo usa theme2). */
+    public Theme themeAt(int ty) {
+        return theme2 != null && ty <= lowerTop ? theme2 : theme;
     }
 
     public boolean solidAt(float x, float y) {
@@ -56,6 +74,7 @@ public class GameMap {
     public static GameMap parse(String id, String text) {
         GameMap m = new GameMap(id);
         Array<String> rows = new Array<>();
+        int splitRow = -1;
         for (String raw : text.split("\n")) {
             String line = raw.replace("\r", "");
             if (line.startsWith("@")) {
@@ -66,6 +85,9 @@ public class GameMap {
                 else if (key.equals("name_en")) m.nameEn = val;
                 else if (key.equals("theme")) m.theme = Theme.parse(val);
                 else if (key.equals("gravity")) m.gravity = Float.parseFloat(val);
+                else if (key.equals("theme2")) m.theme2 = Theme.parse(val);
+                else if (key.equals("split")) splitRow = Integer.parseInt(val);
+                else if (key.equals("night")) m.night = "1".equals(val) || "true".equals(val);
                 continue;
             }
             if (line.trim().isEmpty()) continue;
@@ -76,6 +98,8 @@ public class GameMap {
         m.w = width;
         m.h = rows.size;
         m.tiles = new byte[m.w * m.h];
+        m.tileHp = new short[m.w * m.h];
+        if (splitRow >= 0 && m.theme2 != null) m.lowerTop = m.h - 1 - splitRow;
         float ax = 0, ay = 0, bx = 0, by = 0, rx = 0, ry = 0, blx = 0, bly = 0;
         int an = 0, bn = 0, rn = 0, bln = 0;
         for (int row = 0; row < rows.size; row++) {
@@ -89,6 +113,12 @@ public class GameMap {
                     case '#': t = SOLID; break;
                     case '=': t = PLATFORM; break;
                     case '^': t = SPIKES; break;
+                    case 'D': t = BREAKABLE; m.tileHp[tx + ty * m.w] = BREAKABLE_HP; break;
+                    case 'O': t = DOOR; break;
+                    case 'L': m.levers.add(new Vector2(px, py)); break;
+                    case 'X': m.barrels.add(new Vector2(px, py)); break;
+                    case 'M': m.lamps.add(new Vector2(px, py)); break;
+                    case 'K': m.hills.add(new Vector2(px, py)); break;
                     case 'S': m.spawnsFree.add(new Vector2(px, py)); break;
                     case 'r': m.spawnsRed.add(new Vector2(px, py)); break;
                     case 'b': m.spawnsBlue.add(new Vector2(px, py)); break;
@@ -134,6 +164,26 @@ public class GameMap {
         if (m.spawnsFree.size == 0) m.spawnsFree.add(new Vector2(m.worldW() / 2, m.worldH() / 2));
         if (m.spawnsRed.size == 0) m.spawnsRed.addAll(m.spawnsFree);
         if (m.spawnsBlue.size == 0) m.spawnsBlue.addAll(m.spawnsFree);
+        // cada porta pertence a alavanca mais proxima
+        for (int i = 0; i < m.levers.size; i++) m.leverDoors.add(new com.badlogic.gdx.utils.IntArray());
+        if (m.levers.size > 0) {
+            for (int i = 0; i < m.tiles.length; i++) {
+                if (m.tiles[i] != DOOR) continue;
+                float dx0 = (i % m.w) * C.TILE + C.TILE / 2f, dy0 = (i / m.w) * C.TILE;
+                int best = 0;
+                float bd = Float.MAX_VALUE;
+                for (int k = 0; k < m.levers.size; k++) {
+                    float ddx = m.levers.get(k).x - dx0, ddy = m.levers.get(k).y - dy0;
+                    float dd = ddx * ddx + ddy * ddy;
+                    if (dd < bd) {
+                        bd = dd;
+                        best = k;
+                    }
+                }
+                m.leverDoors.get(best).add(i);
+            }
+        }
+        for (int i = 0; i < m.barrels.size; i++) m.groundSpawn(m.barrels.get(i));
         // ninguem nasce no ar nem em cima de espinhos
         for (int i3_ = 0; i3_ < m.spawnsFree.size; i3_++) {
             Vector2 v = m.spawnsFree.get(i3_); m.groundSpawn(v);
@@ -181,8 +231,8 @@ public class GameMap {
     }
 
     /** Ids dos mapas disponiveis (arquivos em assets/maps). */
-    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "treino"};
+    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado", "treino"};
 
     /** Mapas jogaveis nos modos normais (sem o campo de treino). */
-    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua"};
+    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado"};
 }

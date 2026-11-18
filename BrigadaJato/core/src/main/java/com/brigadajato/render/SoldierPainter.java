@@ -36,8 +36,9 @@ public class SoldierPainter {
         public WeaponType weapon;
         public Look look;
         public float alpha = 1f;
-        /** 0 normal, 1 comemorando */
+        /** 0 normal, 1 comemorando, 2..5 dancas */
         public int action;
+        public boolean zombie;
         /** velocidade horizontal (capa/cachecol balancam) */
         public float vx;
     }
@@ -103,8 +104,14 @@ public class SoldierPainter {
         Look look = s.look;
         float x = s.x, y = s.y;
         boolean celebrate = s.action == 1;
+        int dance = s.action >= 2 ? s.action - 1 : 0; // 1..4
         if (celebrate) y += Math.abs(MathUtils.sin(s.time * 7)) * 6;
+        float dt8 = s.time * 8;
+        if (dance == 1) y += Math.abs(MathUtils.sin(s.time * 6)) * 3;
+        if (dance == 3) y += Math.max(0, MathUtils.sin(s.time * 7)) * 14;
         int f = s.facing;
+        if (dance == 4) f = ((int) (s.time * 2.5f)) % 2 == 0 ? 1 : -1;
+        int skin = s.zombie ? 0x9ccc65 : look.skin;
         int body = s.team == C.TEAM_RED ? RED : (s.team == C.TEAM_BLUE ? BLUE : look.body);
         int bodyDark = darker(body, 0.72f);
         int pants = look.pants;
@@ -117,6 +124,11 @@ public class SoldierPainter {
         float headX = x + f * 1.5f, headY = torsoTop + 6.5f;
         float shoulderX = x, shoulderY = y + (crouch ? C.CROUCH_H : C.PLAYER_H) * 0.66f;
         float aim = celebrate ? MathUtils.PI / 2 - f * 0.7f : s.aim;
+        if (s.zombie && s.weapon == null && !celebrate && dance == 0) aim = f > 0 ? 0.05f : MathUtils.PI - 0.05f;
+        if (dance == 1) aim = MathUtils.PI / 2 + MathUtils.sin(dt8) * 0.9f;
+        else if (dance == 2) aim = -MathUtils.PI / 2 + f * (0.4f + 0.7f * MathUtils.sin(s.time * 9));
+        else if (dance == 3) aim = MathUtils.sin(s.time * 7) > 0 ? MathUtils.PI / 2 + f * 0.6f : -MathUtils.PI / 2 + f * 0.9f;
+        else if (dance == 4) aim = (((int) (s.time * 4)) % 2 == 0) ? 0 : MathUtils.PI / 2;
         float aimDeg = aim * MathUtils.radiansToDegrees;
         float sway = MathUtils.sin(s.time * 6 + x * 0.01f) * 6 - MathUtils.clamp(s.vx * 0.05f, -20, 20) * f;
 
@@ -143,6 +155,22 @@ public class SoldierPainter {
             legA = -12 * f;
             legB = 18 * f;
         }
+        if (dance == 1) {
+            legA = MathUtils.sin(dt8) * 14;
+            legB = -legA;
+        } else if (dance == 2) {
+            legA = MathUtils.sin(s.time * 9) * 18;
+            legB = legA * 0.6f;
+        } else if (dance == 3) {
+            float open = Math.max(0, MathUtils.sin(s.time * 7));
+            legA = 28 * open;
+            legB = -28 * open;
+        } else if (dance == 4) {
+            legA = (((int) (s.time * 4)) % 2 == 0) ? 20 : -6;
+            legB = -legA * 0.5f;
+        }
+        boolean dancing = dance > 0;
+        WeaponType weapon = dancing || celebrate && s.weapon != null && s.weapon.isShield() ? null : s.weapon;
         rect(x - 3.5f - 3, hipY - legLen, 7, legLen, 3.5f, legLen, legB, darker(pants, 0.8f));
         rect(x + 0.5f - 3, hipY - legLen, 7, legLen, 3.5f, legLen, legA, pants);
         float bootAX = x + 0.5f + MathUtils.sinDeg(legA) * legLen, bootAY = hipY - MathUtils.cosDeg(legA) * legLen;
@@ -168,8 +196,19 @@ public class SoldierPainter {
         // ---- braco de tras
         float melee = s.meleeAnim > 0 ? MathUtils.sin(s.meleeAnim / 0.25f * MathUtils.PI) : 0;
         float backArm = celebrate ? 90 + f * 25 + MathUtils.sin(s.time * 8) * 12 : aimDeg + 18 * f * (1 - melee);
+        boolean dual = weapon != null && weapon.dual;
+        if (dual) backArm = aimDeg - 4 * f;
+        if (dance == 1) backArm = 90 - MathUtils.sin(dt8) * 50;
+        else if (dance == 2) backArm = -90 - f * (25 + 40 * MathUtils.sin(s.time * 9));
+        else if (dance == 3) backArm = aimDeg + 180 - f * 2 * (aimDeg - 90);
+        else if (dance == 4) backArm = (((int) (s.time * 4 + 1)) % 2 == 0) ? 180 : 90;
+        if (s.zombie && weapon == null && !dancing && !celebrate) backArm = aimDeg + 6 * f;
+        if (dual) { // segunda arma na mao de tras
+            float bc = MathUtils.cosDeg(backArm), bs = MathUtils.sinDeg(backArm);
+            gun(weapon, look.gunSkin, shoulderX - f * 2 + bc * 4, shoulderY + 3 + bs * 4, backArm, f);
+        }
         rect(shoulderX - f * 2, shoulderY - 2.5f, 13, 5, 0, 2.5f, backArm, bodyDark);
-        if (celebrate) circle(shoulderX - f * 2 + MathUtils.cosDeg(backArm) * 13, shoulderY + MathUtils.sinDeg(backArm) * 13, 3.3f, look.skin);
+        if (celebrate || dancing || dual || s.zombie) circle(shoulderX - f * 2 + MathUtils.cosDeg(backArm) * 13, shoulderY + MathUtils.sinDeg(backArm) * 13, 3.3f, skin);
 
         // ---- corpo
         rrect(x - 8.5f, hipY - 1, 17, torsoH + 2, 8.5f, 0, 0, body);
@@ -193,16 +232,31 @@ public class SoldierPainter {
         }
 
         // ---- cabeca
-        circle(headX, headY, headR, look.skin);
-        face(look, headX, headY, headR, f, aim, s.time);
+        circle(headX, headY, headR, skin);
+        face(look, headX, headY, headR, f, dancing ? (f > 0 ? 0 : MathUtils.PI) : aim, s.time);
+        if (s.zombie) { // olheiras e cicatriz
+            dCircle(headX + f * 3.5f, headY + 1, 2.6f, 0x33691e);
+            alphaLast(0.5f);
+            dRect(headX - f * 2 - 3, headY + 4, 6, 1.4f, 0, 0, f * 25, 0x7b1f1f);
+        }
         drawHat(look, headX, headY, headR, f, s.time);
 
         // ---- arma + braco da frente
         float ca = MathUtils.cos(aim), sa = MathUtils.sin(aim);
-        if (s.weapon != null) gun(s.weapon, look.gunSkin, shoulderX + ca * (4 + melee * 6), shoulderY + sa * (4 + melee * 6), aimDeg, f);
+        boolean shieldW = weapon != null && weapon.isShield();
+        if (weapon != null && !shieldW) gun(weapon, look.gunSkin, shoulderX + ca * (4 + melee * 6), shoulderY + sa * (4 + melee * 6), aimDeg, f);
         float armLen = 12 + melee * 8;
+        if (s.zombie && weapon == null && !dancing) armLen = 15 + melee * 8;
         rect(shoulderX + f * 1, shoulderY - 2.5f, armLen, 5, 0, 2.5f, aimDeg, body);
-        circle(shoulderX + f * 1 + ca * armLen, shoulderY + sa * armLen, 3.3f, look.skin);
+        circle(shoulderX + f * 1 + ca * armLen, shoulderY + sa * armLen, 3.3f, skin);
+        if (shieldW) { // escudo anti-motim na frente do corpo
+            float tilt = MathUtils.clamp(f > 0 ? aimDeg : 180 - aimDeg, -35, 35) * 0.35f * f;
+            float sx0 = x + f * (11 + melee * 8), sy0 = hipY - 9;
+            rrect(sx0 - 4, sy0, 8, 38, 4, 0, tilt, 0x37474f);
+            dRect(sx0 - 2.5f, sy0 + 24, 5, 9, -1.5f + 4, -24, tilt, 0x80deea);
+            alphaLast(0.75f);
+            dRect(sx0 - 2.5f, sy0 + 5, 5, 2, -1.5f + 4, -5, tilt, 0xffeb3b);
+        }
 
         flush(d, s.alpha, s.hurtFlash > 0);
 
@@ -526,6 +580,26 @@ public class SoldierPainter {
         float len = w.gunLen, h = w.gunH;
         int col = gunColor(w.color, skin);
         float sy = f > 0 ? 1 : -1;
+        if (w == WeaponType.BOW) {
+            float c = MathUtils.cosDeg(deg), s = MathUtils.sinDeg(deg);
+            rect(x + c * 8, y + s * 8, 3.5f, 17, 1.75f, 0, deg + 90 - 18 * sy, skin == 0 ? 0x8d5524 : col);
+            rect(x + c * 8, y + s * 8, 3.5f, 17, 1.75f, 0, deg - 90 + 18 * sy, skin == 0 ? 0x8d5524 : col);
+            float tx1 = x + c * 8 + MathUtils.cosDeg(deg + 90 - 18 * sy) * 17, ty1 = y + s * 8 + MathUtils.sinDeg(deg + 90 - 18 * sy) * 17;
+            float tx2 = x + c * 8 + MathUtils.cosDeg(deg - 90 + 18 * sy) * 17, ty2 = y + s * 8 + MathUtils.sinDeg(deg - 90 + 18 * sy) * 17;
+            float ang = MathUtils.atan2(ty2 - ty1, tx2 - tx1) * MathUtils.radiansToDegrees;
+            float l2 = (float) Math.sqrt((tx2 - tx1) * (tx2 - tx1) + (ty2 - ty1) * (ty2 - ty1));
+            dRect(tx1, ty1 - 0.5f, l2, 1f, 0, 0.5f, ang, 0xeeeeee);
+            rect(x, y - 1, 22, 2, 0, 1, deg, 0xa1887f); // flecha
+            add(T_TRI, x + c * 22 - 3, y + s * 22 - 3, 6, 6, 3, 3, deg - 90, 0x9e9e9e, true);
+            return;
+        }
+        if (w == WeaponType.BOOMERANG) {
+            float c = MathUtils.cosDeg(deg), s = MathUtils.sinDeg(deg);
+            int bc = skin == 0 ? 0xffb300 : col;
+            rect(x + c * 4, y + s * 4 - 2.5f, 14, 5, 0, 2.5f, deg + 35, bc);
+            rect(x + c * 4, y + s * 4 - 2.5f, 14, 5, 0, 2.5f, deg - 35, darker(bc, 0.85f));
+            return;
+        }
         rect(x, y - h / 2, len * 0.72f, h, 0, h / 2, deg, col);
         if (skin == 1 || skin == 3 || skin == 4) { // brilho
             dRect(x, y + h * 0.1f - h / 2 + h * 0.55f * (sy > 0 ? 1 : 0.2f), len * 0.7f, h * 0.18f, 0, h * 0.09f - h * 0.05f, deg, 0xffffff);
@@ -538,6 +612,30 @@ public class SoldierPainter {
         float bx = x + c * len * 0.7f, by = y + s * len * 0.7f;
         float bh = Math.max(3, h * 0.45f);
         int barrel = skin == 0 ? darker(col, 0.55f) : darker(col, 0.7f);
+        if (w == WeaponType.FROST || w == WeaponType.TESLA || w == WeaponType.GRAVITY || w == WeaponType.HARPOON) {
+            int accent = w == WeaponType.FROST ? 0x4fc3f7 : (w == WeaponType.TESLA ? 0xffee58 : (w == WeaponType.GRAVITY ? 0xb388ff : 0xbdbdbd));
+            if (w == WeaponType.HARPOON) {
+                rect(bx, by - bh / 2, len * 0.42f, bh, 0, bh / 2, deg, barrel);
+                rect(x + c * len * 0.95f, y + s * len * 0.95f - 1, 12, 2, 0, 1, deg, 0xcfd8dc);
+                add(T_TRI, x + c * (len + 11) - 3.5f, y + s * (len + 11) - 3.5f, 7, 7, 3.5f, 3.5f, deg - 90, 0x90a4ae, true);
+                return;
+            }
+            rect(bx, by - bh / 2, len * 0.3f, bh, 0, bh / 2, deg, barrel);
+            if (w == WeaponType.FROST) {
+                circle(x + c * 7 - s * sy * 6, y + s * 7 + c * sy * 6, 4.8f, accent);
+                dCircle(x + c * len, y + s * len, 2.4f, 0xe1f5fe);
+            } else if (w == WeaponType.TESLA) {
+                for (int k = 0; k < 3; k++) {
+                    float kx = x + c * (len * 0.35f + k * 4.5f), ky = y + s * (len * 0.35f + k * 4.5f);
+                    add(T_RING, kx, ky, h * 0.55f, h * 0.55f, 0, 0, 0, accent, false);
+                }
+                dCircle(x + c * (len + 1), y + s * (len + 1), 3, 0xfff9c4);
+            } else {
+                circle(x + c * (len + 2), y + s * (len + 2), h * 0.55f, 0x311b92);
+                dCircle(x + c * (len + 2), y + s * (len + 2), h * 0.3f, accent);
+            }
+            return;
+        }
         if (w == WeaponType.ROCKET) {
             rect(x - c * 6, y - h / 2 - s * 6, len + 6, h, 0, h / 2, deg, col);
             rect(x + c * (len - 2), y + s * (len - 2) - h * 0.65f, 5, h * 1.3f, 0, h * 0.65f, deg, darker(col, 0.6f));
@@ -551,7 +649,8 @@ public class SoldierPainter {
         } else {
             rect(bx, by - bh / 2, len * 0.32f, bh, 0, bh / 2, deg, barrel);
         }
-        if (w == WeaponType.SMG || w == WeaponType.RIFLE || w == WeaponType.LMG || w == WeaponType.PISTOL || w == WeaponType.MAGNUM) {
+        if (w == WeaponType.SMG || w == WeaponType.RIFLE || w == WeaponType.LMG || w == WeaponType.PISTOL || w == WeaponType.MAGNUM
+                || w == WeaponType.DUAL_PISTOLS || w == WeaponType.DUAL_SMG) {
             float mx = x + c * len * 0.32f + s * sy * h * 0.5f, my = y + s * len * 0.32f - c * sy * h * 0.5f;
             float mh = w == WeaponType.LMG ? 9 : 7;
             rect(mx, my, 4.5f, mh, 2.25f, mh, deg, darker(col, 0.5f));
@@ -621,7 +720,15 @@ public class SoldierPainter {
     public void drawGun(Draw d, WeaponType w, int skin, float cx, float cy, float deg, float scale, float alpha) {
         n = 0;
         float len = w.gunLen;
-        gun(w, skin, cx - len / 2 * MathUtils.cosDeg(deg), cy - len / 2 * MathUtils.sinDeg(deg), deg, 1);
+        if (w.isShield()) {
+            rrect(cx - 8, cy - 16, 16, 32, 8, 16, deg + 8, 0x37474f);
+            dRect(cx - 5, cy + 3, 10, 9, 5, -3, deg + 8, 0x80deea);
+            alphaLast(0.75f);
+            dRect(cx - 5, cy - 10, 10, 2.5f, 5, 10, deg + 8, 0xffeb3b);
+        } else {
+            if (w.dual) gun(w, skin, cx - len / 2 * MathUtils.cosDeg(deg) - 4, cy - len / 2 * MathUtils.sinDeg(deg) + 6, deg, 1);
+            gun(w, skin, cx - len / 2 * MathUtils.cosDeg(deg), cy - len / 2 * MathUtils.sinDeg(deg), deg, 1);
+        }
         if (scale != 1f) {
             for (int i = 0; i < n; i++) {
                 px[i] = cx + (px[i] - cx) * scale;

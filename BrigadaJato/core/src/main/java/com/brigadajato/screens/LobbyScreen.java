@@ -125,7 +125,7 @@ public class LobbyScreen extends BaseScreen {
         if (!I18n.pt) map = BrigadaJatoGame.loadMap(cfg.mapId).nameEn;
         info.setText((I18n.pt ? cfg.mode.pt : cfg.mode.en) + "  ·  " + map + "  ·  " + I18n.t("bots") + ": " + cfg.bots + "  ·  " + I18n.t("diff" + cfg.difficulty));
         players.clearChildren();
-        boolean teams = cfg.mode.teams && cfg.mode != ModeType.SURVIVAL && cfg.mode != ModeType.TRAINING;
+        boolean teams = cfg.mode.chooseTeams();
         for (HostSession.Entry e : list) {
             Table row = new Table(skin);
             row.setBackground("panel");

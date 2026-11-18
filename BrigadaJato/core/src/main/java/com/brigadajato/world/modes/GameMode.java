@@ -45,12 +45,26 @@ public abstract class GameMode {
                 return new SurvivalMode(w);
             case TRAINING:
                 return new TrainingMode(w);
+            case GUN_GAME:
+                return new GunGameMode(w);
+            case KING_HILL:
+                return new KingHillMode(w);
+            case INFECTION:
+                return new InfectionMode(w);
+            case BATTLE_ROYALE:
+                return new BattleRoyaleMode(w);
+            case DUEL:
+                return new DuelMode(w);
             default:
                 return new DeathmatchMode(w);
         }
     }
 
     public void init() {
+    }
+
+    /** Alguem entrou no meio da partida. */
+    public void onJoin(Player p) {
     }
 
     public boolean usesMapItems() {
@@ -146,6 +160,39 @@ public abstract class GameMode {
     }
 
     public void onKill(Player victim, Player attacker) {
+    }
+
+    /** Versao com o codigo da morte (arma/causa); por padrao chama a de dois argumentos. */
+    public void onKill(Player victim, Player attacker, int code) {
+        onKill(victim, attacker);
+    }
+
+    /** Multiplicador do consumo de combustivel do jetpack. */
+    public float fuelMul(Player p) {
+        return 1f;
+    }
+
+    public boolean allowGrenades(Player p) {
+        return true;
+    }
+
+    /** Multiplicador do dano causado por p. */
+    public float damageDealtMul(Player p) {
+        return 1f;
+    }
+
+    /** Armas caem no chao quando alguem morre? */
+    public boolean dropsWeapons() {
+        return true;
+    }
+
+    public boolean canPickup(Player p) {
+        return true;
+    }
+
+    /** Pode trocar de arma / pegar armas do chao? (Gun Game nao deixa) */
+    public boolean allowWeaponChange(Player p) {
+        return true;
     }
 
     /** Objetivo do modo para um bot (posicao no mundo) ou false. */
