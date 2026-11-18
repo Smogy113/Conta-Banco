@@ -47,6 +47,12 @@ public class TouchControls extends InputAdapter {
     public boolean pauseRequested;
     public boolean zoomToggled;
     private boolean fireButtonHeld;
+    // toque duplo para o lado = rolamento
+    private int lastFlickDir;
+    private float lastFlickTime = -9, clock;
+    private boolean flickArmed = true;
+    private int lastKeyDir;
+    private float lastKeyTime = -9;
     /** roda de emotes aberta */
     public boolean wheelOpen;
     private int pendingEmote = -1;
@@ -326,6 +332,20 @@ public class TouchControls extends InputAdapter {
             case Input.Keys.Q: presses |= PlayerInput.P_SWAP; break;
             case Input.Keys.E: presses |= PlayerInput.P_PICKUP; break;
             case Input.Keys.C: presses |= PlayerInput.P_HOOK; break;
+            case Input.Keys.SHIFT_LEFT:
+            case Input.Keys.SHIFT_RIGHT:
+                presses |= PlayerInput.P_ROLL;
+                break;
+            case Input.Keys.A:
+            case Input.Keys.D:
+            case Input.Keys.LEFT:
+            case Input.Keys.RIGHT: {
+                int dir = keycode == Input.Keys.A || keycode == Input.Keys.LEFT ? -1 : 1;
+                if (dir == lastKeyDir && clock - lastKeyTime < 0.28f) presses |= PlayerInput.P_ROLL;
+                lastKeyDir = dir;
+                lastKeyTime = clock;
+                return false;
+            }
             case Input.Keys.V: wheelOpen = !wheelOpen; break;
             case Input.Keys.Z:
                 zoomToggled = !zoomToggled;
@@ -370,6 +390,7 @@ public class TouchControls extends InputAdapter {
 
         moveX = 0;
         moveY = 0;
+        clock += Gdx.graphics.getDeltaTime();
         if (leftPointer != -1) {
             float dx = (lX - lBaseX) / stickR, dy = (lY - lBaseY) / stickR;
             float m = (float) Math.sqrt(dx * dx + dy * dy);
@@ -379,7 +400,19 @@ public class TouchControls extends InputAdapter {
             }
             moveX = Math.abs(dx) < 0.18f ? 0 : dx;
             moveY = Math.abs(dy) < 0.22f ? 0 : dy;
-        }
+            // duas "batidas" rapidas no mesmo lado = rolamento
+            if (Math.abs(dx) > 0.85f && Math.abs(dy) < 0.55f) {
+                int dir = dx > 0 ? 1 : -1;
+                if (flickArmed) {
+                    if (dir == lastFlickDir && clock - lastFlickTime < 0.32f) {
+                        presses |= PlayerInput.P_ROLL;
+                        lastFlickTime = -9;
+                    } else lastFlickTime = clock;
+                    lastFlickDir = dir;
+                    flickArmed = false;
+                }
+            } else if (Math.abs(dx) < 0.35f) flickArmed = true;
+        } else flickArmed = true;
         if (kb) {
             moveX = kx;
             moveY = ky;
@@ -576,16 +609,13 @@ public class TouchControls extends InputAdapter {
         d.rgb(0x1a1a1a, Math.min(1, op + 0.3f));
         switch (b) {
             case B_GRENADE: {
-                boolean mine = p.grenadeType == 1;
-                if (mine) Icons.mine(d, x - 4, y, r * 0.9f, true);
-                else Icons.grenade(d, x - 4, y, r * 0.85f);
+                Icons.nade(d, p.grenadeType, x - 4, y, r * 0.9f);
                 normal.setColor(1, 1, 1, 1);
-                normal.draw(d.batch, com.brigadajato.render.Num.of(mine ? p.mines : p.frags), x + r * 0.55f, y - r * 0.2f, 0, Align.center, false);
+                normal.draw(d.batch, com.brigadajato.render.Num.of(p.nades(p.grenadeType)), x + r * 0.55f, y - r * 0.2f, 0, Align.center, false);
                 break;
             }
             case B_GTYPE:
-                if (p.grenadeType == 0) Icons.mine(d, x, y, r * 1.1f, false);
-                else Icons.grenade(d, x, y, r * 1.1f);
+                Icons.nade(d, (p.grenadeType + 1) % com.brigadajato.world.Player.NADE_TYPES, x, y, r * 1.1f);
                 break;
             case B_RELOAD:
                 Icons.reload(d, x, y, r * 1.2f, Math.min(1, op + 0.3f));

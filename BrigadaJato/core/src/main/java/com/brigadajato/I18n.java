@@ -384,6 +384,12 @@ public final class I18n {
         d("reset", "Restaurar", "Reset");
         d("unlocked_all", "Versão de teste: tudo liberado (nível máximo)", "Test build: everything unlocked (max level)");
         d("hook", "Gancho", "Hook");
+        d("nade_0", "Granada", "Grenade");
+        d("nade_1", "Mina", "Mine");
+        d("nade_2", "Fumaça", "Smoke");
+        d("nade_3", "Flashbang", "Flashbang");
+        d("nade_4", "Grudenta", "Sticky");
+        d("roll", "Rolar", "Roll");
         d("lever", "Alavanca", "Lever");
         d("podium", "Pódio", "Podium");
     }

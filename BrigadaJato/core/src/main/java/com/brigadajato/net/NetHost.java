@@ -128,7 +128,7 @@ public class NetHost {
                     DataInputStream d = new DataInputStream(new java.io.ByteArrayInputStream(frame, 1, frame.length - 1));
                     float mx = d.readFloat(), my = d.readFloat(), aim = d.readFloat();
                     int flags = d.readByte();
-                    int presses = d.readByte() & 0xff;
+                    int presses = d.readShort() & 0xffff;
                     int buy = d.readShort();
                     int emote = d.readByte();
                     synchronized (c.pending) {

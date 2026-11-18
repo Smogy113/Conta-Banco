@@ -203,6 +203,22 @@ def music():
     track("market", 116, [("G", False), ("E", True), ("C", False), ("D", False)], {"lead": "saw", "bass_pat": [0, 0.75, 1.5, 2, 2.5, 3.25], "swing": 0.5})
 
 
+def sfx2():
+    d = 0.35
+    save("roll", mix(highpass(lowpass(noise(d), 3), 15) * env_ad(d, 0.03, 9) * 0.7, lowpass(noise(0.06), 4) * env_exp(0.06, 50)), 0.6)
+    d = 1.4
+    save("smoke", mix(highpass(lowpass(noise(d), 4), 8) * env_ad(d, 0.08, 2.2), sine(lambda tt: 300 * np.exp(-tt * 3) + 80, d) * env_exp(d, 4) * 0.2), 0.6)
+    save("stick", mix(lowpass(noise(0.12), 6) * env_exp(0.12, 30), sine(lambda tt: 220 * np.exp(-tt * 20) + 90, 0.15) * env_exp(0.15, 25)), 0.6)
+    d = 1.2
+    ring = sine(3400, d) * env_ad(d, 0.05, 1.5) * 0.35
+    save("flashbang", mix(lowpass(noise(0.4), 3) * env_exp(0.4, 9), sine(lambda tt: 90 * np.exp(-tt * 5), 0.5) * env_exp(0.5, 8), ring), 0.9)
+
+
 if __name__ == "__main__":
-    sfx()
-    music()
+    import sys as _s
+    if len(_s.argv) > 1 and _s.argv[1] == "sfx2":
+        sfx2()
+    else:
+        sfx()
+        sfx2()
+        music()

@@ -27,8 +27,8 @@ public class BombMode extends GameMode {
 
     public static final float BUY_TIME = 8f, ROUND_TIME = 100f, BOMB_TIME = 35f, END_TIME = 4.5f;
     public static final float PLANT_TIME = 3f, DEFUSE_TIME = 5f, SITE_RADIUS = 120f;
-    public static final int ITEM_ARMOR = 100, ITEM_FRAG = 101, ITEM_MINE = 102;
-    public static final int PRICE_ARMOR = 650, PRICE_FRAG = 300, PRICE_MINE = 400;
+    public static final int ITEM_ARMOR = 100, ITEM_FRAG = 101, ITEM_MINE = 102, ITEM_SMOKE = 103, ITEM_FLASH = 104, ITEM_STICKY = 105;
+    public static final int PRICE_ARMOR = 650, PRICE_FRAG = 300, PRICE_MINE = 400, PRICE_SMOKE = 300, PRICE_FLASH = 200, PRICE_STICKY = 400;
 
     public int phase = BUY;
     public float phaseTimer = BUY_TIME;
@@ -140,6 +140,9 @@ public class BombMode extends GameMode {
         p.slot = p.guns[0] != null ? 0 : 1;
         p.frags = Math.max(p.frags, 1);
         p.mines = 0;
+        p.smokes = 0;
+        p.flashes = 0;
+        p.stickies = 0;
         p.spawnShield = 0;
         if (p.isBot) botBuy(p);
     }
@@ -166,6 +169,12 @@ public class BombMode extends GameMode {
             if (p.money < PRICE_ARMOR || p.armor >= C.ARMOR_MAX) return;
             p.money -= PRICE_ARMOR;
             p.armor = C.ARMOR_MAX;
+        } else if (code == ITEM_SMOKE || code == ITEM_FLASH || code == ITEM_STICKY) {
+            int type = code == ITEM_SMOKE ? Player.NADE_SMOKE : (code == ITEM_FLASH ? Player.NADE_FLASH : Player.NADE_STICKY);
+            int price = code == ITEM_SMOKE ? PRICE_SMOKE : (code == ITEM_FLASH ? PRICE_FLASH : PRICE_STICKY);
+            if (p.money < price || p.nades(type) >= 2) return;
+            p.money -= price;
+            p.addNades(type, 1);
         } else if (code == ITEM_FRAG) {
             if (p.money < PRICE_FRAG || p.frags >= C.MAX_FRAGS) return;
             p.money -= PRICE_FRAG;

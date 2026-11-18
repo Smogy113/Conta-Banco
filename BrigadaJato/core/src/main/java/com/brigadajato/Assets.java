@@ -260,7 +260,7 @@ public class Assets implements Disposable {
             "throw", "arm", "streak", "spawn", "step", "kill1", "kill2", "kill3", "kill4", "kill5", "headshot",
             "bow", "boomerang", "catch", "frost", "freeze", "tesla", "gravity", "harpoon", "harpoon_pull", "hook", "hook_hit",
             "block", "crate_break", "lever", "door", "boss", "boss_down", "charge", "stomp", "levelup", "infect", "emote",
-            "dance", "round"};
+            "dance", "round", "roll", "smoke", "stick", "flashbang"};
 
     private void loadSounds() {
         for (String n : SOUND_NAMES) {

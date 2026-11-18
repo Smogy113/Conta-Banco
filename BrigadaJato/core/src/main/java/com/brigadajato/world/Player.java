@@ -36,6 +36,13 @@ public class Player {
     public int slot;
     public float reloadTimer, fireCooldown, meleeCooldown, grenadeCooldown;
     public int frags = 2, mines = 0;
+    /** granadas extras: fumaca, flashbang e grudenta */
+    public int smokes, flashes, stickies;
+    /** cego pela flashbang (segundos) */
+    public float flash;
+    /** rolamento/esquiva */
+    public float rollTimer, rollCd;
+    public int rollDir = 1;
     /** 0 = granada de fragmentacao, 1 = mina */
     public int grenadeType;
 
@@ -121,6 +128,9 @@ public class Player {
     }
 
     public void resetForSpawn(float sx, float sy) {
+        rollTimer = 0;
+        rollCd = 0;
+        flash = 0;
         alive = true;
         x = sx;
         y = sy;
@@ -155,6 +165,9 @@ public class Player {
         slot = 0;
         frags = 2;
         mines = 1;
+        smokes = 1;
+        flashes = 1;
+        stickies = 1;
     }
 
     public float distTo(Player o) {
@@ -168,5 +181,27 @@ public class Player {
 
     public float aimY() {
         return MathUtils.sin(aim);
+    }
+
+    public static final int NADE_FRAG = 0, NADE_MINE = 1, NADE_SMOKE = 2, NADE_FLASH = 3, NADE_STICKY = 4, NADE_TYPES = 5;
+
+    public int nades(int type) {
+        switch (type) {
+            case NADE_MINE: return mines;
+            case NADE_SMOKE: return smokes;
+            case NADE_FLASH: return flashes;
+            case NADE_STICKY: return stickies;
+            default: return frags;
+        }
+    }
+
+    public void addNades(int type, int n) {
+        switch (type) {
+            case NADE_MINE: mines = Math.max(0, mines + n); break;
+            case NADE_SMOKE: smokes = Math.max(0, smokes + n); break;
+            case NADE_FLASH: flashes = Math.max(0, flashes + n); break;
+            case NADE_STICKY: stickies = Math.max(0, stickies + n); break;
+            default: frags = Math.max(0, frags + n); break;
+        }
     }
 }

@@ -2,7 +2,7 @@ package com.brigadajato.world;
 
 /** Tudo que voa: balas, chamas, foguetes, granadas, minas e discos. */
 public class Projectile {
-    public enum Kind {BULLET, FLAME, ROCKET, SHELL, FRAG, MINE, DISC, ARROW, BOOMERANG, FROST, VORTEX, HARPOON}
+    public enum Kind {BULLET, FLAME, ROCKET, SHELL, FRAG, MINE, DISC, ARROW, BOOMERANG, FROST, VORTEX, HARPOON, SMOKE, FLASH, STICKY}
 
     public int id;
     public Kind kind;
@@ -28,6 +28,6 @@ public class Projectile {
 
     public boolean synced() {
         return kind == Kind.ROCKET || kind == Kind.SHELL || kind == Kind.FRAG || kind == Kind.MINE || kind == Kind.DISC
-                || kind == Kind.BOOMERANG || kind == Kind.VORTEX || kind == Kind.HARPOON;
+                || kind == Kind.BOOMERANG || kind == Kind.VORTEX || kind == Kind.HARPOON || kind == Kind.SMOKE || kind == Kind.FLASH || kind == Kind.STICKY;
     }
 }

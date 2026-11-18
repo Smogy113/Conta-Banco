@@ -102,7 +102,7 @@ public class NetClient {
             w.out.writeFloat(in.moveY);
             w.out.writeFloat(in.aim);
             w.out.writeByte((in.fire ? 1 : 0) | (in.use ? 2 : 0));
-            w.out.writeByte(in.presses);
+            w.out.writeShort(in.presses);
             w.out.writeShort(in.buy);
             w.out.writeByte(in.emote);
             if (sendQ.size() < 60) sendQ.add(w.build());

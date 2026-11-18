@@ -107,6 +107,7 @@ public class BotBrain {
 
     public void onDamaged(Player attacker) {
         if (attacker == null || attacker == p) return;
+        if (difficulty > 0 && p.rollCd <= 0 && rng.nextFloat() < 0.22f) p.input.press(PlayerInput.P_ROLL); // esquiva
         if (target == null || !targetVisible) {
             target = attacker;
             lastSeenX = attacker.x;
@@ -228,6 +229,10 @@ public class BotBrain {
     }
 
     private void perceive(World w) {
+        if (p.flash > 0.5f) { // cego pela flashbang
+            targetVisible = false;
+            return;
+        }
         Player best = null;
         float bestD = vision;
         float ex = p.x, ey = p.shoulderY();
@@ -238,6 +243,7 @@ public class BotBrain {
             float d = p.distTo(q);
             if (d > vision) continue;
             if (!w.lineOfSight(ex, ey, q.x, q.centerY()) && !w.lineOfSight(ex, ey, q.x, q.headY())) continue;
+            if (w.smokeBlocks(ex, ey, q.x, q.centerY())) continue;
             float score = d - (q == target ? 200 : 0) - (q.carryingFlag != 0 || q.hasBomb ? 250 : 0);
             if (score < bestD) {
                 bestD = score;
@@ -301,12 +307,20 @@ public class BotBrain {
             if (g != null && g.type.isExplosive() && d < 110) in.fire = false;
             if (d < C.MELEE_RANGE + 10) in.press(PlayerInput.P_MELEE);
             grenadeTimer -= dt;
-            if (grenadeTimer <= 0 && (p.frags > 0 || p.mines > 0) && d > 160 && d < 560 && difficulty > 0) {
-                grenadeTimer = 6 + rng.nextFloat() * 6;
-                float dx = target.x - p.x, dy = target.centerY() - p.shoulderY();
-                in.aim = MathUtils.atan2(dy + d * 0.45f, dx);
-                p.grenadeType = p.frags > 0 ? 0 : 1;
-                in.press(PlayerInput.P_GRENADE);
+            if (grenadeTimer <= 0 && d > 160 && d < 560 && difficulty > 0) {
+                int type = -1;
+                if (p.health < 45 && p.smokes > 0) type = Player.NADE_SMOKE;
+                else if (d < 420 && p.flashes > 0 && rng.nextFloat() < 0.35f) type = Player.NADE_FLASH;
+                else if (p.stickies > 0 && rng.nextFloat() < 0.3f) type = Player.NADE_STICKY;
+                else if (p.frags > 0) type = Player.NADE_FRAG;
+                else if (p.mines > 0) type = Player.NADE_MINE;
+                if (type >= 0) {
+                    grenadeTimer = 6 + rng.nextFloat() * 6;
+                    float dx = target.x - p.x, dy = target.centerY() - p.shoulderY();
+                    in.aim = MathUtils.atan2(dy + d * 0.45f, dx);
+                    p.grenadeType = type;
+                    in.press(PlayerInput.P_GRENADE);
+                }
             }
         } else if (boss != null) {
             float d = (float) Math.hypot(boss.x - p.x, boss.centerY() - p.shoulderY());

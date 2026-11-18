@@ -336,6 +336,11 @@ public class Hud implements Disposable {
     }
 
     public void draw(Draw d, World w, Player local, float fps, boolean scoreboard, boolean touchUi) {
+        if (local != null && local.flash > 0) { // cegueira da flashbang
+            d.color(1, 1, 1, Math.min(1, local.flash * 0.6f));
+            d.rect(0, 0, this.w, this.h);
+            d.color(1, 1, 1, 1);
+        }
         dr = d;
         float W = this.w, H = this.h;
         if (refresh <= 0) rebuildTexts(w, local);
@@ -450,17 +455,12 @@ public class Hud implements Disposable {
         Draw.segBar(d, x + 36, y - 6, 214, 13, fuel, local.fuelLocked ? 0x8a8a8a : 0x4fc3f7, 10);
         // granadas, minas, dinheiro, power-ups
         y -= 34;
-        Icons.grenade(d, x + 16, y + 2, 24);
-        text(a.small, Num.of(local.frags), x + 32, y + 12, local.grenadeType == 0 ? 0xffffff : 0x9e9e9e, 1, Align.left);
-        Icons.mine(d, x + 72, y + 2, 26, local.grenadeType == 1);
-        text(a.small, Num.of(local.mines), x + 90, y + 12, local.grenadeType == 1 ? 0xffffff : 0x9e9e9e, 1, Align.left);
-        if (local.grenadeType == 0) {
-            d.rgb(0xffd54f, 0.9f);
-            d.rect(x + 4, y - 12, 26, 2.5f);
-        } else {
-            d.rgb(0xffd54f, 0.9f);
-            d.rect(x + 60, y - 12, 26, 2.5f);
-        }
+        // granada escolhida (Shift/botao troca o tipo) e a quantidade
+        Icons.nade(d, local.grenadeType, x + 16, y + 2, 26);
+        text(a.small, Num.of(local.nades(local.grenadeType)), x + 32, y + 12, 0xffffff, 1, Align.left);
+        text(a.small, I18n.t("nade_" + local.grenadeType), x + 52, y + 12, 0xbdbdbd, 1, Align.left);
+        d.rgb(0xffd54f, 0.9f);
+        d.rect(x + 4, y - 12, 26, 2.5f);
         float px = x + 128;
         if (!rightText.isEmpty()) {
             text(a.small, rightText, px, y + 12, 0x9ccc65, 1, Align.left);

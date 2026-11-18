@@ -292,6 +292,8 @@ public class World {
         p.meleeAnim = Math.max(0, p.meleeAnim - dt);
         p.hurtFlash = Math.max(0, p.hurtFlash - dt);
         p.hookCd = Math.max(0, p.hookCd - dt);
+        p.rollCd = Math.max(0, p.rollCd - dt);
+        p.flash = Math.max(0, p.flash - dt);
         p.emoteCd = Math.max(0, p.emoteCd - dt);
         p.emoteTimer = Math.max(0, p.emoteTimer - dt);
         p.recentlyFired = time - p.lastShotTime < 1.0f;
@@ -330,6 +332,22 @@ public class World {
         float target = frozen ? 0 : MathUtils.clamp(in.moveX, -1, 1) * speed;
         float accel = p.onGround ? C.GROUND_ACCEL : C.AIR_ACCEL;
         if (p.frozen > 0) accel *= 0.15f; // escorrega no gelo
+        // rolamento / esquiva rapida
+        if (in.pressed(PlayerInput.P_ROLL) && p.rollCd <= 0 && !frozen && p.hookState == 0) {
+            p.rollDir = Math.abs(in.moveX) > 0.2f ? (in.moveX > 0 ? 1 : -1) : p.facing;
+            p.rollTimer = p.onGround ? 0.34f : 0.26f;
+            p.rollCd = 1.1f;
+            p.emoteTimer = 0;
+            if (p.onGround) p.vy = Math.max(p.vy, 90);
+            sound("roll", p.x, p.y);
+        }
+        if (p.rollTimer > 0) {
+            p.rollTimer -= dt;
+            float k = Math.max(0, p.rollTimer) / 0.34f;
+            target = p.rollDir * (p.onGround ? 380 + 320 * k : 300 + 260 * k);
+            accel = 9000;
+            p.crouching = p.onGround;
+        }
         p.vx = approach(p.vx, target, accel * dt);
         if (p.onGround && Math.abs(p.vx) > 20) {
             p.anim += dt * Math.abs(p.vx) / 38f;
@@ -427,7 +445,14 @@ public class World {
         if (in.pressed(PlayerInput.P_SWAP)) swap(p);
         if (in.pressed(PlayerInput.P_MELEE)) melee(p);
         if (in.pressed(PlayerInput.P_GRENADE_TYPE)) {
-            p.grenadeType = 1 - p.grenadeType;
+            // proxima granada que o jogador tem (fragmentacao, mina, fumaca, flash, grudenta)
+            for (int k = 1; k <= Player.NADE_TYPES; k++) {
+                int t = (p.grenadeType + k) % Player.NADE_TYPES;
+                if (p.nades(t) > 0 || k == Player.NADE_TYPES) {
+                    p.grenadeType = t;
+                    break;
+                }
+            }
         }
         if (in.pressed(PlayerInput.P_GRENADE) && mode.allowGrenades(p)) throwGrenade(p);
         if (in.pressed(PlayerInput.P_PICKUP)) manualPickup(p);
@@ -1241,21 +1266,28 @@ public class World {
 
     private void throwGrenade(Player p) {
         if (p.grenadeCooldown > 0) return;
-        boolean mine = p.grenadeType == 1;
-        if (mine && p.mines <= 0) mine = false;
-        if (!mine && p.frags <= 0) {
-            if (p.mines > 0) mine = true;
-            else return;
+        int type = p.grenadeType;
+        if (p.nades(type) <= 0) {
+            type = -1;
+            for (int t = 0; t < Player.NADE_TYPES; t++) if (p.nades(t) > 0) {
+                type = t;
+                break;
+            }
+            if (type < 0) return;
         }
         p.grenadeCooldown = 0.6f;
-        if (!mode.infiniteAmmo(p)) {
-            if (mine) p.mines--;
-            else p.frags--;
-        }
+        if (!mode.infiniteAmmo(p)) p.addNades(type, -1);
         statGrenades++;
+        boolean mine = type == Player.NADE_MINE;
         Projectile pr = new Projectile();
         pr.id = nextEntityId++;
-        pr.kind = mine ? Projectile.Kind.MINE : Projectile.Kind.FRAG;
+        switch (type) {
+            case Player.NADE_MINE: pr.kind = Projectile.Kind.MINE; break;
+            case Player.NADE_SMOKE: pr.kind = Projectile.Kind.SMOKE; break;
+            case Player.NADE_FLASH: pr.kind = Projectile.Kind.FLASH; break;
+            case Player.NADE_STICKY: pr.kind = Projectile.Kind.STICKY; break;
+            default: pr.kind = Projectile.Kind.FRAG; break;
+        }
         pr.owner = p.id;
         pr.team = p.team;
         float ax = MathUtils.cos(p.aim), ay = MathUtils.sin(p.aim);
@@ -1264,8 +1296,8 @@ public class World {
         pr.y = p.shoulderY() + ay * 8;
         pr.vx = ax * sp + p.vx * 0.4f;
         pr.vy = ay * sp + p.vy * 0.3f + 90;
-        pr.fuse = mine ? 45f : 2.4f;
-        pr.damage = mine ? 90 : 100;
+        pr.fuse = mine ? 45f : (type == Player.NADE_SMOKE ? 1.2f : (type == Player.NADE_FLASH ? 1.3f : (type == Player.NADE_STICKY ? 2.2f : 2.4f)));
+        pr.damage = mine ? 90 : (type == Player.NADE_STICKY ? 110 : 100);
         pr.life = pr.fuse;
         projectiles.add(pr);
         if (mine) {
@@ -1282,6 +1314,94 @@ public class World {
         e.a = p.id;
         e.x = p.x;
         e.y = p.y;
+    }
+
+    /** A linha (x0,y0)-(x1,y1) passa por dentro de uma nuvem de fumaca? (bots nao enxergam) */
+    public boolean smokeBlocks(float x0, float y0, float x1, float y1) {
+        for (int i = 0; i < projectiles.size; i++) {
+            Projectile pr = projectiles.get(i);
+            if (pr.kind != Projectile.Kind.SMOKE || !pr.armed) continue;
+            float r = smokeRadius(pr);
+            float dx = x1 - x0, dy = y1 - y0;
+            float len2 = dx * dx + dy * dy + 1e-4f;
+            float t = MathUtils.clamp(((pr.x - x0) * dx + (pr.y - y0) * dy) / len2, 0, 1);
+            float qx = x0 + dx * t - pr.x, qy = y0 + dy * t - pr.y;
+            if (qx * qx + qy * qy < r * r) return true;
+        }
+        return false;
+    }
+
+    public static float smokeRadius(Projectile pr) {
+        float age = 9f - pr.fuse;
+        return Math.min(150, 40 + age * 110) * Math.min(1, pr.fuse / 1.5f + 0.2f);
+    }
+
+    private void flashbang(Projectile pr) {
+        pr.dead = true;
+        WorldEvent e = emit(WorldEvent.Type.FLASHBANG);
+        e.x = pr.x;
+        e.y = pr.y;
+        for (int i = 0; i < players.size; i++) {
+            Player q = players.get(i);
+            if (!q.alive) continue;
+            float dx = pr.x - q.x, dy = pr.y - q.headY();
+            float d = (float) Math.sqrt(dx * dx + dy * dy);
+            if (d > 700 || !lineOfSight(pr.x, pr.y, q.x, q.headY())) continue;
+            boolean looking = Math.abs(angleDiff(q.aim, MathUtils.atan2(dy, dx))) < 1.4f;
+            float amount = (1 - d / 700f) * (looking ? 1f : 0.45f);
+            if (q.id == pr.owner) amount *= 0.6f;
+            q.flash = Math.max(q.flash, 0.6f + 3.2f * amount);
+        }
+    }
+
+    private void moveSticky(Projectile pr, float dt) {
+        pr.fuse -= dt;
+        if (pr.fuse <= 0) {
+            explodeProjectile(pr);
+            return;
+        }
+        if (pr.lastHit >= 0) { // grudada num jogador
+            Player q = player(pr.lastHit);
+            if (q != null && q.alive) {
+                pr.x = q.x + pr.startX;
+                pr.y = q.y + pr.startY;
+            } else {
+                pr.lastHit = -1;
+                pr.stuck = false;
+            }
+            return;
+        }
+        if (pr.stuck) {
+            if (!map.solidAt(pr.x + 3, pr.y) && !map.solidAt(pr.x - 3, pr.y) && !map.solidAt(pr.x, pr.y - 3) && !map.solidAt(pr.x, pr.y + 3)) pr.stuck = false;
+            return;
+        }
+        pr.vy -= gravity * 0.85f * dt;
+        float nx = pr.x + pr.vx * dt, ny = pr.y + pr.vy * dt;
+        for (int i = 0; i < players.size; i++) {
+            Player q = players.get(i);
+            if (!q.alive || q.id == pr.owner) continue;
+            if (segAabb(pr.x, pr.y, nx, ny, q.x - C.PLAYER_HW, q.y, q.x + C.PLAYER_HW, q.y + q.height()) >= 0) {
+                pr.lastHit = q.id;
+                pr.stuck = true;
+                pr.startX = MathUtils.clamp(nx - q.x, -C.PLAYER_HW, C.PLAYER_HW);
+                pr.startY = MathUtils.clamp(ny - q.y, 4, q.height() - 4);
+                pr.vx = pr.vy = 0;
+                sound("stick", pr.x, pr.y);
+                return;
+            }
+        }
+        float t = rayTile(pr.x, pr.y, nx, ny);
+        if (t <= 1) {
+            pr.x += (nx - pr.x) * Math.max(0, t - 0.05f);
+            pr.y += (ny - pr.y) * Math.max(0, t - 0.05f);
+            pr.stuck = true;
+            pr.vx = pr.vy = 0;
+            sound("stick", pr.x, pr.y);
+            return;
+        }
+        pr.x = nx;
+        pr.y = ny;
+        pr.rot += 400 * dt;
     }
 
     // ------------------------------------------------------------------ projeteis
@@ -1310,6 +1430,31 @@ public class World {
                 break;
             case MINE:
                 moveMine(pr, dt);
+                break;
+            case SMOKE:
+                if (!pr.armed) {
+                    moveBouncy(pr, dt, 0.4f, 0.6f, false);
+                    pr.fuse -= dt;
+                    if (pr.fuse <= 0) {
+                        pr.armed = true;
+                        pr.life = 9f;
+                        pr.fuse = 9f;
+                        pr.vx = pr.vy = 0;
+                        sound("smoke", pr.x, pr.y);
+                    }
+                } else {
+                    pr.life -= dt;
+                    pr.fuse = pr.life;
+                    if (pr.life <= 0) pr.dead = true;
+                }
+                break;
+            case FLASH:
+                moveBouncy(pr, dt, 0.45f, 0.65f, false);
+                pr.fuse -= dt;
+                if (pr.fuse <= 0) flashbang(pr);
+                break;
+            case STICKY:
+                moveSticky(pr, dt);
                 break;
             case DISC:
                 moveDisc(pr, dt);
@@ -1807,6 +1952,10 @@ public class World {
                 radius = 100;
                 code = WeaponType.GRAVITY.ordinal();
                 break;
+            case STICKY:
+                radius = 105;
+                code = C.KILL_FRAG;
+                break;
             default:
                 radius = 125;
                 code = C.KILL_FRAG;
@@ -1876,6 +2025,7 @@ public class World {
         if (victim.spawnShield > 0) return;
         if (victim.dummy && attacker == null) return;
         amount *= mode.damageMul(victim, attacker);
+        if (victim.rollTimer > 0) amount *= 0.5f; // esquiva: metade do dano
         if (victim.armor > 0) {
             float absorb = Math.min(victim.armor, amount * 0.6f);
             victim.armor -= absorb;
@@ -2026,6 +2176,9 @@ public class World {
                 if (p.frags >= C.MAX_FRAGS && p.mines >= C.MAX_MINES) return false;
                 p.frags = Math.min(C.MAX_FRAGS, p.frags + 2);
                 p.mines = Math.min(C.MAX_MINES, p.mines + 1);
+                p.smokes = Math.min(2, p.smokes + 1);
+                p.flashes = Math.min(2, p.flashes + 1);
+                p.stickies = Math.min(2, p.stickies + 1);
                 break;
             case ARMOR:
                 if (p.armor >= C.ARMOR_MAX) return false;
@@ -2128,6 +2281,7 @@ public class World {
             p.meleeAnim = Math.max(0, p.meleeAnim - dt);
             p.hurtFlash = Math.max(0, p.hurtFlash - dt);
             p.emoteTimer = Math.max(0, p.emoteTimer - dt);
+            p.rollTimer = Math.max(0, p.rollTimer - dt);
         }
         for (int i = 0; i < bosses.size; i++) {
             Boss b = bosses.get(i);
@@ -2142,7 +2296,8 @@ public class World {
             if (pr.visual) {
                 moveShot(pr, dt);
             } else {
-                if (pr.kind == Projectile.Kind.FRAG || pr.kind == Projectile.Kind.SHELL || (pr.kind == Projectile.Kind.MINE && !pr.stuck)) {
+                if (pr.kind == Projectile.Kind.FRAG || pr.kind == Projectile.Kind.SHELL || (pr.kind == Projectile.Kind.MINE && !pr.stuck)
+                        || pr.kind == Projectile.Kind.FLASH || (pr.kind == Projectile.Kind.SMOKE && !pr.armed) || (pr.kind == Projectile.Kind.STICKY && !pr.stuck)) {
                     pr.vy -= gravity * 0.85f * dt;
                     float nx = pr.x + pr.vx * dt, ny = pr.y + pr.vy * dt;
                     if (!map.solidAt(nx, ny)) {

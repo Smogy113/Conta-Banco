@@ -2,7 +2,7 @@ package com.brigadajato.world;
 
 /** Comandos de um jogador num instante (humano, bot ou remoto). */
 public class PlayerInput {
-    public static final int P_MELEE = 1, P_GRENADE = 2, P_SWAP = 4, P_RELOAD = 8, P_PICKUP = 16, P_GRENADE_TYPE = 32, P_ZOOM = 64, P_HOOK = 128;
+    public static final int P_MELEE = 1, P_GRENADE = 2, P_SWAP = 4, P_RELOAD = 8, P_PICKUP = 16, P_GRENADE_TYPE = 32, P_ZOOM = 64, P_HOOK = 128, P_ROLL = 256;
 
     /** -1..1 */
     public float moveX, moveY;

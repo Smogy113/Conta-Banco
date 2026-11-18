@@ -44,6 +44,39 @@ public final class Icons {
         d.circle(x - s * 0.1f, y + s * 0.02f, s * 0.08f);
     }
 
+    /** icone de cada tipo de granada (0 frag, 1 mina, 2 fumaca, 3 flash, 4 grudenta) */
+    public static void nade(Draw d, int type, float x, float y, float s) {
+        switch (type) {
+            case 1:
+                mine(d, x, y, s, true);
+                return;
+            case 2:
+            case 3: {
+                d.rgb(INK, 1);
+                d.rect(x - s * 0.24f, y - s * 0.38f, s * 0.48f, s * 0.7f);
+                d.rect(x - s * 0.12f, y + s * 0.28f, s * 0.24f, s * 0.16f);
+                d.rgb(type == 2 ? 0x78909c : 0xeceff1, 1);
+                d.rect(x - s * 0.18f, y - s * 0.32f, s * 0.36f, s * 0.58f);
+                d.rgb(type == 2 ? 0x37474f : 0xffd54f, 1);
+                d.rect(x - s * 0.18f, y - s * 0.06f, s * 0.36f, s * 0.12f);
+                return;
+            }
+            case 4: {
+                d.rgb(INK, 1);
+                d.circle(x, y - s * 0.04f, s * 0.36f);
+                d.rgb(0x76ff03, 1);
+                d.circle(x, y - s * 0.04f, s * 0.28f);
+                d.circle(x - s * 0.18f, y - s * 0.32f, s * 0.08f);
+                d.circle(x + s * 0.12f, y - s * 0.36f, s * 0.07f);
+                d.rgb(0x33691e, 1);
+                d.circle(x + s * 0.06f, y + s * 0.02f, s * 0.1f);
+                return;
+            }
+            default:
+                grenade(d, x, y, s);
+        }
+    }
+
     public static void mine(Draw d, float x, float y, float s, boolean light) {
         d.rgb(INK, 1);
         d.batch.draw(d.a.half, x - s * 0.46f, y - s * 0.26f, s * 0.92f, s * 0.5f);

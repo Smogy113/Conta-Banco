@@ -477,6 +477,23 @@ public class WorldRenderer implements Disposable {
                 audio.at("infect", e.x, e.y);
                 break;
             }
+            case FLASHBANG: {
+                Particles.P fl = fx.spawn(Particles.SOFT, e.x, e.y, 0, 0, 0.35f, 260, 40, 0xffffff, 1);
+                fl.additive = true;
+                for (int i = 0; i < 12; i++) {
+                    float ang = i / 12f * MathUtils.PI2;
+                    Particles.P sp = fx.spawn(Particles.LINE, e.x, e.y, MathUtils.cos(ang) * 700, MathUtils.sin(ang) * 700, 0.25f, 6, 1, 0xfffde7, 1);
+                    sp.additive = true;
+                    sp.drag = 3;
+                }
+                lighting.flash(e.x, e.y, 700, 0xffffff, 2f, 0.5f);
+                audio.at("flashbang", e.x, e.y);
+                if (local != null) {
+                    float dx = local.x - e.x, dy = local.y - e.y;
+                    if (dx * dx + dy * dy < 700 * 700) shake = Math.max(shake, 6);
+                }
+                break;
+            }
             case ROUND_END:
                 audio.ui(local != null && e.a == local.id ? "win" : "round");
                 break;
@@ -641,6 +658,7 @@ public class WorldRenderer implements Disposable {
             drawPlayer(d, p, w);
         }
         debris.drawCasings(d, minX, minY, maxX, maxY);
+        drawSmoke(d, w, minX, minY, maxX, maxY);
         fx.draw(d, false, minX, minY, maxX, maxY);
         d.additive(true);
         drawProjectilesGlow(d, w, minX, minY, maxX, maxY);
@@ -909,6 +927,27 @@ public class WorldRenderer implements Disposable {
             d.region(a.tri, p.hookX, p.hookY, 11, 11, ang - 90);
             d.rgb(0x90a4ae, 1);
             d.region(a.tri, p.hookX, p.hookY, 8, 8, ang - 90);
+        }
+    }
+
+    /** Nuvens de fumaca: varias bolhas cinza que crescem e giram devagar. */
+    private void drawSmoke(Draw d, World w, float minX, float minY, float maxX, float maxY) {
+        for (int i = 0; i < w.projectiles.size; i++) {
+            Projectile pr = w.projectiles.get(i);
+            if (pr.kind != Projectile.Kind.SMOKE || !pr.armed) continue;
+            float r = World.smokeRadius(pr);
+            if (pr.x + r < minX || pr.x - r > maxX || pr.y + r < minY || pr.y - r > maxY) continue;
+            float fade = Math.min(1, pr.fuse / 1.5f);
+            for (int k = 0; k < 9; k++) {
+                float ang = k * 0.698f + time * 0.15f * (k % 2 == 0 ? 1 : -1);
+                float rr = r * (0.35f + 0.25f * ((k * 37) % 5) / 4f);
+                float bx = pr.x + MathUtils.cos(ang) * rr * 0.8f, by = pr.y + 10 + MathUtils.sin(ang) * rr * 0.55f;
+                float g = 0.78f + 0.08f * ((k * 13) % 3);
+                d.color(g, g, g * 1.02f, 0.62f * fade);
+                d.soft(bx, by, r * 0.75f);
+            }
+            d.color(0.85f, 0.85f, 0.86f, 0.75f * fade);
+            d.soft(pr.x, pr.y + 10, r * 0.9f);
         }
     }
 
@@ -1419,6 +1458,30 @@ public class WorldRenderer implements Disposable {
                     }
                     break;
                 }
+                case SMOKE:
+                case FLASH: {
+                    if (pr.kind == Projectile.Kind.SMOKE && pr.armed) break;
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.rect(pr.x - 4.5f, pr.y - 1, 9, 13, 4.5f, 6.5f, pr.rot);
+                    d.rgb(pr.kind == Projectile.Kind.SMOKE ? 0x78909c : 0xeceff1, 1);
+                    d.rect(pr.x - 3.2f, pr.y, 6.4f, 11, 3.2f, 5.5f, pr.rot);
+                    d.rgb(pr.kind == Projectile.Kind.SMOKE ? 0x37474f : 0xffd54f, 1);
+                    d.rect(pr.x - 3.2f, pr.y + 4, 6.4f, 2.5f, 3.2f, 1.5f, pr.rot);
+                    break;
+                }
+                case STICKY: {
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.circle(pr.x, pr.y + 4, 6.5f);
+                    d.rgb(0x76ff03, 1);
+                    d.circle(pr.x, pr.y + 4, 5);
+                    d.rgb(0x33691e, 1);
+                    d.circle(pr.x + 1.5f, pr.y + 5, 1.8f);
+                    if ((time * (pr.fuse < 0.8f ? 12 : 5)) % 1 < 0.5f) {
+                        d.rgb(0xff1744, 1);
+                        d.circle(pr.x - 1.5f, pr.y + 7, 1.6f);
+                    }
+                    break;
+                }
                 case BOOMERANG: {
                     d.rgb(SoldierPainter.OUTLINE, 1);
                     d.rect(pr.x - 1, pr.y - 3.5f, 16, 7, 1, 3.5f, pr.rot);
@@ -1548,7 +1611,19 @@ public class WorldRenderer implements Disposable {
             d.rect(p.x - Math.signum(p.vx) * 30 - 10, p.y + 10, 20, 3);
             d.rect(p.x - Math.signum(p.vx) * 40 - 10, p.y + 22, 24, 3);
         }
-        painter.draw(d, pose);
+        if (p.rollTimer > 0) { // rolamento: gira o boneco inteiro em volta do centro
+            float spin = (1 - p.rollTimer / 0.34f) * 360 * -p.rollDir;
+            float cx = p.x, cy = p.y + 14;
+            com.badlogic.gdx.math.Matrix4 m = d.batch.getTransformMatrix();
+            m.idt().translate(cx, cy, 0).rotate(0, 0, 1, spin).translate(-cx, -cy, 0);
+            d.batch.setTransformMatrix(m);
+            painter.draw(d, pose);
+            d.batch.setTransformMatrix(m.idt());
+            if (!fx.skip()) {
+                Particles.P dust = fx.spawn(Particles.SOFT, p.x - p.rollDir * 10, p.y + 3, -p.rollDir * 40, 20, 0.5f, 5, 14, 0xbcaaa4, 0.4f);
+                dust.drag = 3;
+            }
+        } else painter.draw(d, pose);
         if (p.frozen > 0) { // bloco de gelo
             float h = p.height() + 10;
             d.color(0.75f, 0.92f, 1f, 0.5f);

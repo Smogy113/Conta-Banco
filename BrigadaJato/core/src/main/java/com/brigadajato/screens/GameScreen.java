@@ -584,6 +584,16 @@ public class GameScreen extends ScreenAdapter {
         if (i % 4 == 0) grid.row();
         buyCodes[i++] = BombMode.ITEM_MINE;
         grid.add(button(I18n.t("mine") + "  $" + BombMode.PRICE_MINE, "green-small", () -> buy(BombMode.ITEM_MINE))).width(225).height(42).pad(2);
+        if (i % 4 == 0) grid.row();
+        buyCodes = java.util.Arrays.copyOf(buyCodes, buyCodes.length + 3);
+        buyCodes[i++] = BombMode.ITEM_SMOKE;
+        grid.add(button(I18n.t("nade_2") + "  $" + BombMode.PRICE_SMOKE, "green-small", () -> buy(BombMode.ITEM_SMOKE))).width(225).height(42).pad(2);
+        if (i % 4 == 0) grid.row();
+        buyCodes[i++] = BombMode.ITEM_FLASH;
+        grid.add(button(I18n.t("nade_3") + "  $" + BombMode.PRICE_FLASH, "green-small", () -> buy(BombMode.ITEM_FLASH))).width(225).height(42).pad(2);
+        if (i % 4 == 0) grid.row();
+        buyCodes[i++] = BombMode.ITEM_STICKY;
+        grid.add(button(I18n.t("nade_4") + "  $" + BombMode.PRICE_STICKY, "green-small", () -> buy(BombMode.ITEM_STICKY))).width(225).height(42).pad(2);
         p.add(grid).colspan(2);
         overlay.add(p).expand().bottom().padBottom(mobile ? 250 : 120);
     }

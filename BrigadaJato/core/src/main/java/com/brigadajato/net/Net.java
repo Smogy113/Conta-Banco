@@ -31,7 +31,7 @@ public final class Net {
 
     public static final int TCP_PORT = 47130;
     public static final int UDP_PORT = 47131;
-    public static final int PROTOCOL = 6;
+    public static final int PROTOCOL = 7;
     public static final String DISCOVER = "BRIGADAJATO?";
     public static final String ANSWER = "BRIGADAJATO!";
     public static final int MAX_PLAYERS = 8;
@@ -207,8 +207,8 @@ public final class Net {
             int flags = (p.alive ? 1 : 0) | (p.onGround ? 2 : 0) | (p.crouching ? 4 : 0) | (p.jetting ? 8 : 0)
                     | (p.facing > 0 ? 16 : 0) | (p.spawnShield > 0 ? 32 : 0) | (p.hasBomb ? 64 : 0)
                     | (p.recentlyFired ? 128 : 0) | (p.fuelLocked ? 256 : 0) | (p.frozen > 0 ? 512 : 0)
-                    | (p.zombie ? 1024 : 0) | (p.hookState != 0 ? 2048 : 0) | (p.stun > 0 ? 4096 : 0) | (p.dualFlip ? 8192 : 0);
-            o.writeShort(flags);
+                    | (p.zombie ? 1024 : 0) | (p.hookState != 0 ? 2048 : 0) | (p.stun > 0 ? 4096 : 0) | (p.dualFlip ? 8192 : 0) | (p.rollTimer > 0 ? 16384 : 0);
+            o.writeChar(flags);
             if (p.hookState != 0) {
                 o.writeByte(p.hookState);
                 o.writeFloat(p.hookX);
@@ -218,6 +218,10 @@ public final class Net {
             o.writeByte(clampByte(p.emoteTimer * 50));
             o.writeByte(clampByte(p.chill * 200));
             o.writeByte(p.gunLevel);
+            o.writeByte(p.smokes);
+            o.writeByte(p.flashes);
+            o.writeByte(p.stickies);
+            o.writeByte(clampByte(p.flash * 40));
             o.writeByte(p.carryingFlag);
             o.writeByte(clampByte(p.health));
             o.writeByte(clampByte(p.armor));
@@ -320,7 +324,7 @@ public final class Net {
             p.vy = in.readFloat();
             float aim = in.readFloat();
             if (p.id != localId) p.aim = aim;
-            int flags = in.readShort();
+            int flags = in.readChar();
             boolean wasAlive = p.alive;
             p.alive = (flags & 1) != 0;
             p.onGround = (flags & 2) != 0;
@@ -348,6 +352,15 @@ public final class Net {
             }
             p.chill = in.readUnsignedByte() / 200f;
             p.gunLevel = in.readByte();
+            p.smokes = in.readByte();
+            p.flashes = in.readByte();
+            p.stickies = in.readByte();
+            p.flash = in.readUnsignedByte() / 40f;
+            boolean rolling = (flags & 16384) != 0;
+            if (rolling && p.rollTimer <= 0) {
+                p.rollTimer = 0.34f;
+                p.rollDir = p.vx >= 0 ? 1 : -1;
+            } else if (!rolling) p.rollTimer = 0;
             p.carryingFlag = in.readByte();
             p.health = in.readUnsignedByte();
             p.armor = in.readUnsignedByte();
