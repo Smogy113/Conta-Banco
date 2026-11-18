@@ -324,7 +324,7 @@ public class SetupScreen extends BaseScreen {
         lm.noGrenades = cfg.noGrenades;
         lm.spectate = cfg.spectate;
         game.settings.save();
-        if (kind == Kind.OFFLINE) go(GameScreen.offline(game, cfg));
+        if (kind == Kind.OFFLINE) go(new LoadingScreen(game, cfg, null, () -> GameScreen.offline(game, cfg)));
         else if (kind == Kind.HOST) go(LobbyScreen.host(game, cfg));
         else if (onDone != null) onDone.run();
     }

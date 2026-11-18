@@ -40,6 +40,8 @@ public class MapPreview implements Disposable {
     /** tempo desde que o mapa trocou (para a transicao de "chiado") */
     public float sinceChange = 99;
     public int bots = 4;
+    /** altura da visao (unidades do mundo) */
+    public float viewH = 560;
 
     public MapPreview(BrigadaJatoGame game, int w, int h) {
         this.game = game;
@@ -133,7 +135,7 @@ public class MapPreview implements Disposable {
             region = new TextureRegion(fbo.getColorBufferTexture());
             region.flip(false, true);
         }
-        float viewH = 560;
+        float viewH = this.viewH;
         cam.viewportHeight = viewH;
         cam.viewportWidth = viewH * fw / (float) fh;
         cam.zoom = 1;

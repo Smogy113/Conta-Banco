@@ -101,6 +101,11 @@ public class GameScreen extends ScreenAdapter {
     // ------------------------------------------------------------------ fabricas
 
     public static GameScreen offline(BrigadaJatoGame game, MatchConfig cfg) {
+        return offlineVs(game, cfg, null, null);
+    }
+
+    /** Partida offline contra bots com nomes/visuais definidos (torneio); null = sorteados. */
+    public static GameScreen offlineVs(BrigadaJatoGame game, MatchConfig cfg, String[] botNames, Look[] botLooks) {
         World w = new World(BrigadaJatoGame.loadMap(cfg.mapId), cfg, true, System.nanoTime());
         Random rng = new Random();
         boolean teams = cfg.mode.chooseTeams();
@@ -113,7 +118,9 @@ public class GameScreen extends ScreenAdapter {
         if (spectate) nb = Math.max(nb + (cfg.mode == ModeType.DUEL ? 1 : 0), 2);
         for (int i = 0; i < nb; i++) {
             int t = teams ? w.balancedTeam() : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE);
-            w.addPlayer(Names.BOTS[(start + i) % Names.BOTS.length], t, Look.random(rng), true);
+            String bn = botNames != null && i < botNames.length ? botNames[i] : Names.BOTS[(start + i) % Names.BOTS.length];
+            Look bl = botLooks != null && i < botLooks.length && botLooks[i] != null ? botLooks[i] : Look.random(rng);
+            w.addPlayer(bn, t, bl, true);
         }
         w.start();
         return new GameScreen(game, w, me != null ? me.id : -1, null, null);

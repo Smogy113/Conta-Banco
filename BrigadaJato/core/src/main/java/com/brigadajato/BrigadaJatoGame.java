@@ -106,6 +106,21 @@ public class BrigadaJatoGame extends Game {
                 return ss;
             }
             case "rendertest": return new com.brigadajato.screens.RenderTestScreen(this, p[1], Float.parseFloat(p[2]), Float.parseFloat(p[3]));
+            case "loading": {
+                com.brigadajato.world.MatchConfig lc = settings.lastMatch.copy();
+                if (p.length > 1) lc.mode = com.brigadajato.world.ModeType.valueOf(p[1]);
+                if (p.length > 2) lc.mapId = p[2];
+                lc.instagib = true;
+                lc.gravityMul = 0.5f;
+                final com.brigadajato.world.MatchConfig fc = lc;
+                return new com.brigadajato.screens.LoadingScreen(this, lc, null, () -> com.brigadajato.screens.GameScreen.offline(this, fc));
+            }
+            case "tournament": {
+                com.brigadajato.screens.Tournament t = new com.brigadajato.screens.Tournament(settings.name, settings.look.copy());
+                for (int i = 0; p.length > 1 && i < Integer.parseInt(p[1]); i++) t.playerResult(true, 3, 1);
+                if (p.length > 2 && "lose".equals(p[2])) t.playerResult(false, 1, 3);
+                return new com.brigadajato.screens.TournamentScreen(this, t);
+            }
             case "achievements": return new com.brigadajato.screens.AchievementsScreen(this);
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);
             case "host": {

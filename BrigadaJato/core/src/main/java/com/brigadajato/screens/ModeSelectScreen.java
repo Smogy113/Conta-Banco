@@ -67,9 +67,16 @@ public class ModeSelectScreen extends BaseScreen {
         Table header = new Table();
         header.add(button(I18n.t("back"), "gray-small", this::onBack)).width(170).height(52).left();
         header.add(new TitleFx(I18n.pt ? "ESCOLHA O MODO" : "CHOOSE A MODE")).expandX().height(56).center();
-        Label step = label(kind == SetupScreen.Kind.OFFLINE ? (I18n.pt ? "1/2  CONTRA BOTS" : "1/2  VS BOTS")
-                : (I18n.pt ? "1/2  CRIAR SALA" : "1/2  CREATE ROOM"), "small");
-        header.add(step).width(170).right();
+        if (kind == SetupScreen.Kind.OFFLINE) {
+            // torneio: chaveamento de duelos contra bots
+            Tournament t = TournamentScreen.current;
+            final Tournament tt = t != null && !t.finished && !t.playerOut ? t : null;
+            header.add(button("  " + I18n.t("tournament").toUpperCase() + "  >", "default-small", () -> go(new TournamentScreen(game,
+                    tt != null ? tt : new Tournament(game.settings.name, game.settings.look.copy()))))).width(230).height(52).right();
+        } else {
+            Label step = label(I18n.pt ? "1/2  CRIAR SALA" : "1/2  CREATE ROOM", "small");
+            header.add(step).width(170).right();
+        }
         root.top().pad(18, 28, 14, 28);
         root.add(header).growX().padBottom(12).row();
 

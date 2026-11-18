@@ -234,4 +234,18 @@ public class WorldSimTest {
         System.out.println("Juggernaut: atual=" + jm.juggId + " vezes(max)=" + max);
         assertTrue("ninguem virou juggernaut", max > 0);
     }
+
+    @Test
+    public void tournamentFlow() {
+        com.brigadajato.screens.Tournament t = new com.brigadajato.screens.Tournament("Eu", Look.random(new Random(1)));
+        for (int r = 0; r < 3; r++) {
+            assertTrue("sem adversario na rodada " + r, t.opponent() >= 0 && t.opponent() != t.player());
+            t.playerResult(true, 3, 1);
+        }
+        assertTrue("torneio nao terminou", t.finished);
+        assertTrue("jogador deveria ser campeao", t.playerChampion());
+        com.brigadajato.screens.Tournament t2 = new com.brigadajato.screens.Tournament("Eu", Look.random(new Random(2)));
+        t2.playerResult(false, 1, 3);
+        assertTrue("eliminado devia acabar o torneio simulando o resto", t2.finished && t2.playerOut && t2.champion() >= 0 && t2.champion() != t2.player());
+    }
 }

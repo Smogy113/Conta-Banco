@@ -21,7 +21,7 @@ import java.util.Random;
 
 /** Menu principal. */
 public class MenuScreen extends BaseScreen {
-    private static final String[][] TIPS = {
+    static final String[][] TIPS = {
             {"Agachado você atira com mais precisão.", "Crouching makes your shots more accurate."},
             {"O jetpack trava quando esvazia: pouse para recarregar.", "The jetpack locks when empty: land to refuel."},
             {"Tiros na cabeça dão dano extra (sniper dá o dobro).", "Headshots deal extra damage (sniper: double)."},
