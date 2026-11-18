@@ -169,15 +169,18 @@ public class SoldierPainter {
     }
 
     /** onde as maos seguram cada arma (fracao do comprimento: cabo, guarda-mao) */
+    private static final float[] G_PISTOL = {0.06f, 0.06f}, G_SMG = {0.2f, 0.48f}, G_ROCKET = {0.3f, 0.5f}, G_BOW = {0.0f, 0.36f},
+            G_BOOM = {0.2f, 0.2f}, G_SHOTGUN = {0.12f, 0.6f}, G_DEFAULT = {0.14f, 0.56f}, G_NONE = {0, 0};
+
     private static float[] grips(WeaponType w) {
         switch (w) {
-            case PISTOL: case MAGNUM: case DUAL_PISTOLS: return new float[]{0.06f, 0.06f};
-            case SMG: case DUAL_SMG: return new float[]{0.2f, 0.48f};
-            case ROCKET: return new float[]{0.3f, 0.5f};
-            case BOW: return new float[]{0.0f, 0.36f};
-            case BOOMERANG: return new float[]{0.2f, 0.2f};
-            case SHOTGUN: return new float[]{0.12f, 0.6f};
-            default: return new float[]{0.14f, 0.56f};
+            case PISTOL: case MAGNUM: case DUAL_PISTOLS: return G_PISTOL;
+            case SMG: case DUAL_SMG: return G_SMG;
+            case ROCKET: return G_ROCKET;
+            case BOW: return G_BOW;
+            case BOOMERANG: return G_BOOM;
+            case SHOTGUN: return G_SHOTGUN;
+            default: return G_DEFAULT;
         }
     }
 
@@ -303,7 +306,7 @@ public class SoldierPainter {
         boolean pistol = weapon == WeaponType.PISTOL || weapon == WeaponType.MAGNUM || dual;
         float reach = pistol ? 9.5f + melee * 6 : (weapon == WeaponType.ROCKET ? -6 : 1.5f + melee * 6);
         float buttX = shoulderX + ca * reach, buttY = shoulderY + sa * reach - 0.8f;
-        float[] gp = weapon != null ? grips(weapon) : new float[]{0, 0};
+        float[] gp = weapon != null ? grips(weapon) : G_NONE;
         float perpX = sa * (f > 0 ? 1 : -1), perpY = -ca * (f > 0 ? 1 : -1); // "para baixo" da arma
         float gripX = buttX + ca * gunL * gp[0] + perpX * gunH * 0.45f, gripY = buttY + sa * gunL * gp[0] + perpY * gunH * 0.45f;
         float foreX = buttX + ca * gunL * gp[1] + perpX * gunH * 0.35f, foreY = buttY + sa * gunL * gp[1] + perpY * gunH * 0.35f;
@@ -506,26 +509,28 @@ public class SoldierPainter {
                     dRect(hx + f * 1, ey - 1, f * 7.5f, 2.4f, 0, 0, 0, 0xff1744);
                     break;
                 default: {
-                    float big = look.eyes == 5 ? 1.25f : 1f;
-                    dEllipse(ex2, ey, 1.9f * big, 2.5f * big, 0, 0xffffff);
-                    dEllipse(ex, ey, 2.3f * big, 2.9f * big, 0, 0xffffff);
+                    // olhos pequenos e escuros, com sobrancelha (cara de adulto)
+                    float ey2 = ey + 0.4f;
                     if (blink) {
-                        dRect(ex - 2.6f, ey - 0.6f, 5.2f, 1.1f, 0, 0, 0, ink);
-                        dRect(ex2 - 2.1f, ey - 0.6f, 4.2f, 1.1f, 0, 0, 0, ink);
+                        dRect(ex - 1.6f, ey2 - 0.4f, 3.2f, 0.9f, 0, 0, 0, ink);
+                        dRect(ex2 - 1.2f, ey2 - 0.4f, 2.4f, 0.9f, 0, 0, 0, ink);
                     } else {
-                        float pr = look.eyes == 5 ? 1.1f : 1.65f;
-                        dCircle(ex + lx * 0.7f, ey + ly * 0.7f - 0.2f, pr, ink);
-                        dCircle(ex2 + lx * 0.55f, ey + ly * 0.55f - 0.2f, pr * 0.85f, ink);
-                        dCircle(ex + lx * 0.7f - 0.6f, ey + ly * 0.7f + 0.5f, 0.55f, 0xffffff);
+                        float lx2 = lx * 0.35f, ly2 = ly * 0.35f;
+                        dEllipse(ex + lx2, ey2 + ly2, 1.15f, 1.55f, 0, ink);
+                        dEllipse(ex2 + lx2 * 0.8f, ey2 + ly2 * 0.8f, 0.95f, 1.4f, 0, ink);
+                        dCircle(ex + lx2 - 0.35f, ey2 + ly2 + 0.55f, 0.32f, 0xffffff);
                     }
                     if (look.eyes == 3) { // sonolento: palpebra
-                        dRect(ex - 3, ey, 6, 3.2f, 0, 0, 0, darker(look.skin, 0.85f));
-                        dRect(ex2 - 2.6f, ey, 5.2f, 3, 0, 0, 0, darker(look.skin, 0.85f));
+                        dRect(ex - 1.7f, ey2 + 0.1f, 3.4f, 1.6f, 0, 0, 0, darker(look.skin, 0.8f));
+                        dRect(ex2 - 1.4f, ey2 + 0.1f, 2.8f, 1.5f, 0, 0, 0, darker(look.skin, 0.8f));
                     }
-                    if (look.eyes == 1) { // bravo: sobrancelhas
-                        dRect(ex - 3, ey + 3.4f, 5.5f, 1.4f, 2.75f, 0.7f, f * -20, ink);
-                        dRect(ex2 - 2.5f, ey + 3.2f, 4.5f, 1.3f, 2.25f, 0.65f, f * 20, ink);
-                    }
+                    // sobrancelhas (mais grossas e inclinadas no "bravo" e no "focado")
+                    float ang = look.eyes == 1 || look.eyes == 5 ? 18 : 6;
+                    int brow = darker(look.hairColor, 0.8f);
+                    dRect(ex - 1.9f, ey2 + 2.3f, 3.8f, 1.05f, 1.9f, 0.5f, -f * ang, brow);
+                    dRect(ex2 - 1.6f, ey2 + 2.2f, 3.2f, 1.0f, 1.6f, 0.5f, f * ang * 0.6f, brow);
+                    // nariz
+                    dRect(hx + f * 5.6f - 0.6f, ey2 - 2.6f, 1.4f, 2.2f, 0.7f, 1.1f, -f * 10, darker(look.skin, 0.82f));
                     break;
                 }
             }
@@ -533,28 +538,27 @@ public class SoldierPainter {
         // boca
         float mx = hx + f * 3.8f, my = hy - 4.2f;
         if (look.eyewear != 4 && look.eyewear != 5) {
+            int lip = darker(look.skin, 0.55f);
             switch (look.mouth) {
-                case 1:
-                    add(T_HALF_DOWN, mx - 2.6f, my - 1.6f, 5.2f, 2.6f, 0, 0, 0, ink, false);
+                case 1: // meio sorriso
+                    dRect(mx - 1.6f, my - 0.4f, 3.2f, 0.9f, 0, 0, 0, lip);
+                    dRect(mx + f * 1.2f - 0.5f, my - 0.1f, 1.2f, 0.9f, 0.6f, 0.45f, f * 35, lip);
                     break;
-                case 2:
-                    dRect(mx - 2.6f, my - 1.2f, 5.2f, 2.6f, 0, 0, 0, ink);
-                    dRect(mx - 2.1f, my - 0.7f, 4.2f, 1.6f, 0, 0, 0, 0xffffff);
-                    dRect(mx - 0.2f, my - 0.7f, 0.4f, 1.6f, 0, 0, 0, ink);
+                case 2: // dentes cerrados
+                    dRect(mx - 1.8f, my - 0.8f, 3.6f, 1.6f, 0, 0, 0, lip);
+                    dRect(mx - 1.4f, my - 0.4f, 2.8f, 0.8f, 0, 0, 0, 0xeeeeee);
                     break;
-                case 3:
-                    dCircle(mx, my, 2.1f, ink);
-                    dCircle(mx, my - 0.8f, 1f, 0xe57373);
+                case 3: // grito
+                    dEllipse(mx, my - 0.3f, 1.2f, 1.4f, 0, 0x3a1010);
                     break;
-                case 4:
-                    add(T_RING, mx + f * 0.5f, my, 1.4f, 1.4f, 0, 0, 0, ink, false);
+                case 4: // assobio
+                    add(T_RING, mx + f * 0.5f, my, 0.9f, 0.9f, 0, 0, 0, lip, false);
                     break;
-                case 5:
-                    add(T_HALF_DOWN, mx - 2.6f, my - 1.6f, 5.2f, 2.6f, 0, 0, 0, ink, false);
-                    dEllipse(mx + f * 0.6f, my - 1.8f, 1.4f, 1.6f, 0, 0xf06292);
+                case 5: // sorriso de lado
+                    dRect(mx - 1.6f, my - 0.5f, 3.2f, 0.9f, 1.6f, 0.45f, -f * 12, lip);
                     break;
                 default:
-                    dRect(mx - 1.8f, my - 0.5f, 3.6f, 1.1f, 0, 0, 0, ink);
+                    dRect(mx - 1.5f, my - 0.4f, 3f, 0.85f, 0, 0, 0, lip);
                     break;
             }
         }
@@ -574,9 +578,8 @@ public class SoldierPainter {
                 break;
             case 3: // tapa-olho
                 dRect(hx - r, ey + 2.2f, r * 2, 1.1f, r, 0.55f, f * -18, 0x111111);
-                dEllipse(ex, ey, 2.8f, 2.6f, 0, 0x111111);
-                dEllipse(ex2, ey, 2f, 2.4f, 0, 0xffffff);
-                dCircle(ex2 + lx * 0.8f, ey + ly * 0.8f, 1.2f, 0x111111);
+                dEllipse(ex, ey, 2.6f, 2.4f, 0, 0x111111);
+                dEllipse(ex2, ey + 0.4f, 0.95f, 1.4f, 0, 0x111111);
                 break;
             case 4: // mascara ninja
                 add(T_HALF_DOWN, hx - r * 1.02f, hy - r * 1.04f, r * 2.04f, r - 1.2f, 0, 0, 0, v, false);

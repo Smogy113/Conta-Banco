@@ -54,6 +54,36 @@ public class Lighting implements Disposable {
         fcb[i] = (rgb & 0xff) / 255f * intensity;
     }
 
+    /**
+     * Versao barata (sem textura extra): escurece a tela com um retangulo e soma brilhos por cima.
+     * Usada em qualidade baixa/media ou sem luzes dinamicas.
+     */
+    public void renderCheap(SpriteBatch batch, TextureRegion soft, TextureRegion white, OrthographicCamera cam, float ar, float ag, float ab) {
+        float dark = 1 - Math.min(ar, Math.min(ag, ab));
+        batch.setProjectionMatrix(cam.combined);
+        batch.begin();
+        float vw = cam.viewportWidth * cam.zoom, vh = cam.viewportHeight * cam.zoom;
+        float x0 = cam.position.x - vw / 2, y0 = cam.position.y - vh / 2;
+        batch.setColor(0.02f * ar, 0.03f * ag, 0.08f * ab, dark * 0.85f);
+        batch.draw(white, x0, y0, vw, vh);
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE);
+        for (int i = 0; i < count; i++) {
+            float k = life[i] / maxLife[i];
+            batch.setColor(lcr[i], lcg[i], lcb[i], k * k * 0.5f * dark);
+            float r = lr[i] * 0.6f;
+            batch.draw(soft, lx[i] - r, ly[i] - r, r * 2, r * 2);
+        }
+        for (int i = 0; i < fcount; i++) {
+            batch.setColor(fcr[i], fcg[i], fcb[i], 0.28f * dark);
+            float r = fr[i] * 0.55f;
+            batch.draw(soft, fx[i] - r, fy[i] - r, r * 2, r * 2);
+        }
+        batch.end();
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.setColor(1, 1, 1, 1);
+        fcount = 0;
+    }
+
     public void update(float dt) {
         for (int i = count - 1; i >= 0; i--) {
             life[i] -= dt;
@@ -85,7 +115,7 @@ public class Lighting implements Disposable {
             fcount = 0;
             return;
         }
-        int w = Math.max(64, Gdx.graphics.getBackBufferWidth() / 3), h = Math.max(36, Gdx.graphics.getBackBufferHeight() / 3);
+        int w = Math.max(64, Gdx.graphics.getBackBufferWidth() / 6), h = Math.max(36, Gdx.graphics.getBackBufferHeight() / 6);
         if (fbo == null || fw != w || fh != h) {
             if (fbo != null) fbo.dispose();
             try {

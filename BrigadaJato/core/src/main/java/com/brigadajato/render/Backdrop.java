@@ -17,6 +17,8 @@ public class Backdrop implements Disposable {
     private static final float PERIOD = 2400;
     private final float worldH;
     public final boolean indoor;
+    /** 0 baixa, 1 media, 2+ alta (quantas camadas desenhar) */
+    public static int quality = 2;
     private final BackdropArt art;
     /** camada atual tem textura pintada (pula as silhuetas simples) */
     private boolean tex;
@@ -76,6 +78,8 @@ public class Backdrop implements Disposable {
         Array<float[]>[] lists = new Array[]{far, mid, near};
         int[] cols = {t.far, t.mid, t.near};
         for (int i = 0; i < 3; i++) {
+            if (quality == 0 && i != 1) continue; // celular fraco: so a camada do meio
+            if (quality == 1 && i == 2) continue;
             BackdropArt.Layer l = art.layers[i];
             tex = l.tex != null;
             if (tex) texLayer(d, l, ks[i], i, camX, camY, minX, minY, vw, vh, night);

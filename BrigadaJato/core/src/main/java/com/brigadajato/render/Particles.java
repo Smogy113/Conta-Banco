@@ -104,6 +104,12 @@ public class Particles {
         }
     }
 
+    public int activeCount() {
+        int n = 0;
+        for (P p : pool) if (p.active) n++;
+        return n;
+    }
+
     public void clear() {
         for (P p : pool) p.active = false;
     }

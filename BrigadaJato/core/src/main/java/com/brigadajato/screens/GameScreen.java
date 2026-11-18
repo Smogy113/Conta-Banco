@@ -79,6 +79,10 @@ public class GameScreen extends ScreenAdapter {
     private float zoomPunch;
     private float shotWait;
     private float holdTime;
+    // medicao de desempenho (--perf=true no PC)
+    private static final boolean PERF = "true".equals(System.getProperty("brigadajato.perf"));
+    private long pSim, pRender, pLights, pHud, pFrames;
+    private float pTimer;
     private static final String SHOT_WHEN = System.getProperty("brigadajato.shotWhen");
     private static final float SHOT_DELAY = Float.parseFloat(System.getProperty("brigadajato.shotDelay", "1.3"));
     /** teste no PC: a IA controla o jogador local (--autoplay) */
@@ -251,6 +255,7 @@ public class GameScreen extends ScreenAdapter {
                 return;
             }
         } else if (!paused || host != null) {
+            long t0 = System.nanoTime();
             if (local != null && !local.alive && director.holdRespawn() && holdTime < 2.5f) {
                 holdTime += dt;
                 local.respawnTimer = Math.max(local.respawnTimer, 0.15f);
@@ -272,6 +277,7 @@ public class GameScreen extends ScreenAdapter {
                 steps++;
             }
             if (steps == 6) acc = 0;
+            pSim += System.nanoTime() - t0;
         }
 
         renderer.update(dt);
@@ -316,13 +322,22 @@ public class GameScreen extends ScreenAdapter {
             return;
         }
         boolean filtered = filter.begin(game.batch, fmode);
+        long r0 = System.nanoTime();
+        // qualidade baixa/media: desenha o mundo numa resolucao menor e amplia (bem mais leve para a GPU)
+        float scale = game.settings.quality <= 0 ? 0.6f : (game.settings.quality == 1 ? 0.8f : 1f);
+        boolean scaled = scale < 0.99f && beginWorldFbo(scale);
         game.batch.setProjectionMatrix(cam.combined);
         game.batch.begin();
         if (filtered) filter.uniforms(fmode);
         renderer.render(game.draw, cam, world, local, true, crossX, crossY);
         game.batch.end();
         if (filtered) filter.end(game.batch);
+        long r1 = System.nanoTime();
         renderer.renderLights(game.batch, cam, local);
+        if (scaled) endWorldFbo();
+        long r2 = System.nanoTime();
+        pRender += r1 - r0;
+        pLights += r2 - r1;
 
         game.batch.setProjectionMatrix(hudScaled.combined);
         game.batch.begin();
@@ -346,6 +361,18 @@ public class GameScreen extends ScreenAdapter {
         }
         game.batch.end();
         game.batch.setColor(1, 1, 1, 1);
+        pHud += System.nanoTime() - r2;
+        if (PERF) {
+            pFrames++;
+            pTimer += dt;
+            if (pTimer > 5) {
+                Gdx.app.log("perf", String.format("fps=%.0f sim=%.2fms render=%.2fms luz=%.2fms hud=%.2fms render_calls=%d particulas=%d",
+                        fpsSmooth, pSim / 1e6 / pFrames, pRender / 1e6 / pFrames, pLights / 1e6 / pFrames, pHud / 1e6 / pFrames,
+                        game.batch.renderCalls, renderer.fx.activeCount()));
+                pSim = pRender = pLights = pHud = pFrames = 0;
+                pTimer = 0;
+            }
+        }
 
         stage.getViewport().apply();
         stage.act(dt);
@@ -357,6 +384,45 @@ public class GameScreen extends ScreenAdapter {
             if (!statsSaved) saveStats();
             if (overTimer > 2.5f && !resultsShown && director.reelDone && !director.active()) showResults();
         }
+    }
+
+    private com.badlogic.gdx.graphics.glutils.FrameBuffer worldFbo;
+    private com.badlogic.gdx.graphics.g2d.TextureRegion worldRegion;
+    private boolean fboFailed;
+    private final com.badlogic.gdx.math.Matrix4 screenMat = new com.badlogic.gdx.math.Matrix4();
+
+    private boolean beginWorldFbo(float scale) {
+        if (fboFailed) return false;
+        int w = Math.max(64, Math.round(Gdx.graphics.getBackBufferWidth() * scale));
+        int h = Math.max(36, Math.round(Gdx.graphics.getBackBufferHeight() * scale));
+        if (worldFbo == null || worldFbo.getWidth() != w || worldFbo.getHeight() != h) {
+            if (worldFbo != null) worldFbo.dispose();
+            try {
+                worldFbo = new com.badlogic.gdx.graphics.glutils.FrameBuffer(com.badlogic.gdx.graphics.Pixmap.Format.RGB888, w, h, false);
+            } catch (Exception e) {
+                fboFailed = true;
+                worldFbo = null;
+                return false;
+            }
+            worldFbo.getColorBufferTexture().setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear, com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+            worldRegion = new com.badlogic.gdx.graphics.g2d.TextureRegion(worldFbo.getColorBufferTexture());
+            worldRegion.flip(false, true);
+        }
+        worldFbo.begin();
+        ScreenUtils.clear(0, 0, 0, 1);
+        return true;
+    }
+
+    private void endWorldFbo() {
+        worldFbo.end();
+        screenMat.setToOrtho2D(0, 0, 1, 1);
+        game.batch.setProjectionMatrix(screenMat);
+        game.batch.disableBlending();
+        game.batch.begin();
+        game.batch.setColor(1, 1, 1, 1);
+        game.batch.draw(worldRegion, 0, 0, 1, 1);
+        game.batch.end();
+        game.batch.enableBlending();
     }
 
     private int killerId = -1;
@@ -702,6 +768,7 @@ public class GameScreen extends ScreenAdapter {
 
     @Override
     public void dispose() {
+        if (worldFbo != null) worldFbo.dispose();
         director.dispose();
         filter.dispose();
         stage.dispose();

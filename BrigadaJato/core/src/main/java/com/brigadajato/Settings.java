@@ -22,6 +22,8 @@ public class Settings {
     // ---- visual
     /** 0 baixo, 1 medio, 2 alto, 3 ultra */
     public int quality = 2;
+    /** ainda nao foi escolhida (primeira vez): no celular comeca em media */
+    public boolean qualityUnset;
     public float particles = 1f;
     /** 0 vermelho, 1 tinta verde, 2 sem sangue */
     public int blood = 0;
@@ -103,6 +105,7 @@ public class Settings {
         aimAssist = prefs.getBoolean("aimAssist", true);
         controlsScale = prefs.getFloat("ctrlScale", 1f);
         controlsOpacity = prefs.getFloat("ctrlOpacity", 0.55f);
+        qualityUnset = !prefs.contains("v.quality");
         quality = prefs.getInteger("v.quality", 2);
         particles = prefs.getFloat("v.particles", 1f);
         blood = prefs.getInteger("v.blood", 0);

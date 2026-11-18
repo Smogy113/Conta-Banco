@@ -46,6 +46,21 @@ public class BrigadaJatoGame extends Game {
         } catch (NumberFormatException e) {
             shotTime = 5;
         }
+        // testes no PC: --campo=valor sobrescreve opcoes (sem salvar), ex.: --quality=1 --dayNight=2
+        for (java.lang.reflect.Field fd : Settings.class.getFields()) {
+            String v = System.getProperty("brigadajato." + fd.getName());
+            if (v == null) continue;
+            try {
+                if (fd.getType() == int.class) fd.setInt(settings, Integer.parseInt(v));
+                else if (fd.getType() == float.class) fd.setFloat(settings, Float.parseFloat(v));
+                else if (fd.getType() == boolean.class) fd.setBoolean(settings, Boolean.parseBoolean(v));
+            } catch (Exception ignored) {
+            }
+        }
+        if (settings.qualityUnset && platform.isMobile()) {
+            settings.quality = 1; // celular: comeca em qualidade media (mais leve)
+            settings.save();
+        }
         setScreen(startScreen(System.getProperty("brigadajato.start")));
         audio.music(true);
     }

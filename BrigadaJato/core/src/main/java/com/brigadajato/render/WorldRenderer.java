@@ -140,6 +140,7 @@ public class WorldRenderer implements Disposable {
 
     /** Reaplica as opcoes visuais (qualidade, particulas, contorno). */
     public void applySettings() {
+        Backdrop.quality = settings.quality;
         float q = settings.quality == 0 ? 0.35f : (settings.quality == 1 ? 0.65f : (settings.quality == 2 ? 1f : 1.25f));
         fx.quality = Math.min(1f, q * settings.particles);
         SoldierPainter.outlineWidth = settings.outline == 0 ? 0.6f : (settings.outline == 1 ? 1.2f : (settings.outline == 2 ? 1.7f : 2.4f));
@@ -1828,7 +1829,7 @@ public class WorldRenderer implements Disposable {
         float boundary = m.theme2 != null ? (m.lowerTop + 1) * C.TILE : -1e9f;
         float k = m.theme2 != null ? MathUtils.clamp((boundary - camY) / 240f + 0.5f, 0, 1) : 0; // 1 = regiao de baixo
         float r1 = 1, g1 = 1, b1 = 1, r2 = 1, g2 = 1, b2 = 1;
-        float[] c = new float[3];
+        float[] c = ambTmp;
         themeAmbient(m.theme, c);
         r1 = c[0];
         g1 = c[1];
@@ -1843,6 +1844,8 @@ public class WorldRenderer implements Disposable {
         ambG = g1 + (g2 - g1) * k;
         ambB = b1 + (b2 - b1) * k;
     }
+
+    private final float[] ambTmp = new float[3];
 
     private void themeAmbient(Theme t, float[] out) {
         float n = night;
@@ -1882,12 +1885,7 @@ public class WorldRenderer implements Disposable {
         World w = world;
         float vw = cam.viewportWidth * cam.zoom, vh = cam.viewportHeight * cam.zoom;
         float minX = cam.position.x - vw / 2 - 300, minY = cam.position.y - vh / 2 - 300, maxX = minX + vw + 600, maxY = minY + vh + 600;
-        if (!settings.dynamicLights || settings.quality == 0) {
-            // simples: so escurece, com uma luz em volta do jogador
-            if (local != null && local.alive) lighting.light(local.x, local.centerY(), 260, 0xffffff, 0.55f);
-            lighting.render(batch, a.soft, cam, ambR, ambG, ambB);
-            return;
-        }
+        boolean cheap = !settings.dynamicLights || settings.quality <= 1;
         GameMap m = w.map;
         for (int i = 0; i < m.lamps.size; i++) {
             Vector2 l = m.lamps.get(i);
@@ -1938,7 +1936,8 @@ public class WorldRenderer implements Disposable {
             Vector2 h = ((KingHillMode) w.mode).hill();
             lighting.light(h.x, h.y + 30, KingHillMode.RADIUS * 1.8f, 0xfff59d, 0.5f);
         }
-        lighting.render(batch, a.soft, cam, ambR, ambG, ambB);
+        if (cheap) lighting.renderCheap(batch, a.soft, a.white, cam, ambR, ambG, ambB);
+        else lighting.render(batch, a.soft, cam, ambR, ambG, ambB);
     }
 
     private void drawNames(Draw d, World w, Player local, float minX, float minY, float maxX, float maxY) {
