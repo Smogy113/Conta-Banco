@@ -92,7 +92,7 @@ public class Player {
     }
 
     public float shoulderY() {
-        return y + height() * 0.66f;
+        return y + height() * 0.5f;
     }
 
     public float headY() {

@@ -102,24 +102,48 @@ public class Look {
         return rb[(int) (time * 10) % rb.length];
     }
 
+    /** Uniformes que combinam: corpo, calca, capacete, cor de destaque. */
+    public static final int[][] OUTFITS = {
+            {0x5b7a3a, 0x3e4a2c, 0x4f6b33, 0xd4a017}, // verde oliva
+            {0xc2a46b, 0x7a6544, 0xa98c55, 0x8d2f23}, // deserto
+            {0x3f5873, 0x2b3240, 0x34495e, 0xf2c14e}, // marinha
+            {0x6d6f73, 0x34363a, 0x55585c, 0xff7043}, // urbano
+            {0x8e3b2e, 0x2f2a28, 0x6e2b22, 0xf5d76e}, // vermelho tijolo
+            {0x2f6f6a, 0x23383a, 0x2a5a56, 0xffb74d}, // petroleo
+            {0x7d5ba6, 0x3a2f4a, 0x5f4785, 0x80deea}, // roxo
+            {0xd9822b, 0x4a3b2e, 0xb86c22, 0x263238}, // laranja
+            {0x4e86c4, 0x2c3e57, 0x3d6fa8, 0xffeb3b}, // azul celeste
+            {0x8a9a5b, 0x4d5532, 0x6f7d47, 0xe57373}, // sálvia
+            {0xb0bec5, 0x455a64, 0x90a4ae, 0x26c6da}, // inverno
+            {0x3a3a3a, 0x1f1f1f, 0x2e2e2e, 0xe53935}, // operacoes especiais
+    };
+
     public static Look random(java.util.Random r) {
-        Look l = new Look(PALETTE[r.nextInt(PALETTE.length)], PALETTE[r.nextInt(PALETTE.length)],
-                PALETTE[r.nextInt(PALETTE.length)], SKINS[r.nextInt(6)], r.nextInt(HAT_COUNT));
+        int[] o = OUTFITS[r.nextInt(OUTFITS.length)];
+        Look l = new Look(o[0], o[2], 0x37474f, SKINS[r.nextInt(6)], r.nextInt(HAT_COUNT));
+        l.visor = r.nextFloat() < 0.5f ? 0x263238 : mixc(o[3], 0x263238, 0.3f);
         l.hair = r.nextInt(HAIR_COUNT);
-        l.hairColor = HAIR_COLORS[r.nextInt(HAIR_COLORS.length)];
-        l.eyes = r.nextInt(EYES_COUNT - 1);
-        l.mouth = r.nextInt(MOUTH_COUNT);
-        l.beard = r.nextFloat() < 0.5f ? 0 : r.nextInt(BEARD_COUNT);
-        l.eyewear = r.nextFloat() < 0.4f ? 0 : r.nextInt(EYEWEAR_COUNT);
-        l.pattern = r.nextFloat() < 0.4f ? 0 : r.nextInt(PATTERN_COUNT);
-        l.patternColor = PALETTE[r.nextInt(PALETTE.length)];
-        l.pants = PALETTE[r.nextInt(PALETTE.length)];
+        l.hairColor = HAIR_COLORS[r.nextInt(6)];
+        l.eyes = r.nextFloat() < 0.6f ? 0 : r.nextInt(EYES_COUNT - 1);
+        l.mouth = r.nextFloat() < 0.5f ? 0 : r.nextInt(MOUTH_COUNT);
+        l.beard = r.nextFloat() < 0.65f ? 0 : r.nextInt(BEARD_COUNT);
+        l.eyewear = r.nextFloat() < 0.55f ? 0 : r.nextInt(EYEWEAR_COUNT);
+        l.pattern = r.nextFloat() < 0.65f ? 0 : 1 + r.nextInt(2); // camuflado ou listras, discreto
+        l.patternColor = mixc(o[0], 0x000000, 0.28f);
+        l.pants = o[1];
         l.jetpack = r.nextInt(JETPACK_COUNT);
-        l.jetColor = PALETTE[r.nextInt(PALETTE.length)];
-        l.flame = r.nextInt(FLAMES.length);
-        l.gunSkin = r.nextFloat() < 0.6f ? 0 : r.nextInt(GUNSKIN_COUNT);
-        l.accessory = r.nextFloat() < 0.5f ? 0 : r.nextInt(ACCESSORY_COUNT);
-        l.accessoryColor = PALETTE[r.nextInt(PALETTE.length)];
+        l.jetColor = mixc(o[2], 0x607d8b, 0.5f);
+        l.flame = r.nextFloat() < 0.7f ? 0 : r.nextInt(FLAMES.length);
+        l.gunSkin = r.nextFloat() < 0.75f ? 0 : r.nextInt(GUNSKIN_COUNT);
+        l.accessory = r.nextFloat() < 0.6f ? 0 : r.nextInt(ACCESSORY_COUNT);
+        l.accessoryColor = o[3];
         return l;
+    }
+
+    private static int mixc(int a, int b, float t) {
+        int rr = (int) (((a >> 16) & 0xff) * (1 - t) + ((b >> 16) & 0xff) * t);
+        int gg = (int) (((a >> 8) & 0xff) * (1 - t) + ((b >> 8) & 0xff) * t);
+        int bb = (int) ((a & 0xff) * (1 - t) + (b & 0xff) * t);
+        return (rr << 16) | (gg << 8) | bb;
     }
 }

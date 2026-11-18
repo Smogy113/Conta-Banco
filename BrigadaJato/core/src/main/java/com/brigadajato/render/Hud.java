@@ -593,12 +593,13 @@ public class Hud implements Disposable {
 
     private void drawAmmoPc(Draw d, Player local, float W) {
         Gun g = local.gun();
-        chip(W - 300, 12, 286, 92, 1);
+        Gun o0 = local.otherGun();
+        chip(W - 300, 12, 286, o0 != null ? 112 : 92, 1);
         painter.drawGun(d, g.type, local.look.gunSkin, W - 236, 66, 0, 1.4f, 1);
         text(a.big, ammo.of(g.mag, g.reserve), W - 30, 78, g.mag == 0 ? 0xff5252 : 0xffffff, 1, Align.right);
         text(a.small, I18n.pt ? g.type.pt : g.type.en, W - 30, 38, 0xbdbdbd, 1, Align.right);
         Gun o = local.otherGun();
-        if (o != null) text(a.small, "Q: " + (I18n.pt ? o.type.pt : o.type.en), W - 290, 38, 0x9e9e9e, 1, Align.left);
+        if (o != null) text(a.small, "Q: " + (I18n.pt ? o.type.pt : o.type.en), W - 290, 116, 0x9e9e9e, 1, Align.left);
     }
 
     public void drawScoreboard(Draw d, World w, Player local) {

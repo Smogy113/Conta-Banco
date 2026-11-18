@@ -13,7 +13,8 @@ public class LooksDebugScreen extends BaseScreen {
         background = false;
         Random r = new Random(42);
         WeaponType[] all = WeaponType.values();
-        for (int i = 0; i < 24; i++) {
+        boolean big = System.getProperty("brigadajato.big") != null;
+        for (int i = 0; i < (big ? 4 : 24); i++) {
             Look l = Look.random(r);
             l.hat = i % Look.HAT_COUNT;
             l.eyewear = i % Look.EYEWEAR_COUNT;
@@ -24,8 +25,13 @@ public class LooksDebugScreen extends BaseScreen {
             p.weapon = all[i % all.length];
             p.poseType = i % SoldierPreview.POSE_COUNT;
             p.facing = i % 2 == 0 ? 1 : -1;
-            root.add(p).size(150, 170).pad(4);
-            if ((i + 1) % 8 == 0) root.row();
+            if (big) {
+                p.poseType = 0;
+                root.add(p).size(300, 360).pad(4);
+            } else {
+                root.add(p).size(150, 170).pad(4);
+                if ((i + 1) % 8 == 0) root.row();
+            }
         }
     }
 }

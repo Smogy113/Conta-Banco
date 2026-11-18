@@ -164,7 +164,7 @@ public class GameScreen extends ScreenAdapter {
     @Override
     public void resize(int width, int height) {
         float aspect = width / (float) Math.max(1, height);
-        float viewH = 600 * game.settings.cameraZoom;
+        float viewH = 520 * game.settings.cameraZoom;
         cam.viewportHeight = viewH;
         cam.viewportWidth = viewH * aspect;
         director.resize(600 * aspect, 600);
