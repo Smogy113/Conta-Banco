@@ -24,6 +24,7 @@ public class SetupScreen extends BaseScreen {
     private final Runnable onDone;
     private Label modeLabel, modeDesc, mapLabel, botsLabel, timeLabel, scoreLabel, teamLabel, diffLabel;
     private Slider botsSlider;
+    private MapCard mapCard;
 
     private static final ModeType[] MODES = {ModeType.DEATHMATCH, ModeType.TEAM_DEATHMATCH, ModeType.CTF, ModeType.BOMB, ModeType.SURVIVAL,
             ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK};
@@ -48,8 +49,8 @@ public class SetupScreen extends BaseScreen {
     private void build() {
         Table panel = new Table(skin);
         panel.setBackground("panel");
-        panel.pad(24);
-        panel.defaults().pad(6);
+        panel.pad(14, 24, 14, 24);
+        panel.defaults().pad(3);
         panel.add(label(kind == Kind.OFFLINE ? I18n.t("match_setup") : I18n.t("create_room"), "big")).colspan(4).padBottom(10).row();
 
         // modo
@@ -58,17 +59,19 @@ public class SetupScreen extends BaseScreen {
         modeDesc.setWrap(true);
         modeDesc.setAlignment(Align.center);
         panel.add(label(I18n.t("mode"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleMode(-1))).size(60, 52);
+        panel.add(button("<", "gray", () -> cycleMode(-1))).size(56, 40);
         panel.add(modeLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleMode(1))).size(60, 52).row();
+        panel.add(button(">", "gray", () -> cycleMode(1))).size(56, 40).row();
         panel.add(modeDesc).colspan(4).width(700).padBottom(6).row();
 
         // mapa
         mapLabel = label("", "yellow");
         panel.add(label(I18n.t("map"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleMap(-1))).size(60, 52);
+        panel.add(button("<", "gray", () -> cycleMap(-1))).size(56, 40);
         panel.add(mapLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleMap(1))).size(60, 52).row();
+        panel.add(button(">", "gray", () -> cycleMap(1))).size(56, 40).row();
+        mapCard = new MapCard(game.draw, game.assets);
+        panel.add(mapCard).colspan(4).size(720, 118).row();
 
         // bots
         botsLabel = label("", "yellow");
@@ -90,26 +93,26 @@ public class SetupScreen extends BaseScreen {
         panel.add(button("<", "gray", () -> {
             cfg.difficulty = (cfg.difficulty + 2) % 3;
             refresh();
-        })).size(60, 52);
+        })).size(56, 40);
         panel.add(diffLabel).width(360);
         panel.add(button(">", "gray", () -> {
             cfg.difficulty = (cfg.difficulty + 1) % 3;
             refresh();
-        })).size(60, 52).row();
+        })).size(56, 40).row();
 
         // tempo
         timeLabel = label("", "yellow");
         panel.add(label(I18n.t("time_limit"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleTime(-1))).size(60, 52);
+        panel.add(button("<", "gray", () -> cycleTime(-1))).size(56, 40);
         panel.add(timeLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleTime(1))).size(60, 52).row();
+        panel.add(button(">", "gray", () -> cycleTime(1))).size(56, 40).row();
 
         // placar
         scoreLabel = label("", "yellow");
         panel.add(label(I18n.t("score_limit"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleScore(-1))).size(60, 52);
+        panel.add(button("<", "gray", () -> cycleScore(-1))).size(56, 40);
         panel.add(scoreLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleScore(1))).size(60, 52).row();
+        panel.add(button(">", "gray", () -> cycleScore(1))).size(56, 40).row();
 
         // time do jogador
         teamLabel = label("", "yellow");
@@ -117,12 +120,12 @@ public class SetupScreen extends BaseScreen {
         panel.add(button("<", "gray", () -> {
             cfg.playerTeam = (cfg.playerTeam + 2) % 3;
             refresh();
-        })).size(60, 52);
+        })).size(56, 40);
         panel.add(teamLabel).width(360);
         panel.add(button(">", "gray", () -> {
             cfg.playerTeam = (cfg.playerTeam + 1) % 3;
             refresh();
-        })).size(60, 52).row();
+        })).size(56, 40).row();
 
         final CheckBox ff = new CheckBox(" " + I18n.t("friendly_fire"), skin);
         ff.setChecked(cfg.friendlyFire);
@@ -213,6 +216,7 @@ public class SetupScreen extends BaseScreen {
         modeDesc.setText(I18n.t("desc_" + modeKey(cfg.mode)));
         GameMap m = BrigadaJatoGame.loadMap(cfg.mapId);
         mapLabel.setText(I18n.pt ? m.name : m.nameEn);
+        if (mapCard != null) mapCard.setMap(m);
         boolean surv = cfg.mode == ModeType.SURVIVAL;
         if (surv && cfg.bots > 3) {
             cfg.bots = 1;
@@ -251,5 +255,11 @@ public class SetupScreen extends BaseScreen {
         if (kind == Kind.OFFLINE) go(new MenuScreen(game));
         else if (kind == Kind.HOST) go(new MultiplayerScreen(game));
         else if (onDone != null) onDone.run();
+    }
+
+    @Override
+    public void dispose() {
+        if (mapCard != null) mapCard.dispose();
+        super.dispose();
     }
 }
