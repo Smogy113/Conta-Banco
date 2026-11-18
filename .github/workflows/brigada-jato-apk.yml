@@ -7,6 +7,9 @@ on:
       - ".github/workflows/brigada-jato-apk.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -54,3 +57,17 @@ jobs:
         with:
           name: BrigadaJato-PC
           path: BrigadaJato/desktop/build/libs/BrigadaJato-PC.jar
+
+      # Rodando manualmente (workflow_dispatch), salva o APK na pasta apk/ do branch
+      # para dar para baixar direto pelo celular.
+      - name: Salvar APK no branch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p ../apk
+          cp BrigadaJato.apk ../apk/BrigadaJato.apk
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apk/BrigadaJato.apk
+          git commit -m "APK do Brigada Jato gerado pelo GitHub Actions [skip ci]" || echo "APK sem mudancas"
+          git push origin HEAD:${{ github.ref_name }}
