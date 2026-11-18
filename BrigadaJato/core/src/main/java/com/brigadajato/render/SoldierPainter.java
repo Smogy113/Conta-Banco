@@ -125,9 +125,61 @@ public class SoldierPainter {
         }
     }
 
-    public static final float HEAD_R = 10.5f;
-
+    public static final float HEAD_R = 6.2f;
     private final Look costumeLook = new Look();
+
+    // articulacao de 2 ossos: cotovelo/joelho
+    private float jx, jy;
+
+    /** calcula a junta (jx, jy) entre (sx,sy) e o alvo (tx,ty); bend = +1/-1 escolhe o lado */
+    private void ik(float sx, float sy, float tx, float ty, float a, float b, float bend) {
+        float dx = tx - sx, dy = ty - sy;
+        float d = (float) Math.sqrt(dx * dx + dy * dy);
+        d = MathUtils.clamp(d, Math.abs(a - b) + 0.01f, a + b - 0.01f);
+        float base = MathUtils.atan2(dy, dx);
+        float cosA = MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1);
+        float ang = base + bend * (float) Math.acos(cosA);
+        jx = sx + MathUtils.cos(ang) * a;
+        jy = sy + MathUtils.sin(ang) * a;
+    }
+
+    private void seg(float x0, float y0, float x1, float y1, float th, int col) {
+        float dx = x1 - x0, dy = y1 - y0;
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+        limb(x0, y0, len, th, MathUtils.atan2(dy, dx) * MathUtils.radiansToDegrees, col, true);
+    }
+
+    /** braco ate a mao (tx,ty): ombro -> cotovelo -> mao, com luva */
+    private void arm(float sx, float sy, float tx, float ty, float bend, int sleeve, int glove, float th) {
+        ik(sx, sy, tx, ty, 7.6f, 7.4f, bend);
+        float ex = jx, ey = jy;
+        seg(sx, sy, ex, ey, th, sleeve);
+        seg(ex, ey, tx, ty, th * 0.9f, sleeve);
+        ball(tx, ty, th * 0.42f + 0.4f, glove);
+    }
+
+    /** perna do quadril ate o pe, com joelho para a frente */
+    private void leg(float hx, float hy, float fx, float fy, int f, int pants, int pad, int boot, float th) {
+        ik(hx, hy, fx, fy, 10.2f, 9.8f, f);
+        float kx = jx, ky = jy;
+        seg(hx, hy, kx, ky, th, pants);
+        seg(kx, ky, fx, fy, th * 0.88f, pants);
+        add(T_BOX, kx - 2.8f, ky - 2.6f, 5.6f, 5.2f, 0, 0, 0, pad, false); // joelheira
+        box(fx - 4 + f * 1.6f, fy - 2.6f, 9.5f, 5, boot);
+    }
+
+    /** onde as maos seguram cada arma (fracao do comprimento: cabo, guarda-mao) */
+    private static float[] grips(WeaponType w) {
+        switch (w) {
+            case PISTOL: case MAGNUM: case DUAL_PISTOLS: return new float[]{0.06f, 0.06f};
+            case SMG: case DUAL_SMG: return new float[]{0.2f, 0.48f};
+            case ROCKET: return new float[]{0.3f, 0.5f};
+            case BOW: return new float[]{0.0f, 0.36f};
+            case BOOMERANG: return new float[]{0.2f, 0.2f};
+            case SHOTGUN: return new float[]{0.12f, 0.6f};
+            default: return new float[]{0.14f, 0.56f};
+        }
+    }
 
     public void draw(Draw d, Pose s) {
         ShadeKit.load();
@@ -139,31 +191,30 @@ public class SoldierPainter {
         }
         float x = s.x, y = s.y;
         boolean celebrate = s.action == 1;
-        int dance = s.action >= 2 ? s.action - 1 : 0; // 1..4
+        int dance = s.action >= 2 ? s.action - 1 : 0;
         float bob = 0;
-        if (celebrate) bob = Math.abs(MathUtils.sin(s.time * 7)) * 6;
+        if (celebrate) bob = Math.abs(MathUtils.sin(s.time * 7)) * 5;
         float dt8 = s.time * 8;
         if (dance == 1) bob = Math.abs(MathUtils.sin(s.time * 6)) * 3;
-        if (dance == 3) bob = Math.max(0, MathUtils.sin(s.time * 7)) * 14;
-        // respiracao parado
-        float breathe = s.onGround && Math.abs(s.vx) < 20 && dance == 0 && !celebrate ? MathUtils.sin(s.time * 3.2f) * 0.6f : 0;
+        if (dance == 3) bob = Math.max(0, MathUtils.sin(s.time * 7)) * 12;
+        float breathe = s.onGround && Math.abs(s.vx) < 20 && dance == 0 && !celebrate ? MathUtils.sin(s.time * 3.2f) * 0.5f : 0;
         int f = s.facing;
         if (dance == 4) f = ((int) (s.time * 2.5f)) % 2 == 0 ? 1 : -1;
-        int skin = s.zombie ? 0x9ccc65 : look.skin;
-        int body = s.team == C.TEAM_RED ? RED : (s.team == C.TEAM_BLUE ? BLUE : look.body);
-        int bodyDark = darker(body, 0.7f);
-        int vest = mix(darker(body, 0.72f), look.pants, 0.35f);
+        int skin = s.zombie ? 0x8fae6a : look.skin;
+        int body = s.team == C.TEAM_RED ? 0xa8372e : (s.team == C.TEAM_BLUE ? 0x2f5f9e : look.body);
+        int bodyDark = darker(body, 0.72f);
         int pants = look.pants;
-        int glove = 0x33302c;
-        int boot = 0x2a2522;
+        int gear = mix(darker(body, 0.55f), 0x3a3d33, 0.5f); // colete / equipamento
+        int gearL = mix(gear, 0xffffff, 0.12f);
+        int glove = 0x2b2926, boot = 0x24201d, pad = mix(gear, 0x000000, 0.2f);
         boolean crouch = s.crouch;
-        float legLen = crouch ? 5.5f : 11f;
-        float hipY = y + (crouch ? 8.5f : 14f) + bob;
-        float torsoH = crouch ? 11.5f : 14f;
-        float torsoTop = hipY + torsoH + breathe;
+        float walk = s.onGround && !crouch ? s.anim * 3.4f : 0;
+        float stepBob = s.onGround && !crouch && Math.abs(s.vx) > 20 ? Math.abs(MathUtils.sin(walk)) * 1.2f : 0;
+        float hipY = y + (crouch ? 12.5f : 19.5f) + bob + stepBob;
+        float chestTop = hipY + (crouch ? 11.5f : 13.5f) + breathe;
         float headR = HEAD_R;
-        float headX = x + f * 1.2f, headY = torsoTop + headR - 2.5f;
-        float shoulderX = x - f * 0.5f, shoulderY = y + (crouch ? C.CROUCH_H : C.PLAYER_H) * 0.5f + bob + breathe;
+        float headX = x + f * 1.6f, headY = chestTop + headR + 0.8f;
+        float shoulderX = x + f * 0.5f, shoulderY = chestTop - 2.2f;
         float aim = celebrate ? MathUtils.PI / 2 - f * 0.7f : s.aim;
         if (s.zombie && s.weapon == null && !celebrate && dance == 0) aim = f > 0 ? 0.05f : MathUtils.PI - 0.05f;
         if (dance == 1) aim = MathUtils.PI / 2 + MathUtils.sin(dt8) * 0.9f;
@@ -171,135 +222,146 @@ public class SoldierPainter {
         else if (dance == 3) aim = MathUtils.sin(s.time * 7) > 0 ? MathUtils.PI / 2 + f * 0.6f : -MathUtils.PI / 2 + f * 0.9f;
         else if (dance == 4) aim = (((int) (s.time * 4)) % 2 == 0) ? 0 : MathUtils.PI / 2;
         float aimDeg = aim * MathUtils.radiansToDegrees;
+        float ca = MathUtils.cos(aim), sa = MathUtils.sin(aim);
         float sway = MathUtils.sin(s.time * 6 + x * 0.01f) * 6 - MathUtils.clamp(s.vx * 0.05f, -20, 20) * f;
-        float k = headR / 8.5f; // as pecas de rosto/chapeu foram desenhadas para raio 8.5
+        float k = headR / 8.5f;
+        boolean dancing = dance > 0;
+        WeaponType weapon = dancing || celebrate && s.weapon != null && s.weapon.isShield() ? null : s.weapon;
+        float melee = s.meleeAnim > 0 ? MathUtils.sin(s.meleeAnim / 0.25f * MathUtils.PI) : 0;
 
         // sombra no chao
         if (s.onGround && bob < 1) {
-            add(T_ELLIPSE, x, y + 0.5f, 13, 3, 0, 0, 0, 0x000000, false);
-            alphaLast(0.22f);
+            add(T_ELLIPSE, x, y + 0.5f, 12, 2.6f, 0, 0, 0, 0x000000, false);
+            alphaLast(0.25f);
         }
-        // ---- capa (atras de tudo)
-        if (look.accessory == 2) {
-            float capeLen = crouch ? 16 : 24;
-            rect(x - f * 3 - 6, torsoTop - capeLen, 12, capeLen, 6, capeLen, f * (12 + sway * 0.8f), look.accessoryColor);
+        if (look.accessory == 2) { // capa
+            float capeLen = crouch ? 15 : 22;
+            rect(x - f * 3 - 6, chestTop - capeLen, 12, capeLen, 6, capeLen, f * (12 + sway * 0.8f), look.accessoryColor);
         }
-        // ---- cabelo de tras
         int hc = look.hairColor;
-        if (look.hair == 3) rect(headX - f * 5 - 6, headY - 15, 12, 17, 6, 17, f * 6, hc);
-        if (look.hair == 4) ball(headX - f * 1, headY + 3, headR + 5, hc);
-        if (look.hair == 5) add(T_ELLIPSE, headX - f * 12, headY + 1, 5, 3.5f, 0, 0, f * (20 + sway), hc, true);
+        if (look.hair == 3) rect(headX - f * 4 - 4, headY - 11, 8, 12, 4, 12, f * 6, hc);
+        if (look.hair == 4) ball(headX - f, headY + 2, headR + 3.5f, hc);
+        if (look.hair == 5) add(T_ELLIPSE, headX - f * 8, headY + 1, 3.5f, 2.5f, 0, 0, f * (20 + sway), hc, true);
 
-        // ---- jetpack (atras)
-        jetpack(look, x - f * 11, hipY + 2, f);
+        // mochila/jetpack
+        jetpack(look, x - f * 9, hipY + 1, f);
 
-        // ---- pernas
-        float swing = 0;
-        if (s.onGround && !crouch) swing = MathUtils.sin(s.anim * 3.4f) * 34f;
-        float legA = crouch ? 75 * f : swing, legB = crouch ? 20 * f : -swing;
-        if (!s.onGround) {
-            legA = 25 * f;
-            legB = -5 * f;
+        // ---- pernas (joelho para a frente, passada alternada)
+        float hipBX = x - f * 2.2f, hipAX = x + f * 2.2f;
+        float legReach = crouch ? 13f : 19.5f;
+        float fAx, fAy, fBx, fBy;
+        if (!s.onGround) { // no ar: pernas dobradas
+            fAx = hipAX + f * 4;
+            fAy = hipY - 15;
+            fBx = hipBX - f * 3;
+            fBy = hipY - 13;
+        } else if (crouch) {
+            fAx = hipAX + f * 7;
+            fAy = y;
+            fBx = hipBX - f * 5;
+            fBy = y;
+        } else {
+            float sw = MathUtils.sin(walk), cw = MathUtils.cos(walk);
+            boolean moving = Math.abs(s.vx) > 20;
+            float stride = moving ? 7.5f : 0;
+            fAx = hipAX + sw * stride;
+            fAy = y + (moving ? Math.max(0, cw) * 4.5f : 0);
+            fBx = hipBX - sw * stride;
+            fBy = y + (moving ? Math.max(0, -cw) * 4.5f : 0);
+            if (!moving) {
+                fAx = hipAX + f * 2.5f;
+                fBx = hipBX - f * 2f;
+            }
         }
-        if (celebrate) {
-            legA = -12 * f;
-            legB = 18 * f;
+        if (celebrate || dancing) {
+            float open = dance == 3 ? Math.max(0, MathUtils.sin(s.time * 7)) * 9 : (dance == 1 ? MathUtils.sin(dt8) * 4 : 3);
+            fAx = hipAX + f * open;
+            fBx = hipBX - f * open;
+            fAy = fBy = y + bob * 0.2f;
+            if (dance == 2) fAx += MathUtils.sin(s.time * 9) * 5;
+            if (dance == 4) fAy += (((int) (s.time * 4)) % 2 == 0) ? 6 : 0;
         }
-        if (dance == 1) {
-            legA = MathUtils.sin(dt8) * 14;
-            legB = -legA;
-        } else if (dance == 2) {
-            legA = MathUtils.sin(s.time * 9) * 18;
-            legB = legA * 0.6f;
-        } else if (dance == 3) {
-            float open = Math.max(0, MathUtils.sin(s.time * 7));
-            legA = 28 * open;
-            legB = -28 * open;
-        } else if (dance == 4) {
-            legA = (((int) (s.time * 4)) % 2 == 0) ? 20 : -6;
-            legB = -legA * 0.5f;
-        }
-        float hipBX = x - f * 2.5f, hipAX = x + f * 2.5f;
-        // perna de tras
-        limb(hipBX, hipY, legLen, 7f, -90 + legB, darker(pants, 0.78f), true);
-        float bBX = hipBX + MathUtils.sinDeg(legB) * legLen, bBY = hipY - MathUtils.cosDeg(legB) * legLen;
-        box(bBX - 4 + f * 1.2f, bBY - 3.5f, 9.5f, 5.5f, darker(boot, 0.8f));
-        // perna da frente
-        limb(hipAX, hipY, legLen, 7.5f, -90 + legA, pants, true);
-        float bAX = hipAX + MathUtils.sinDeg(legA) * legLen, bAY = hipY - MathUtils.cosDeg(legA) * legLen;
-        box(bAX - 4 + f * 1.5f, bAY - 3.5f, 10, 6, boot);
+        leg(hipBX, hipY, fBx, fBy, f, darker(pants, 0.78f), darker(pad, 0.8f), darker(boot, 0.8f), 6.2f);
+        leg(hipAX, hipY, fAx, fAy, f, pants, pad, boot, 6.6f);
 
-        // ---- bandeira / bomba nas costas
         if (s.carryingFlag) {
-            float poleX = x - f * 13;
-            rect(poleX - 1, hipY, 2.5f, 36, 0, 0, 0, 0xdddddd);
+            float poleX = x - f * 12;
+            rect(poleX - 1, hipY, 2.5f, 34, 0, 0, 0, 0xdddddd);
             float wave = MathUtils.sin(s.time * 9) * 2.5f;
-            rect(poleX - (f > 0 ? 20 : 0), hipY + 24 + wave * 0.3f, 20, 12, 0, 0, wave, s.flagColor);
+            rect(poleX - (f > 0 ? 20 : 0), hipY + 22 + wave * 0.3f, 20, 12, 0, 0, wave, s.flagColor);
         }
         if (s.hasBomb) {
-            box(x - f * 12 - 5, hipY + 4, 10, 8, 0x8b0000);
-            dCircle(x - f * 12, hipY + 10, 1.8f, ((int) (s.time * 3) % 2 == 0) ? 0xff3333 : 0x550000);
+            box(x - f * 11 - 5, hipY + 4, 10, 8, 0x8b0000);
+            dCircle(x - f * 11, hipY + 10, 1.8f, ((int) (s.time * 3) % 2 == 0) ? 0xff3333 : 0x550000);
         }
 
-        boolean dancing = dance > 0;
-        WeaponType weapon = dancing || celebrate && s.weapon != null && s.weapon.isShield() ? null : s.weapon;
-        // ---- braco de tras
-        float melee = s.meleeAnim > 0 ? MathUtils.sin(s.meleeAnim / 0.25f * MathUtils.PI) : 0;
-        float backArm = celebrate ? 90 + f * 25 + MathUtils.sin(s.time * 8) * 12 : aimDeg + 16 * f * (1 - melee);
+        // ---- posicao da arma e das maos
         boolean dual = weapon != null && weapon.dual;
-        if (dual) backArm = aimDeg - 4 * f;
-        if (dance == 1) backArm = 90 - MathUtils.sin(dt8) * 50;
-        else if (dance == 2) backArm = -90 - f * (25 + 40 * MathUtils.sin(s.time * 9));
-        else if (dance == 3) backArm = aimDeg + 180 - f * 2 * (aimDeg - 90);
-        else if (dance == 4) backArm = (((int) (s.time * 4 + 1)) % 2 == 0) ? 180 : 90;
-        if (s.zombie && weapon == null && !dancing && !celebrate) backArm = aimDeg + 6 * f;
-        float bsx = shoulderX - f * 3, bsy = shoulderY;
-        if (dual) {
-            float bc = MathUtils.cosDeg(backArm), bs = MathUtils.sinDeg(backArm);
-            gun(weapon, look.gunSkin, bsx + bc * 5, bsy + 2 + bs * 5, backArm, f);
-        }
-        limb(bsx, bsy, 10, 6, backArm, bodyDark, true);
-        ball(bsx + MathUtils.cosDeg(backArm) * 11, bsy + MathUtils.sinDeg(backArm) * 11, 3.6f, darker(glove, 0.85f));
+        boolean shieldW = weapon != null && weapon.isShield();
+        boolean twoHanded = weapon != null && !dual && !shieldW;
+        float gunL = weapon != null ? weapon.gunLen : 0, gunH = weapon != null ? weapon.gunH : 0;
+        boolean pistol = weapon == WeaponType.PISTOL || weapon == WeaponType.MAGNUM || dual;
+        float reach = pistol ? 9.5f + melee * 6 : (weapon == WeaponType.ROCKET ? -6 : 1.5f + melee * 6);
+        float buttX = shoulderX + ca * reach, buttY = shoulderY + sa * reach - 0.8f;
+        float[] gp = weapon != null ? grips(weapon) : new float[]{0, 0};
+        float perpX = sa * (f > 0 ? 1 : -1), perpY = -ca * (f > 0 ? 1 : -1); // "para baixo" da arma
+        float gripX = buttX + ca * gunL * gp[0] + perpX * gunH * 0.45f, gripY = buttY + sa * gunL * gp[0] + perpY * gunH * 0.45f;
+        float foreX = buttX + ca * gunL * gp[1] + perpX * gunH * 0.35f, foreY = buttY + sa * gunL * gp[1] + perpY * gunH * 0.35f;
+        float bend = -f;
 
-        // ---- tronco
-        box(x - 9, hipY - 2, 18, torsoH + 3, body);
-        pattern(look, x, hipY, torsoH);
-        // colete tatico, cinto e alca
-        if (look.accessory != 3) {
-            dRect(x - f * 1 - 5, hipY + 2, 10, torsoH - 5, 0, 0, 0, vest);
-            alphaLast(0.8f);
-            dRect(x + f * 1.5f - 2.5f + f * 1.5f, hipY + 3.5f, 4.2f, 4, 0, 0, 0, darker(vest, 0.75f));
-            dRect(x - f * 3 - 2, hipY + 3.5f, 4.2f, 4, 0, 0, 0, darker(vest, 0.75f));
+        // ---- braco de tras
+        float bsx = shoulderX - f * 2.4f, bsy = shoulderY + 0.4f;
+        if (twoHanded && !s.zombie) {
+            arm(bsx, bsy, foreX, foreY, bend, bodyDark, darker(glove, 0.85f), 4.6f);
         } else {
-            dRect(x - 7.5f, hipY + 1, 15, torsoH - 2, 0, 0, 0, darker(look.accessoryColor, 0.8f));
-            dRect(x - 6, hipY + 3.5f, 4.5f, 4.5f, 0, 0, 0, darker(look.accessoryColor, 0.55f));
-            dRect(x + 1.5f, hipY + 3.5f, 4.5f, 4.5f, 0, 0, 0, darker(look.accessoryColor, 0.55f));
-        }
-        dRect(x - 8.5f, hipY - 0.5f, 17, 3.2f, 0, 0, 0, 0x2b2620);
-        dRect(x - 1.6f, hipY - 0.2f, 3.2f, 2.6f, 0, 0, 0, 0xc9a227);
-        dRect(x - 8, torsoTop - 3, 16, 2.4f, 8, 1.2f, f * -38, darker(vest, 0.7f));
-        if (look.accessory == 4) { // medalha
-            dRect(x + f * 3 - 1.5f, torsoTop - 8, 3, 4, 0, 0, 0, look.accessoryColor);
-            dCircle(x + f * 3, torsoTop - 9.5f, 2.2f, 0xffc107);
-        }
-        // brilho no ombro
-        add(T_GLOSS, x - f * 3, torsoTop - 3, 5, 2.5f, 0, 0, 0, 0xffffff, false);
-        alphaLast(0.25f);
-        if (look.accessory == 1) { // cachecol
-            rect(x - 7.5f, torsoTop - 3.5f, 15, 4.5f, 0, 0, 0, look.accessoryColor);
-            rect(x - f * 6, torsoTop - 2, 10, 3.5f, 0, 1.75f, 180 + (f > 0 ? 0 : 180) - f * (10 + sway), look.accessoryColor);
+            float backDeg = celebrate ? 90 + f * 25 + MathUtils.sin(s.time * 8) * 12 : aimDeg + 8 * f;
+            if (dual) backDeg = aimDeg - 5 * f;
+            if (dance == 1) backDeg = 90 - MathUtils.sin(dt8) * 50;
+            else if (dance == 2) backDeg = -90 - f * (25 + 40 * MathUtils.sin(s.time * 9));
+            else if (dance == 3) backDeg = aimDeg + 180 - f * 2 * (aimDeg - 90);
+            else if (dance == 4) backDeg = (((int) (s.time * 4 + 1)) % 2 == 0) ? 180 : 90;
+            else if (weapon == null && !celebrate && !s.zombie) backDeg = -90 + f * 18 + MathUtils.sin(walk) * 20;
+            float hx = bsx + MathUtils.cosDeg(backDeg) * 13.5f, hy = bsy + MathUtils.sinDeg(backDeg) * 13.5f;
+            if (dual) {
+                gun(weapon, look.gunSkin, hx - MathUtils.cosDeg(backDeg) * 1.5f, hy + 1.5f, backDeg, f);
+            }
+            arm(bsx, bsy, hx, hy, bend, bodyDark, darker(glove, 0.85f), 4.6f);
         }
 
-        // ---- cabeca
+        // ---- tronco: quadril, peito largo, colete com placas e bolsos
+        box(x - 6, hipY - 2.5f, 12, 7, darker(pants, 0.9f));
+        add(T_BOX, x - 7.8f, hipY + 2.5f, 15.6f, chestTop - hipY - 2, 0, 0, 0, body, true);
+        pattern(look, x, hipY + 1, chestTop - hipY - 2);
+        if (look.accessory != 3) {
+            add(T_BOX, x - 6.6f + f * 0.6f, hipY + 4.2f, 13.2f, chestTop - hipY - 6.5f, 0, 0, 0, gear, true);
+            dRect(x - 5.6f + f * 0.6f, chestTop - 5.8f, 11.2f, 1.6f, 0, 0, 0, gearL);
+            for (int i = 0; i < 3; i++) {
+                float px = x - 5.4f + f * 0.6f + i * 3.8f;
+                dRect(px, hipY + 4.6f, 3.2f, 4.2f, 0, 0, 0, darker(gear, 0.72f));
+                dRect(px, hipY + 7.9f, 3.2f, 0.9f, 0, 0, 0, gearL);
+            }
+        } else {
+            add(T_BOX, x - 6.6f, hipY + 4.2f, 13.2f, chestTop - hipY - 6.5f, 0, 0, 0, look.accessoryColor, true);
+        }
+        dRect(x - 6.5f, hipY + 1.8f, 13, 2.4f, 0, 0, 0, 0x2b2620); // cinto
+        dRect(x - 1.3f, hipY + 1.9f, 2.6f, 2.2f, 0, 0, 0, 0x9e8a4a);
+        // ombreira
+        ball(x + f * 0.5f, shoulderY + 1, 3.6f, darker(body, 0.85f));
+        if (look.accessory == 4) {
+            dRect(x + f * 3 - 1.2f, chestTop - 7, 2.4f, 3, 0, 0, 0, look.accessoryColor);
+            dCircle(x + f * 3, chestTop - 8.2f, 1.7f, 0xffc107);
+        }
+        if (look.accessory == 1) {
+            rect(x - 5.5f, chestTop - 2.8f, 11, 3.6f, 0, 0, 0, look.accessoryColor);
+            rect(x - f * 5, chestTop - 1.6f, 8, 3, 0, 1.5f, 180 + (f > 0 ? 0 : 180) - f * (10 + sway), look.accessoryColor);
+        }
+
+        // ---- pescoco e cabeca
+        rect(headX - f * 0.8f - 2, chestTop - 1.5f, 4, 3.2f, 0, 0, 0, darker(skin, 0.85f));
         ball(headX, headY, headR, skin);
-        // orelha
-        ball(headX - f * 2.2f, headY - 0.5f, 2.6f, darker(skin, 0.9f));
-        // bochecha
-        add(T_CIRCLE, headX + f * 5.8f, headY - 3.6f, 2.1f, 2.1f, 0, 0, 0, 0xff8a80, false);
-        alphaLast(0.35f);
         int from = n;
         face(look, headX, headY, 8.5f, f, dancing ? (f > 0 ? 0 : MathUtils.PI) : aim, s.time);
-        if (look.costume == 4) dCircle(headX + f * 7.6f, headY - 1.5f, 2.2f, 0xff1744); // nariz de palhaco
+        if (look.costume == 4) dCircle(headX + f * 7.6f, headY - 1.5f, 2.2f, 0xff1744);
         if (s.zombie) {
             dCircle(headX + f * 3.5f, headY + 1, 2.6f, 0x33691e);
             alphaLast(0.5f);
@@ -307,23 +369,25 @@ public class SoldierPainter {
         }
         drawHat(look, headX, headY, 8.5f, f, s.time);
         scaleFrom(from, headX, headY, k);
-        // brilho da cabeca
-        add(T_GLOSS, headX - f * 2 - 4, headY + headR * 0.45f - 2.5f, 7, 4, 0, 0, 0, 0xffffff, false);
-        alphaLast(look.hat == 0 || look.hat == 8 || look.hat == 10 || look.hat == 13 ? 0.35f : 0.18f);
+        add(T_GLOSS, headX - f * 1.5f - 3, headY + headR * 0.4f - 1.8f, 5, 2.6f, 0, 0, 0, 0xffffff, false);
+        alphaLast(0.2f);
 
-        // ---- arma + braco da frente
-        float ca = MathUtils.cos(aim), sa = MathUtils.sin(aim);
-        boolean shieldW = weapon != null && weapon.isShield();
-        if (weapon != null && !shieldW) gun(weapon, look.gunSkin, shoulderX + ca * (4 + melee * 6), shoulderY + sa * (4 + melee * 6), aimDeg, f);
-        float armLen = 10 + melee * 8;
-        if (s.zombie && weapon == null && !dancing) armLen = 13 + melee * 8;
-        limb(shoulderX + f * 1, shoulderY, armLen, 6.5f, aimDeg, body, true);
-        ball(shoulderX + f * 1 + ca * (armLen + 1), shoulderY + sa * (armLen + 1), 3.9f, glove);
+        // ---- arma e braco da frente
+        if (weapon != null && !shieldW) gun(weapon, look.gunSkin, buttX, buttY, aimDeg, f);
+        float fsx = shoulderX + f * 1.2f, fsy = shoulderY;
+        if (weapon != null && !shieldW) {
+            arm(fsx, fsy, gripX, gripY, bend, body, glove, 5f);
+        } else {
+            float len = s.zombie ? 15 : 13 + melee * 5;
+            float deg = aimDeg;
+            if (weapon == null && !celebrate && !dancing && !s.zombie && melee <= 0) deg = -90 - f * 15 - MathUtils.sin(walk) * 20;
+            arm(fsx, fsy, fsx + MathUtils.cosDeg(deg) * len, fsy + MathUtils.sinDeg(deg) * len, bend, body, glove, 5f);
+        }
         if (shieldW) {
             float tilt = MathUtils.clamp(f > 0 ? aimDeg : 180 - aimDeg, -35, 35) * 0.35f * f;
-            float sx0 = x + f * (12 + melee * 8), sy0 = hipY - 9;
-            rrect(sx0 - 4, sy0, 8, 40, 4, 0, tilt, 0x37474f);
-            dRect(sx0 - 2.5f, sy0 + 25, 5, 9, -1.5f + 4, -25, tilt, 0x80deea);
+            float sx0 = x + f * (12 + melee * 8), sy0 = hipY - 12;
+            rrect(sx0 - 4, sy0, 8, 38, 4, 0, tilt, 0x37474f);
+            dRect(sx0 - 2.5f, sy0 + 24, 5, 9, -1.5f + 4, -24, tilt, 0x80deea);
             alphaLast(0.75f);
             dRect(sx0 - 2.5f, sy0 + 5, 5, 2, -1.5f + 4, -5, tilt, 0xffeb3b);
         }
@@ -333,9 +397,9 @@ public class SoldierPainter {
         if (s.shield) {
             d.additive(true);
             d.color(0.4f, 0.8f, 1f, 0.35f + 0.15f * MathUtils.sin(s.time * 10));
-            d.ring(x, y + 24, 34);
+            d.ring(x, y + 23, 32);
             d.color(0.4f, 0.8f, 1f, 0.12f);
-            d.soft(x, y + 24, 36);
+            d.soft(x, y + 23, 34);
             d.additive(false);
         }
     }
