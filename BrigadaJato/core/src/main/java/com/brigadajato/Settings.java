@@ -54,6 +54,8 @@ public class Settings {
 
     // estatisticas
     public int matches, totalKills, totalDeaths, wins, bestWave, xp;
+    /** progresso das conquistas ("id=valor;...") */
+    public String achData = "";
 
     public Settings() {
         prefs = Gdx.app.getPreferences("brigadajato");
@@ -137,6 +139,7 @@ public class Settings {
         totalDeaths = prefs.getInteger("s.deaths", 0);
         wins = prefs.getInteger("s.wins", 0);
         bestWave = prefs.getInteger("s.wave", 0);
+        achData = prefs.getString("ach", "");
         xp = prefs.getInteger("s.xp", 0);
         I18n.pt = portuguese;
     }
@@ -217,6 +220,7 @@ public class Settings {
         prefs.putInteger("s.deaths", totalDeaths);
         prefs.putInteger("s.wins", wins);
         prefs.putInteger("s.wave", bestWave);
+        prefs.putString("ach", achData);
         prefs.putInteger("s.xp", xp);
         prefs.flush();
         I18n.pt = portuguese;

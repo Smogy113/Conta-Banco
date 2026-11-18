@@ -60,6 +60,8 @@ public class MenuScreen extends BaseScreen {
         row.add(button(I18n.t("soldier"), "purple-small", () -> go(new CustomizeScreen(game)))).width(bw / 2 - 5).height(bh).padRight(10);
         row.add(button(I18n.t("settings"), "gray-small", () -> go(new SettingsScreen(game)))).width(bw / 2 - 5).height(bh);
         left.add(row).padBottom(10).row();
+        left.add(button(I18n.t("achievements") + "  " + game.achievements.unlockedCount() + "/" + com.brigadajato.Achievements.DEFS.length, "default-small",
+                () -> go(new AchievementsScreen(game)))).width(bw).height(50).padBottom(10).row();
         left.add(button(I18n.t("quit"), "red-small", () -> Gdx.app.exit())).width(150).height(46).left().row();
         if (notice != null) left.add(label(notice, "yellow")).left().padTop(12).row();
 

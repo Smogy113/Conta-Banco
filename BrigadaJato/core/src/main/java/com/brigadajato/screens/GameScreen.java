@@ -325,6 +325,10 @@ public class GameScreen extends ScreenAdapter {
         }
         if (SHOT_WHEN != null) { // testes: screenshot automatica em momentos especiais
             if ("finalkill".equals(SHOT_WHEN) && finalSlow > 0 && finalTotal - finalSlow > 0.8f) game.shotNow();
+            if ("ach".equals(SHOT_WHEN) && AchievementToast.active()) {
+                shotWait += dt;
+                if (shotWait > 0.8f) game.shotNow();
+            }
             if ("medals".equals(SHOT_WHEN) && medalsShown) {
                 shotWait += dt;
                 if (shotWait > SHOT_DELAY) game.shotNow();
@@ -380,6 +384,7 @@ public class GameScreen extends ScreenAdapter {
         hud.draw(game.draw, world, local, fpsSmooth, controls.scoreboardVisible() || (world.mode.over && !resultsShown && overTimer > 0.5f), mobile);
         game.batch.setProjectionMatrix(hudCam.combined);
         if (finalSlow > 0) drawFinalKill();
+        AchievementToast.draw(game, dt, hudCam.viewportWidth, 720);
         if (!paused && !resultsShown && local != null && finalSlow <= 0) controls.draw(game.draw, game.assets.small, game.assets.normal, local, painter);
         if (!paused && !resultsShown && local != null && local.alive) controls.drawWheel(game.draw, game.assets.small, game.assets.normal);
         if (client != null && client.reconnecting >= 0) {
@@ -490,6 +495,7 @@ public class GameScreen extends ScreenAdapter {
         hud.handle(e, local);
         director.onEvent(e, local);
         if (e.type == WorldEvent.Type.KILL && e.b == localId) killerId = e.a;
+        trackAchievements(e);
         if (e.type == WorldEvent.Type.KILL && e.a >= 0 && e.a != e.b) {
             lastKillAt = world.time;
             finalX = e.x;
@@ -834,7 +840,12 @@ public class GameScreen extends ScreenAdapter {
     private void saveStats() {
         statsSaved = true;
         game.audio.jetpack(false);
-        if (local == null || world.config.mode == ModeType.TRAINING) return;
+        if (world.config.mode == ModeType.TRAINING) return;
+        matchAchievements(isWin());
+        if (local == null) {
+            game.settings.save();
+            return;
+        }
         com.brigadajato.Settings s = game.settings;
         s.matches++;
         s.totalKills += local.kills;
@@ -943,6 +954,69 @@ public class GameScreen extends ScreenAdapter {
 
     /** Medalhas calculadas (as conquistas usam). */
     private void onMedals(com.badlogic.gdx.utils.Array<com.brigadajato.world.Medals.Award> awards) {
+        for (com.brigadajato.world.Medals.Award a : awards)
+            if (a.medal == com.brigadajato.world.Medals.MVP && a.p.id == localId) game.achievements.add("mvp5", 1);
+    }
+
+    private int achJuggKills;
+    private final com.badlogic.gdx.utils.FloatArray achKillTimes = new com.badlogic.gdx.utils.FloatArray();
+
+    private void trackAchievements(WorldEvent e) {
+        if (world.config.mode == ModeType.TRAINING) return;
+        com.brigadajato.Achievements ach = game.achievements;
+        Player me = world.player(localId);
+        if (me == null) return;
+        switch (e.type) {
+            case KILL:
+                if (e.a != localId || e.b == localId) break;
+                ach.add("first_blood", 1);
+                ach.add("kills100", 1);
+                ach.add("kills1000", 1);
+                if (e.f > 0) ach.add("headshot25", 1);
+                if (e.c == C.KILL_MELEE) ach.add("melee10", 1);
+                WeaponType kw = WeaponType.of(e.c);
+                if (e.c == C.KILL_FRAG || e.c == C.KILL_MINE || (kw != null && kw.isExplosive())) ach.add("boom25", 1);
+                ach.add("streak5", me.streak);
+                ach.add("streak10", me.streak);
+                float dx = me.x - e.x, dy = me.centerY() - e.y;
+                if (dx * dx + dy * dy > 960 * 960) ach.add("long", 1);
+                if (me.juggernaut) ach.add("jugg_kills", 1);
+                if (me.juggKills > achJuggKills) {
+                    achJuggKills = me.juggKills;
+                    ach.add("jugg_down", 1);
+                }
+                achKillTimes.add(world.time);
+                int quick = 1;
+                for (int i = achKillTimes.size - 1; i > 0 && achKillTimes.get(i) - achKillTimes.get(i - 1) < 2.5f; i--) quick++;
+                ach.add("multi3", quick);
+                break;
+            case FLAG:
+                if (e.b == com.brigadajato.world.modes.CtfMode.EV_CAPTURED && e.c == localId) ach.add("flags5", 1);
+                break;
+            case BOMB:
+                if ((e.b == BombMode.EV_PLANTED || e.b == BombMode.EV_DEFUSED) && e.c == localId) ach.add("bombs5", 1);
+                break;
+            default:
+        }
+    }
+
+    /** Conquistas do fim da partida. */
+    private void matchAchievements(boolean win) {
+        com.brigadajato.Achievements ach = game.achievements;
+        if (local == null) {
+            ach.add("spectator", 1);
+            return;
+        }
+        ach.add("matches50", 1);
+        int mi = java.util.Arrays.asList(com.brigadajato.world.GameMap.IDS).indexOf(world.map.id);
+        if (mi >= 0) ach.add("maps10", mi);
+        if (world.mode instanceof SurvivalMode) ach.add("wave10", ((SurvivalMode) world.mode).wave);
+        if (!win) return;
+        ach.add("win1", 1);
+        ach.add("wins25", 1);
+        ach.add("modes6", world.config.mode.ordinal());
+        if (local.deaths == 0 && local.kills >= 5) ach.add("flawless", 1);
+        if (world.config.instagib) ach.add("instagib", 1);
     }
 
     /** Sai da partida para outra tela (usado pelo torneio). */

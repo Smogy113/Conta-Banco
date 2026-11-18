@@ -15,6 +15,7 @@ import com.brigadajato.world.GameMap;
 public class BrigadaJatoGame extends Game {
     public final Platform platform;
     public Settings settings;
+    public Achievements achievements;
     public Assets assets;
     public Audio audio;
     public SpriteBatch batch;
@@ -32,6 +33,7 @@ public class BrigadaJatoGame extends Game {
     public void create() {
         Gdx.input.setCatchKey(Input.Keys.BACK, true);
         settings = new Settings();
+        achievements = new Achievements(settings);
         assets = new Assets();
         assets.load();
         audio = new Audio(assets, settings);
@@ -103,6 +105,7 @@ public class BrigadaJatoGame extends Game {
                 if (p.length > 2 && "rules".equals(p[2])) ss.openRules();
                 return ss;
             }
+            case "achievements": return new com.brigadajato.screens.AchievementsScreen(this);
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);
             case "host": {
                 com.brigadajato.world.MatchConfig cfg = settings.lastMatch.copy();

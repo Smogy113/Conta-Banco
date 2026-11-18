@@ -66,6 +66,17 @@ public abstract class BaseScreen extends ScreenAdapter {
         drawBehind(Math.min(delta, 0.1f));
         stage.draw();
         drawFront(Math.min(delta, 0.1f));
+        if (game.achievements.pending.size > 0 || AchievementToast.active()) {
+            game.batch.setProjectionMatrix(stage.getCamera().combined);
+            game.batch.begin();
+            float vw = stage.getViewport().getWorldWidth(), vh = stage.getViewport().getWorldHeight();
+            com.badlogic.gdx.math.Vector3 c = stage.getCamera().position;
+            game.batch.getTransformMatrix().idt().translate(c.x - vw / 2, c.y - vh / 2, 0);
+            game.batch.setTransformMatrix(game.batch.getTransformMatrix());
+            AchievementToast.draw(game, Math.min(delta, 0.1f), vw, vh);
+            game.batch.setTransformMatrix(game.batch.getTransformMatrix().idt());
+            game.batch.end();
+        }
     }
 
     /** Efeitos entre o fundo e a interface (o batch esta fechado). */
