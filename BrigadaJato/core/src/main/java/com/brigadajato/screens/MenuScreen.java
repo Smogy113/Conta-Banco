@@ -71,7 +71,9 @@ public class MenuScreen extends BaseScreen {
         card.setBackground("chip");
         card.pad(8, 18, 8, 18);
         card.add(label(game.settings.name, "big")).row();
-        card.add(label(I18n.f("level", game.settings.level()) + "   ·   " + I18n.f("stat_kills", game.settings.totalKills), "gray")).row();
+        card.add(label(I18n.f("level", game.settings.level()) + (game.settings.level() >= com.brigadajato.Progression.MAX_LEVEL ? " (MAX)" : "")
+                + "   ·   " + I18n.f("stat_kills", game.settings.totalKills), "gray")).row();
+        if (com.brigadajato.Progression.TEST_BUILD) card.add(label(I18n.t("unlocked_all"), "small")).row();
         right.add(card).padTop(4);
 
         root.add(left).expand().left().padLeft(70);

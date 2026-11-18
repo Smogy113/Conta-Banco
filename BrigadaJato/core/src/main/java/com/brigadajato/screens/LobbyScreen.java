@@ -20,6 +20,7 @@ public class LobbyScreen extends BaseScreen {
     private final HostSession host;
     private final ClientSession client;
     private final Table players = new Table();
+    private final Table votes = new Table();
     private final Label info, status;
     private String lastSig = "";
 
@@ -34,7 +35,15 @@ public class LobbyScreen extends BaseScreen {
     }
 
     public static LobbyScreen client(BrigadaJatoGame game, String ip) {
-        ClientSession c = new ClientSession(ip, game.settings.name, game.settings.look, BrigadaJatoGame::loadMap);
+        return client(game, ip, "");
+    }
+
+    public static LobbyScreen client(BrigadaJatoGame game, String ip, String password) {
+        return client(game, com.brigadajato.net.TcpLink.to(ip), password);
+    }
+
+    public static LobbyScreen client(BrigadaJatoGame game, com.brigadajato.net.Link.Factory link, String password) {
+        ClientSession c = new ClientSession(link, game.settings.name, game.settings.look, password, BrigadaJatoGame::loadMap);
         return new LobbyScreen(game, null, c, null);
     }
 
@@ -66,8 +75,44 @@ public class LobbyScreen extends BaseScreen {
             if (ips.size() > 1) panel.add(label(I18n.t("other_ips") + " " + joinIps(ips.subList(1, ips.size())), "gray")).row();
             if (!Net.onLocalNetwork()) panel.add(label(I18n.t("no_wifi"), "yellow-small")).row();
         }
+        if (host != null && error == null) {
+            Table opts = new Table(skin);
+            opts.defaults().pad(2, 6, 2, 6);
+            final com.badlogic.gdx.scenes.scene2d.ui.TextField pass = new com.badlogic.gdx.scenes.scene2d.ui.TextField(host.password, skin);
+            pass.setMessageText(I18n.t("password"));
+            pass.setMaxLength(12);
+            pass.setTextFieldListener((tf, c) -> {
+                host.password = tf.getText().trim();
+                host.updateInfo();
+            });
+            opts.add(label(I18n.t("password") + ":", "small"));
+            opts.add(pass).width(170).height(44);
+            final com.badlogic.gdx.scenes.scene2d.ui.CheckBox vote = new com.badlogic.gdx.scenes.scene2d.ui.CheckBox(" " + I18n.t("map_vote"), skin);
+            vote.setChecked(host.mapVote);
+            vote.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    host.mapVote = vote.isChecked();
+                    if (host.mapVote) host.rollVoteMaps();
+                    host.broadcastLobby();
+                    lastSig = "";
+                }
+            });
+            opts.add(vote);
+            final com.badlogic.gdx.scenes.scene2d.ui.CheckBox join = new com.badlogic.gdx.scenes.scene2d.ui.CheckBox(" " + I18n.t("join_ingame"), skin);
+            join.setChecked(host.allowJoinInGame);
+            join.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                    host.allowJoinInGame = join.isChecked();
+                }
+            });
+            opts.add(join);
+            panel.add(opts).row();
+        }
+        panel.add(votes).row();
         players.top();
-        panel.add(players).width(640).height(260).row();
+        panel.add(players).width(640).height(220).row();
         status = label(error != null ? error : (host != null ? "" : I18n.t("connecting")), "small");
         panel.add(status).row();
         Table buttons = new Table();
@@ -82,6 +127,19 @@ public class LobbyScreen extends BaseScreen {
                         host.broadcastLobby();
                     }));
                 })).width(200).height(56);
+                if (game.platform.bluetoothSupported()) buttons.add(button(I18n.t("bluetooth"), "blue-small", () -> {
+                    status.setText(I18n.t("bt_scanning"));
+                    game.platform.bluetoothHost(link -> host.net.addLink(link, true), new com.brigadajato.Platform.BtListener() {
+                        @Override
+                        public void status(final String text) {
+                            com.badlogic.gdx.Gdx.app.postRunnable(() -> status.setText(text));
+                        }
+
+                        @Override
+                        public void devices(String[] names, String[] addresses) {
+                        }
+                    });
+                })).width(170).height(56);
                 buttons.add(button(I18n.t("start_match"), "green", this::startMatch)).width(260).height(60);
             }
         }
@@ -113,17 +171,42 @@ public class LobbyScreen extends BaseScreen {
 
     private void startMatch() {
         if (host == null) return;
+        host.resolveVote();
         go(GameScreen.host(game, host));
     }
 
     private void refreshList(List<HostSession.Entry> list, MatchConfig cfg) {
-        StringBuilder sig = new StringBuilder(cfg.mode.name() + cfg.mapId + cfg.bots);
-        for (HostSession.Entry e : list) sig.append(e.id).append(e.team).append(e.name);
+        boolean mapVote = host != null ? host.mapVote : client.mapVote;
+        String[] vm = host != null ? host.voteMaps : client.voteMaps;
+        StringBuilder sig = new StringBuilder(cfg.mode.name() + cfg.mapId + cfg.bots + mapVote);
+        for (HostSession.Entry e : list) sig.append(e.id).append(e.team).append(e.name).append(e.vote);
+        for (String m : vm) sig.append(m);
         if (sig.toString().equals(lastSig)) return;
         lastSig = sig.toString();
         String map = BrigadaJatoGame.loadMap(cfg.mapId).name;
         if (!I18n.pt) map = BrigadaJatoGame.loadMap(cfg.mapId).nameEn;
         info.setText((I18n.pt ? cfg.mode.pt : cfg.mode.en) + "  ·  " + map + "  ·  " + I18n.t("bots") + ": " + cfg.bots + "  ·  " + I18n.t("diff" + cfg.difficulty));
+        if (mapVote) info.setText((I18n.pt ? cfg.mode.pt : cfg.mode.en) + "  ·  " + I18n.t("map_vote") + "  ·  " + I18n.t("bots") + ": " + cfg.bots);
+        votes.clearChildren();
+        if (mapVote) {
+            int[] counts = new int[3];
+            for (HostSession.Entry e : list) if (e.vote >= 0 && e.vote < 3) counts[e.vote]++;
+            int mine = -1;
+            for (HostSession.Entry e : list) if ((host != null && e.host) || (client != null && e.id == client.myId)) mine = e.vote;
+            for (int i = 0; i < 3; i++) {
+                if (vm[i] == null) continue;
+                final int opt = i;
+                com.brigadajato.world.GameMap gm = BrigadaJatoGame.loadMap(vm[i]);
+                String txt = (I18n.pt ? gm.name : gm.nameEn) + "  (" + counts[i] + ")";
+                votes.add(button(txt, mine == i ? "green-small" : "blue-small", () -> {
+                    if (host != null) {
+                        host.hostVote = host.hostVote == opt ? -1 : opt;
+                        host.broadcastLobby();
+                    } else client.vote(opt);
+                    lastSig = "";
+                })).height(48).pad(3);
+            }
+        }
         players.clearChildren();
         boolean teams = cfg.mode.chooseTeams();
         for (HostSession.Entry e : list) {
@@ -133,6 +216,13 @@ public class LobbyScreen extends BaseScreen {
             Label n = label(e.name + (e.host ? "  (" + I18n.t("host") + ")" : ""), "default");
             row.add(n).expandX().left();
             if (teams) row.add(label(e.team == C.TEAM_RED ? I18n.t("team_red") : I18n.t("team_blue"), e.team == C.TEAM_RED ? "yellow" : "default")).padRight(14);
+            if (host != null && !e.host) {
+                final int id = e.id;
+                row.add(button(I18n.t("kick"), "red-small", () -> {
+                    host.kick(id);
+                    lastSig = "";
+                })).height(44).padRight(8);
+            }
             players.add(row).width(620).height(66).pad(3).row();
         }
     }
@@ -164,7 +254,8 @@ public class LobbyScreen extends BaseScreen {
             }
             if (client.kicked != null) {
                 client.close();
-                String why = "ingame".equals(client.kicked) ? I18n.t("room_in_game") : ("version".equals(client.kicked) ? I18n.t("room_version") : client.kicked);
+                String why = "ingame".equals(client.kicked) ? I18n.t("room_in_game") : ("version".equals(client.kicked) ? I18n.t("room_version")
+                        : ("password".equals(client.kicked) ? I18n.t("password_wrong") : ("kicked".equals(client.kicked) ? I18n.t("kicked") : client.kicked)));
                 go(new MultiplayerScreen(game, I18n.t("conn_failed") + " " + why));
                 return;
             }
@@ -181,6 +272,7 @@ public class LobbyScreen extends BaseScreen {
         if (host != null) {
             host.close();
             game.platform.setMulticastLock(false);
+            game.platform.bluetoothStopHost();
         }
         if (client != null) client.close();
         go(new MultiplayerScreen(game));

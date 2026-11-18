@@ -84,7 +84,55 @@ public class Audio {
         }
     }
 
+    private com.badlogic.gdx.audio.Music mapMusic;
+    private String mapTrack;
+
+    /** Musica do mapa (null = volta para a musica do menu). */
+    public void mapMusic(String track) {
+        if (track != null && !settings.mapMusic) track = null;
+        if (track != null && track.equals(mapTrack) && mapMusic != null) {
+            mapMusic.setVolume(settings.musicVolume * 0.8f);
+            if (!mapMusic.isPlaying() && settings.musicVolume > 0.01f) mapMusic.play();
+            return;
+        }
+        if (mapMusic != null) {
+            mapMusic.stop();
+            mapMusic.dispose();
+            mapMusic = null;
+            mapTrack = null;
+        }
+        if (track == null) return;
+        if (assets.music != null && assets.music.isPlaying()) assets.music.pause();
+        try {
+            mapMusic = Gdx.audio.newMusic(Gdx.files.internal("music/" + track + ".ogg"));
+            mapMusic.setLooping(true);
+            mapMusic.setVolume(settings.musicVolume * 0.8f);
+            if (settings.musicVolume > 0.01f && !muted) mapMusic.play();
+            mapTrack = track;
+        } catch (Exception e) {
+            Gdx.app.error("Audio", "musica do mapa nao carregou: " + track, e);
+        }
+    }
+
+    public static String trackFor(com.brigadajato.world.Theme t) {
+        switch (t) {
+            case DESERT: return "desert";
+            case FACTORY: return "factory";
+            case ICE: return "ice";
+            case JUNGLE: return "jungle";
+            case SPACE: return "space";
+            case SHIP: case HOLD: return "ship";
+            case CITY: case SEWER: return "city";
+            case VOLCANO: case MAGMA: return "volcano";
+            case UNDERSEA: case REACTOR: return "undersea";
+            case SCHOOL: case GYM: return "school";
+            case MARKET: case CELLAR: return "market";
+            default: return "sky";
+        }
+    }
+
     public void music(boolean on) {
+        if (on && mapMusic != null) mapMusic(null);
         if (assets.music == null) return;
         assets.music.setVolume(settings.musicVolume);
         if (on && settings.musicVolume > 0.01f) {
@@ -94,6 +142,10 @@ public class Audio {
     }
 
     public void refreshMusic() {
+        if (mapMusic != null) {
+            mapMusic.setVolume(settings.musicVolume * 0.8f);
+            return;
+        }
         music(musicOn);
     }
 

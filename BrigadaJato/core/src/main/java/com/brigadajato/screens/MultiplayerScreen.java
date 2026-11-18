@@ -16,7 +16,7 @@ public class MultiplayerScreen extends BaseScreen {
     private final Discovery.Finder finder = new Discovery.Finder();
     private final Table roomList = new Table();
     private final Label status;
-    private final TextField ipField;
+    private final TextField ipField, passField;
     private float refresh;
     private String lastSig = null;
 
@@ -45,6 +45,15 @@ public class MultiplayerScreen extends BaseScreen {
         }
         Label tip = label(I18n.pt ? "Dica: ative o roteador do celular (hotspot) e\npeça para os amigos conectarem nele." : "Tip: turn on your phone hotspot\nand ask friends to join it.", "small");
         left.add(tip).padTop(10).row();
+        if (game.platform.bluetoothSupported()) {
+            left.add(button(I18n.t("bt_join"), "purple-small", () -> {
+                finder.stop();
+                go(new BluetoothScreen(game, pass()));
+            })).width(340).height(56).padTop(12).row();
+            Label bh = label(I18n.t("bt_hint"), "small");
+            bh.setWrap(true);
+            left.add(bh).width(340).row();
+        }
 
         Table right = new Table();
         right.add(label(I18n.t("join_room"), "yellow")).left().row();
@@ -59,6 +68,12 @@ public class MultiplayerScreen extends BaseScreen {
         manual.add(ipField).width(250).height(54).padRight(8);
         manual.add(button(I18n.t("connect"), "blue", () -> connect(ipField.getText().trim()))).width(170).height(54);
         right.add(manual).padTop(8).row();
+        Table pw = new Table();
+        passField = new TextField("", skin);
+        passField.setMessageText(I18n.pt ? "(se a sala tiver)" : "(if the room has one)");
+        pw.add(label(I18n.t("password"), "small")).padRight(8);
+        pw.add(passField).width(250).height(50);
+        right.add(pw).padTop(4).row();
 
         panel.add(left).top().padRight(30);
         panel.add(right).top().row();
@@ -69,15 +84,19 @@ public class MultiplayerScreen extends BaseScreen {
         rebuildRooms(finder.rooms());
     }
 
+    private String pass() {
+        return passField != null ? passField.getText().trim() : "";
+    }
+
     private void connect(String ip) {
         if (ip.isEmpty()) return;
         finder.stop();
-        go(LobbyScreen.client(game, ip));
+        go(LobbyScreen.client(game, ip, passField.getText().trim()));
     }
 
     private void rebuildRooms(List<Discovery.Room> rooms) {
         StringBuilder sig = new StringBuilder();
-        for (Discovery.Room r : rooms) sig.append(r.ip).append(r.players).append(r.mode).append(r.map).append(';');
+        for (Discovery.Room r : rooms) sig.append(r.ip).append(r.players).append(r.mode).append(r.map).append(r.locked).append(r.inGame).append(';');
         if (sig.toString().equals(lastSig)) return;
         lastSig = sig.toString();
         roomList.clearChildren();
@@ -88,7 +107,8 @@ public class MultiplayerScreen extends BaseScreen {
             return;
         }
         for (final Discovery.Room r : rooms) {
-            String text = I18n.f("room_of", r.name) + "  ·  " + r.mode + "  ·  " + r.players + "/" + r.max;
+            String text = I18n.f("room_of", r.name) + "  ·  " + r.mode + "  ·  " + r.players + "/" + r.max
+                    + (r.locked ? "  ·  " + I18n.t("locked") : "") + (r.inGame ? "  ·  " + I18n.t("in_game") : "");
             roomList.add(button(text, "blue-small", () -> connect(r.ip))).width(500).height(52).pad(4).row();
         }
     }

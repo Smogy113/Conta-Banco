@@ -216,6 +216,6 @@ public class Settings {
     }
 
     public int level() {
-        return 1 + (int) Math.sqrt(xp / 100f);
+        return Progression.level(xp);
     }
 }

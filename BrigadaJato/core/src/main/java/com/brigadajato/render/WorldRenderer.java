@@ -447,7 +447,7 @@ public class WorldRenderer implements Disposable {
             }
             case LEVEL_UP: {
                 Player p = w.player(e.a);
-                if (p != null) floatText(I18n.t("level") + " " + (e.b + 1), p.x, p.y + 70, 1f, 0.85f, 0.2f, 1.1f);
+                if (p != null) floatText(I18n.t("lvl") + " " + (e.b + 1), p.x, p.y + 70, 1f, 0.85f, 0.2f, 1.1f);
                 if (e.a == localId) audio.ui("levelup");
                 for (int i = 0; i < 14; i++) {
                     float ang = i / 14f * MathUtils.PI2;

@@ -26,7 +26,7 @@ public class PodiumActor extends Actor {
         this.a = a;
         this.teams = teams;
         for (int i = 0; i < ranking.size && top.size < 3; i++) if (!ranking.get(i).dummy) top.add(ranking.get(i));
-        setSize(560, 230);
+        setSize(520, 175);
     }
 
     @Override
@@ -40,7 +40,7 @@ public class PodiumActor extends Actor {
         float x0 = getX(), y0 = getY(), w = getWidth();
         // ordem visual: 2o, 1o, 3o
         int[] order = {1, 0, 2};
-        float[] heights = {90, 62, 40};
+        float[] heights = {60, 42, 28};
         int[] colors = {0xffc107, 0xb0bec5, 0xcd7f32};
         float bw = w / 3.3f;
         for (int k = 0; k < 3; k++) {
@@ -81,7 +81,7 @@ public class PodiumActor extends Actor {
             pose.zombie = p.zombie;
             pose.action = rank == 0 ? 1 + (((int) (time / 2.5f)) % 5) : 2 + ((rank * 2 + (int) (time / 3f)) % 4);
             if (pose.action == 1) pose.action = 2;
-            float s = rank == 0 ? 1.6f : 1.35f;
+            float s = rank == 0 ? 1.3f : 1.1f;
             batch.getTransformMatrix().idt().translate(cx, y0 + bh, 0).scale(s, s, 1).translate(-cx, -(y0 + bh), 0);
             batch.setTransformMatrix(batch.getTransformMatrix());
             painter.draw(d, pose);

@@ -124,7 +124,7 @@ public class GunGameMode extends GameMode {
         StringBuilder sb = new StringBuilder();
         if (w.config.timeLimit > 0) sb.append(clock(timeLeft)).append("   ");
         if (local != null) {
-            sb.append(I18n.t("level")).append(' ').append(Math.min(FINAL, local.gunLevel) + 1).append('/').append(FINAL + 1)
+            sb.append(I18n.t("lvl")).append(' ').append(Math.min(FINAL, local.gunLevel) + 1).append('/').append(FINAL + 1)
                     .append("  ").append(levelName(local.gunLevel));
         }
         return sb.toString();

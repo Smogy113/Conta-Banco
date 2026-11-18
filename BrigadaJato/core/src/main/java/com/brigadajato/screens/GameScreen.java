@@ -144,6 +144,7 @@ public class GameScreen extends ScreenAdapter {
     public void show() {
         Gdx.input.setInputProcessor(new InputMultiplexer(stage, controls));
         game.audio.music(false);
+        game.audio.mapMusic(com.brigadajato.Audio.trackFor(world.map.theme));
         resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
 
@@ -563,24 +564,26 @@ public class GameScreen extends ScreenAdapter {
         p.add(new Label(I18n.t("buy"), game.skin, "default")).left();
         p.add(moneyLabel).right().row();
         WeaponType[] list = {WeaponType.MAGNUM, WeaponType.SMG, WeaponType.SHOTGUN, WeaponType.FLAMETHROWER, WeaponType.RIFLE,
-                WeaponType.SAW, WeaponType.GRENADE_LAUNCHER, WeaponType.ROCKET, WeaponType.LASER, WeaponType.SNIPER, WeaponType.LMG};
+                WeaponType.SAW, WeaponType.GRENADE_LAUNCHER, WeaponType.ROCKET, WeaponType.LASER, WeaponType.SNIPER, WeaponType.LMG,
+                WeaponType.DUAL_PISTOLS, WeaponType.DUAL_SMG, WeaponType.SHIELD, WeaponType.BOW, WeaponType.BOOMERANG, WeaponType.FROST,
+                WeaponType.TESLA, WeaponType.GRAVITY, WeaponType.HARPOON};
         buyCodes = new int[list.length + 3];
         int i = 0;
         Table grid = new Table();
         for (WeaponType t : list) {
             final int code = t.ordinal();
             buyCodes[i++] = code;
-            grid.add(button((I18n.pt ? t.pt : t.en) + "  $" + t.price, "blue-small", () -> buy(code))).width(250).height(44).pad(2);
-            if (i % 3 == 0) grid.row();
+            grid.add(button((I18n.pt ? t.pt : t.en) + "  $" + t.price, "blue-small", () -> buy(code))).width(225).height(42).pad(2);
+            if (i % 4 == 0) grid.row();
         }
         buyCodes[i++] = BombMode.ITEM_ARMOR;
-        grid.add(button(I18n.t("armor") + "  $" + BombMode.PRICE_ARMOR, "green-small", () -> buy(BombMode.ITEM_ARMOR))).width(250).height(44).pad(2);
-        if (i % 3 == 0) grid.row();
+        grid.add(button(I18n.t("armor") + "  $" + BombMode.PRICE_ARMOR, "green-small", () -> buy(BombMode.ITEM_ARMOR))).width(225).height(42).pad(2);
+        if (i % 4 == 0) grid.row();
         buyCodes[i++] = BombMode.ITEM_FRAG;
-        grid.add(button(I18n.t("frag") + "  $" + BombMode.PRICE_FRAG, "green-small", () -> buy(BombMode.ITEM_FRAG))).width(250).height(44).pad(2);
-        if (i % 3 == 0) grid.row();
+        grid.add(button(I18n.t("frag") + "  $" + BombMode.PRICE_FRAG, "green-small", () -> buy(BombMode.ITEM_FRAG))).width(225).height(42).pad(2);
+        if (i % 4 == 0) grid.row();
         buyCodes[i++] = BombMode.ITEM_MINE;
-        grid.add(button(I18n.t("mine") + "  $" + BombMode.PRICE_MINE, "green-small", () -> buy(BombMode.ITEM_MINE))).width(250).height(44).pad(2);
+        grid.add(button(I18n.t("mine") + "  $" + BombMode.PRICE_MINE, "green-small", () -> buy(BombMode.ITEM_MINE))).width(225).height(42).pad(2);
         p.add(grid).colspan(2);
         overlay.add(p).expand().bottom().padBottom(mobile ? 250 : 120);
     }
@@ -600,7 +603,9 @@ public class GameScreen extends ScreenAdapter {
         s.totalDeaths += local.deaths;
         boolean win = isWin();
         if (win) s.wins++;
-        s.xp += local.kills * 10 + (win ? 60 : 15);
+        int gained = com.brigadajato.Progression.matchXp(local.kills, win, 0, 0);
+        s.xp += gained;
+        hud.toast("+" + gained + " XP", 0x80d8ff);
         if (world.mode instanceof SurvivalMode) {
             int wave = ((SurvivalMode) world.mode).wave;
             if (wave > s.bestWave) {
@@ -643,7 +648,7 @@ public class GameScreen extends ScreenAdapter {
         Label big = new Label(isWin() ? I18n.t("victory") : I18n.t("defeat"), game.skin, "title");
         if (world.mode instanceof SurvivalMode) big.setText(I18n.t("mode_survival"));
         p.add(big).row();
-        if (!(world.mode instanceof SurvivalMode)) p.add(new PodiumActor(game.draw, game.assets, world.ranking(), world.config.mode.teams)).size(560, 230).padTop(4).row();
+        if (!(world.mode instanceof SurvivalMode)) p.add(new PodiumActor(game.draw, game.assets, world.ranking(), world.config.mode.teams)).size(520, 175).padTop(0).row();
         p.add(new Label(title, game.skin, "big")).row();
         p.add(new Label(I18n.t(world.mode.endReason), game.skin, "gray")).row();
         Table score = new Table(game.skin);
@@ -680,6 +685,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void go(com.badlogic.gdx.Screen next) {
+        if (!(next instanceof GameScreen)) game.audio.music(true);
         game.setScreen(next);
         dispose();
     }

@@ -193,7 +193,6 @@ public class InfectionMode extends GameMode {
             else humans++;
         }
         String s = I18n.t("inf_humans") + ": " + humans + "   " + I18n.t("inf_zombies") + ": " + zombies;
-        if (started && w.config.timeLimit > 0) s = clock(timeLeft) + "   " + s;
         return s;
     }
 

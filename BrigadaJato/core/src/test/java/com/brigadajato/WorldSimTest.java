@@ -128,4 +128,47 @@ public class WorldSimTest {
         System.out.println("Treino: jogadores=" + w.players.size);
         assertTrue(w.players.size > 3);
     }
+
+    @Test
+    public void newModes() throws Exception {
+        ModeType[] modes = {ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL};
+        String[] maps = {"fortaleza", "navio", "escola"};
+        for (ModeType m : modes) {
+            for (String id : maps) {
+                World w = makeWorld(m, id, m == ModeType.DUEL ? 2 : 8, (m.name() + id).hashCode());
+                int[] r = run(w, 150);
+                String extra = "";
+                if (w.mode instanceof com.brigadajato.world.modes.GunGameMode) {
+                    int best = 0;
+                    for (Player p : w.players) best = Math.max(best, p.gunLevel);
+                    extra = " nivelMax=" + best;
+                }
+                if (w.mode instanceof com.brigadajato.world.modes.InfectionMode) {
+                    int z = 0;
+                    for (Player p : w.players) if (p.zombie) z++;
+                    extra = " zumbis=" + z;
+                }
+                if (w.mode instanceof com.brigadajato.world.modes.KingHillMode) extra = " placar=" + w.mode.teamScore[1] + "x" + w.mode.teamScore[2];
+                System.out.println(m + " " + id + ": abates=" + r[0] + " over=" + w.mode.over + extra);
+                assertTrue(m + " " + id + " sem abates", r[0] > 0 || w.mode.over);
+            }
+        }
+    }
+
+    @Test
+    public void survivalBoss() throws Exception {
+        World w = makeWorld(ModeType.SURVIVAL, "fortaleza", 3, 42);
+        SurvivalMode sm = (SurvivalMode) w.mode;
+        sm.wave = 4; // proxima onda e de chefao
+        sm.timer = 0.1f;
+        for (Player p : w.players) p.lives = 99;
+        int bossesSeen = 0;
+        for (int s = 0; s < 60 * 90; s++) {
+            w.update(C.STEP);
+            w.events.clear();
+            bossesSeen = Math.max(bossesSeen, w.bosses.size);
+        }
+        System.out.println("Chefao: visto=" + bossesSeen + " onda=" + sm.wave + " vivos=" + w.bosses.size);
+        assertTrue("chefao nao apareceu", bossesSeen > 0);
+    }
 }

@@ -10,11 +10,13 @@ import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 import com.brigadajato.BrigadaJatoGame;
 import com.brigadajato.Platform;
+import com.brigadajato.net.Link;
 
 /** Ponto de entrada no Android. */
 public class AndroidLauncher extends AndroidApplication implements Platform {
 
     private WifiManager.MulticastLock multicastLock;
+    private BluetoothNet bt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,6 +28,7 @@ public class AndroidLauncher extends AndroidApplication implements Platform {
         config.useCompass = false;
         config.useGyroscope = false;
         config.numSamples = 0;
+        bt = new BluetoothNet(this);
         initialize(new BrigadaJatoGame(this), config);
     }
 
@@ -59,7 +62,39 @@ public class AndroidLauncher extends AndroidApplication implements Platform {
     }
 
     @Override
+    public boolean bluetoothSupported() {
+        return bt != null && bt.supported();
+    }
+
+    @Override
+    public void bluetoothHost(Link.Sink sink, BtListener listener) {
+        bt.host(sink, listener);
+    }
+
+    @Override
+    public void bluetoothStopHost() {
+        if (bt != null) bt.stopHost();
+    }
+
+    @Override
+    public void bluetoothScan(BtListener listener) {
+        bt.scan(listener);
+    }
+
+    @Override
+    public Link.Factory bluetoothLink(String address, String name) {
+        return bt.link(address, name);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (bt != null) bt.onPermissionResult(requestCode, grantResults);
+    }
+
+    @Override
     protected void onDestroy() {
+        if (bt != null) bt.stopHost();
         setMulticastLock(false);
         super.onDestroy();
     }

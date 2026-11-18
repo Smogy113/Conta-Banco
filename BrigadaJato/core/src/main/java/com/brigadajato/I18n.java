@@ -321,7 +321,7 @@ public final class I18n {
         d("desc_infection", "Sobreviva aos zumbis... ou vire um.", "Survive the zombies... or become one.");
         d("desc_br", "Uma vida, zona fechando. Último de pé vence.", "One life, closing zone. Last one standing wins.");
         d("desc_duel", "1 contra 1, mesma arma. Vence quem ganhar 3.", "1v1, same weapon. First to 3 wins.");
-        d("level", "Nível", "Level");
+        d("lvl", "Nível", "Level");
         d("gg_final", "Soco final!", "Final punch!");
         d("gg_demoted", "%s foi rebaixado no soco!", "%s got demoted by a punch!");
         d("gg_knife", "%s chegou no soco final!", "%s reached the final punch!");

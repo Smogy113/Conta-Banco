@@ -118,6 +118,10 @@ public class Hud implements Disposable {
         if (code == C.KILL_SPIKES) return I18n.t("spikes");
         if (code == C.KILL_BOMB) return I18n.t("bomb");
         if (code == C.KILL_SUICIDE) return I18n.t("suicide");
+        if (code == C.KILL_BARREL) return I18n.pt ? "Barril" : "Barrel";
+        if (code == C.KILL_BOSS) return I18n.pt ? "Chefão" : "Boss";
+        if (code == C.KILL_ZONE) return I18n.pt ? "Zona" : "Zone";
+        if (code == C.KILL_INFECT) return I18n.pt ? "Infecção" : "Infection";
         WeaponType t = WeaponType.of(code);
         return t == null ? "?" : (I18n.pt ? t.pt : t.en);
     }
@@ -305,7 +309,21 @@ public class Hud implements Disposable {
             subText = (((TrainingMode) w.mode).step + 1) + " / " + TrainingMode.STEPS.length;
         } else {
             midText = w.config.timeLimit > 0 ? clock.of(w.mode.timeLeft) : "--:--";
-            if (w.config.mode.teams) subText = w.mode instanceof CtfMode ? I18n.t("mode_ctf") : I18n.t("mode_team");
+            boolean custom = w.mode instanceof com.brigadajato.world.modes.GunGameMode || w.mode instanceof com.brigadajato.world.modes.KingHillMode
+                    || w.mode instanceof com.brigadajato.world.modes.InfectionMode || w.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode
+                    || w.mode instanceof com.brigadajato.world.modes.DuelMode;
+            if (custom) {
+                subText = w.mode.hud(local);
+                if (w.mode instanceof com.brigadajato.world.modes.KingHillMode) subText = I18n.t("mode_koth");
+                if (w.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode) {
+                    com.brigadajato.world.modes.BattleRoyaleMode br = (com.brigadajato.world.modes.BattleRoyaleMode) w.mode;
+                    midText = br.shrinking ? "!!" : clock.of(br.timer);
+                    subText = I18n.t("br_alive") + ": " + br.aliveCount + (br.shrinking ? "  ·  " + I18n.t("br_shrinking") : "");
+                }
+                if (w.mode instanceof com.brigadajato.world.modes.DuelMode) midText = I18n.t("round") + " " + ((com.brigadajato.world.modes.DuelMode) w.mode).round;
+                if (w.mode instanceof com.brigadajato.world.modes.InfectionMode && !((com.brigadajato.world.modes.InfectionMode) w.mode).started)
+                    midText = clock.of(((com.brigadajato.world.modes.InfectionMode) w.mode).countdown);
+            } else if (w.config.mode.teams) subText = w.mode instanceof CtfMode ? I18n.t("mode_ctf") : I18n.t("mode_team");
             else {
                 Array<Player> r = w.ranking();
                 Player lead = r.size > 0 ? r.first() : null;
@@ -378,7 +396,7 @@ public class Hud implements Disposable {
         }
 
         if (local != null) {
-            if (!local.alive) {
+            if (!local.alive && !w.mode.over) {
                 d.color(0, 0, 0, 0.4f);
                 d.rect(0, H * 0.4f - 46, W, 92);
                 d.color(1, 1, 1, 1);
@@ -499,7 +517,8 @@ public class Hud implements Disposable {
 
     private void drawTop(Draw d, World w, Player local, float W, float H) {
         float cx = W / 2, y = H - 58;
-        if (w.config.mode.teams && !(w.mode instanceof SurvivalMode) && !(w.mode instanceof TrainingMode)) {
+        if (w.config.mode.teams && !(w.mode instanceof SurvivalMode) && !(w.mode instanceof TrainingMode)
+                && !(w.mode instanceof com.brigadajato.world.modes.InfectionMode)) {
             // placar em caixas por time
             float box = 74, mid = 118;
             boolean myRed = local != null && local.team == C.TEAM_RED;

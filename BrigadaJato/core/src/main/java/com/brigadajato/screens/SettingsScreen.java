@@ -119,6 +119,8 @@ public class SettingsScreen extends BaseScreen {
                 check(t2("Nomes acima dos jogadores", "Names above players"), s.showNames, v -> s.showNames = v);
                 check(I18n.t("damage_numbers"), s.damageNumbers, v -> s.damageNumbers = v);
                 check(t2("Clima e partículas de ambiente (neve, folhas, poeira)", "Weather and ambient particles"), s.ambient, v -> s.ambient = v);
+                choice(I18n.t("day_night"), new String[]{I18n.t("dn_day"), I18n.t("dn_cycle"), I18n.t("dn_night")}, s.dayNight, v -> s.dayNight = v);
+                check(I18n.t("dyn_lights"), s.dynamicLights, v -> s.dynamicLights = v);
                 check(I18n.t("show_fps"), s.showFps, v -> s.showFps = v);
                 content.add(button(t2("Modo desempenho (celular fraco)", "Performance mode (weak phone)"), "purple-small", () -> {
                     s.quality = 0;
@@ -135,8 +137,12 @@ public class SettingsScreen extends BaseScreen {
                 slider(I18n.t("controls_size"), 0.7f, 1.4f, s.controlsScale, v -> s.controlsScale = v);
                 slider(I18n.t("controls_opacity"), 0.2f, 1f, s.controlsOpacity, v -> s.controlsOpacity = v);
                 check(I18n.t("left_handed"), s.leftHanded, v -> s.leftHanded = v);
-                content.add(label(t2("PC: WASD/espaço move e voa, mouse mira e atira, G granada, Q troca, R recarrega,\nF soco, E pega/usa, Z zoom, Tab placar, Esc pausa.",
-                        "PC: WASD/space move and fly, mouse aims and shoots, G grenade, Q swap, R reload,\nF melee, E pick up/use, Z zoom, Tab scoreboard, Esc pause."), "gray")).padTop(10).row();
+                content.add(button(I18n.t("edit_layout"), "purple-small", () -> {
+                    s.save();
+                    go(new ControlsEditorScreen(game));
+                })).height(52).padTop(8).row();
+                content.add(label(t2("PC: WASD/espaço move e voa, mouse mira e atira, G granada, Q troca, R recarrega,\nF soco, E pega/usa, C gancho, V emotes, Z zoom, Tab placar, Esc pausa.",
+                        "PC: WASD/space move and fly, mouse aims and shoots, G grenade, Q swap, R reload,\nF melee, E pick up/use, C hook, V emotes, Z zoom, Tab scoreboard, Esc pause."), "gray")).padTop(10).row();
                 break;
             }
             default: {
@@ -145,6 +151,7 @@ public class SettingsScreen extends BaseScreen {
                     s.musicVolume = v;
                     game.audio.refreshMusic();
                 });
+                check(I18n.t("map_music"), s.mapMusic, v -> s.mapMusic = v);
                 break;
             }
         }
