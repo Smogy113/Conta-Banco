@@ -39,6 +39,7 @@ public class LooksDebugScreen extends BaseScreen {
             l.accessory = i % Look.ACCESSORY_COUNT;
             l.jetpack = i % Look.JETPACK_COUNT;
             l.hair = i % Look.HAIR_COUNT;
+            l.costume = i < 6 ? i : 0;
             SoldierPreview p = new SoldierPreview(game, l);
             p.weapon = all[i % all.length];
             p.poseType = i % SoldierPreview.POSE_COUNT;

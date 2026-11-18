@@ -31,7 +31,7 @@ public final class Net {
 
     public static final int TCP_PORT = 47130;
     public static final int UDP_PORT = 47131;
-    public static final int PROTOCOL = 7;
+    public static final int PROTOCOL = 8;
     public static final String DISCOVER = "BRIGADAJATO?";
     public static final String ANSWER = "BRIGADAJATO!";
     public static final int MAX_PLAYERS = 8;
@@ -112,6 +112,9 @@ public final class Net {
         o.writeByte(l.gunSkin);
         o.writeByte(l.accessory);
         o.writeInt(l.accessoryColor);
+        o.writeByte(l.costume);
+        o.writeByte(l.killFx);
+        o.writeByte(l.trail);
     }
 
     public static Look readLook(DataInputStream in) throws IOException {
@@ -136,6 +139,9 @@ public final class Net {
         l.gunSkin = in.readByte();
         l.accessory = in.readByte();
         l.accessoryColor = in.readInt();
+        l.costume = in.readByte();
+        l.killFx = in.readByte();
+        l.trail = in.readByte();
         return l;
     }
 

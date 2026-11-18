@@ -33,6 +33,11 @@ public class CustomizeScreen extends BaseScreen {
     private int tab = 0;
     private int weaponIdx = WeaponType.RIFLE.ordinal();
 
+    private static final String[][] COSTUME = {{"Nenhuma", "Pirata", "Astronauta", "Ninja", "Palhaço", "Cavaleiro"},
+            {"None", "Pirate", "Astronaut", "Ninja", "Clown", "Knight"}};
+    private static final String[][] KILLFX = {{"Padrão", "Confete", "Fantasma", "Raio", "Tinta"}, {"Default", "Confetti", "Ghost", "Lightning", "Paint"}};
+    private static final String[][] TRAIL = {{"Fumaça", "Arco-íris", "Corações", "Estrelas", "Bolhas"}, {"Smoke", "Rainbow", "Hearts", "Stars", "Bubbles"}};
+
     interface Field {
         int get();
 
@@ -270,6 +275,10 @@ public class CustomizeScreen extends BaseScreen {
                     public int get() { return look.body; }
                     public void set(int v) { look.body = v; }
                 });
+                cycler(I18n.pt ? "Fantasia" : "Costume", COSTUME, Look.COSTUME_COUNT, new Field() {
+                    public int get() { return look.costume; }
+                    public void set(int v) { look.costume = v; }
+                });
                 cycler(I18n.pt ? "Estampa" : "Pattern", PATTERN, Look.PATTERN_COUNT, new Field() {
                     public int get() { return look.pattern; }
                     public void set(int v) { look.pattern = v; }
@@ -307,9 +316,20 @@ public class CustomizeScreen extends BaseScreen {
                         preview.poseType = SoldierPreview.POSE_FLY;
                     }
                 });
+                cycler(I18n.pt ? "Rastro" : "Trail", TRAIL, Look.TRAIL_COUNT, new Field() {
+                    public int get() { return look.trail; }
+                    public void set(int v) {
+                        look.trail = v;
+                        preview.poseType = SoldierPreview.POSE_FLY;
+                    }
+                });
                 content.add(label(I18n.pt ? "Dica: escolha a pose \"Voando\" para ver a chama." : "Tip: pick the \"Fly\" pose to see the flame.", "gray")).row();
                 break;
             case 4:
+                cycler(I18n.pt ? "Efeito de abate" : "Kill effect", KILLFX, Look.KILLFX_COUNT, new Field() {
+                    public int get() { return look.killFx; }
+                    public void set(int v) { look.killFx = v; }
+                });
                 cycler(I18n.pt ? "Skin das armas" : "Weapon skin", GUNSKIN, Look.GUNSKIN_COUNT, new Field() {
                     public int get() { return look.gunSkin; }
                     public void set(int v) { look.gunSkin = v; }

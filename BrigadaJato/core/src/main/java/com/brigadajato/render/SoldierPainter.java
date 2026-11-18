@@ -127,10 +127,16 @@ public class SoldierPainter {
 
     public static final float HEAD_R = 10.5f;
 
+    private final Look costumeLook = new Look();
+
     public void draw(Draw d, Pose s) {
         ShadeKit.load();
         n = 0;
         Look look = s.look;
+        if (look.costume != 0) {
+            look.applyCostume(costumeLook);
+            look = costumeLook;
+        }
         float x = s.x, y = s.y;
         boolean celebrate = s.action == 1;
         int dance = s.action >= 2 ? s.action - 1 : 0; // 1..4
@@ -293,6 +299,7 @@ public class SoldierPainter {
         alphaLast(0.35f);
         int from = n;
         face(look, headX, headY, 8.5f, f, dancing ? (f > 0 ? 0 : MathUtils.PI) : aim, s.time);
+        if (look.costume == 4) dCircle(headX + f * 7.6f, headY - 1.5f, 2.2f, 0xff1744); // nariz de palhaco
         if (s.zombie) {
             dCircle(headX + f * 3.5f, headY + 1, 2.6f, 0x33691e);
             alphaLast(0.5f);

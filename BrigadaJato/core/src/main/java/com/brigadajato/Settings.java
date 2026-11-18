@@ -78,6 +78,9 @@ public class Settings {
         look.gunSkin = prefs.getInteger("look.gunSkin", look.gunSkin);
         look.accessory = prefs.getInteger("look.accessory", look.accessory);
         look.accessoryColor = prefs.getInteger("look.accessoryColor", look.accessoryColor);
+        look.costume = prefs.getInteger("look.costume", 0);
+        look.killFx = prefs.getInteger("look.killFx", 0);
+        look.trail = prefs.getInteger("look.trail", 0);
         portuguese = prefs.getBoolean("pt", true);
         aimToFire = prefs.getBoolean("aimToFire", true);
         sfxVolume = prefs.getFloat("sfx", 0.8f);
@@ -151,6 +154,9 @@ public class Settings {
         prefs.putInteger("look.gunSkin", look.gunSkin);
         prefs.putInteger("look.accessory", look.accessory);
         prefs.putInteger("look.accessoryColor", look.accessoryColor);
+        prefs.putInteger("look.costume", look.costume);
+        prefs.putInteger("look.killFx", look.killFx);
+        prefs.putInteger("look.trail", look.trail);
         prefs.putBoolean("pt", portuguese);
         prefs.putBoolean("aimToFire", aimToFire);
         prefs.putFloat("sfx", sfxVolume);

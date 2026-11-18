@@ -260,6 +260,8 @@ public class WorldRenderer implements Disposable {
                     b.grav = 900;
                 }
                 audio.at("death", e.x, e.y);
+                Player killer = w.player(e.a);
+                if (killer != null && e.a != e.b) killEffect(killer.look.killFx, e.x, e.y);
                 if (e.a == localId && e.b != localId) {
                     int lvl = MathUtils.clamp(e.d > 0 ? e.d : 1, 1, 5);
                     if (settings.killBanner && !replayMode) {
@@ -502,6 +504,58 @@ public class WorldRenderer implements Disposable {
         }
     }
 
+    /** Efeito personalizado de quem fez o abate. */
+    private void killEffect(int type, float x, float y) {
+        switch (type) {
+            case 1: { // confete
+                int[] cs = {0xf44336, 0xffeb3b, 0x4caf50, 0x2196f3, 0xe91e63, 0xff9800};
+                for (int i = 0; i < 34; i++) {
+                    Particles.P c = fx.spawn(Particles.RECT, x, y + 10, MathUtils.random(-260, 260), MathUtils.random(150, 520), 2.2f, 5, 3, cs[i % cs.length], 1);
+                    c.grav = 520;
+                    c.drag = 1.2f;
+                    c.vrot = MathUtils.random(-900, 900);
+                    c.a2 = 1;
+                }
+                audio.play("emote", x, y, 0.7f, 1.4f);
+                break;
+            }
+            case 2: { // fantasma subindo
+                for (int i = 0; i < 6; i++) {
+                    Particles.P g = fx.spawn(Particles.SOFT, x + MathUtils.random(-6, 6), y + 10 + i * 5, MathUtils.random(-10, 10), 70, 1.8f, 16 - i, 22, 0xffffff, 0.7f);
+                    g.drag = 0.5f;
+                }
+                Particles.P eye1 = fx.spawn(Particles.CIRCLE, x - 4, y + 22, 0, 70, 1.6f, 2.2f, 2.2f, 0x212121, 1);
+                eye1.drag = 0.5f;
+                Particles.P eye2 = fx.spawn(Particles.CIRCLE, x + 4, y + 22, 0, 70, 1.6f, 2.2f, 2.2f, 0x212121, 1);
+                eye2.drag = 0.5f;
+                break;
+            }
+            case 3: { // raio do ceu
+                Bolt b = new Bolt();
+                b.pts = new float[]{x + MathUtils.random(-60, 60), y + 520, x + MathUtils.random(-30, 30), y + 260, x, y + 10};
+                b.life = 0.3f;
+                bolts.add(b);
+                lighting.flash(x, y, 300, 0xbbdefb, 1.5f, 0.25f);
+                shake = Math.max(shake, 5);
+                audio.at("tesla", x, y);
+                break;
+            }
+            case 4: { // explosao de tinta
+                int[] cs = {0xe040fb, 0x00e5ff, 0x76ff03, 0xffea00};
+                int c0 = cs[MathUtils.random(cs.length - 1)];
+                for (int i = 0; i < 22; i++) {
+                    Particles.P pnt = fx.spawn(Particles.CIRCLE, x, y + 10, MathUtils.random(-320, 320), MathUtils.random(-100, 380), 1.2f, MathUtils.random(3, 7), 2, c0, 1);
+                    pnt.grav = 900;
+                }
+                Particles.P ring = fx.spawn(Particles.RING, x, y + 10, 0, 0, 0.35f, 10, 70, c0, 0.9f);
+                ring.a2 = 0;
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
     private void explosion(float x, float y, float radius, Player local) {
         float k = radius / 110f;
         Particles.P flash = fx.spawn(Particles.SOFT, x, y, 0, 0, 0.18f, radius * 1.3f, radius * 0.6f, 0xfff8e1, 1);
@@ -596,7 +650,36 @@ public class WorldRenderer implements Disposable {
                 Particles.P f = fx.spawn(Particles.SOFT, nx + off + MathUtils.random(-2, 2), ny, MathUtils.random(-20, 20) + p.vx * 0.2f, -260 + p.vy * 0.2f, 0.16f, jets == 2 ? 5 : 7, 2, flameCol, 1);
                 f.additive = true;
             }
-            if (MathUtils.randomBoolean(0.6f)) { // fumaca que enrola
+            if (p.look.trail > 0 && !fx.skip()) { // rastro especial
+                switch (p.look.trail) {
+                    case 1: {
+                        int[] rb = {0xf44336, 0xff9800, 0xffeb3b, 0x4caf50, 0x2196f3, 0x9c27b0};
+                        Particles.P r = fx.spawn(Particles.SOFT, nx, ny - 6, MathUtils.random(-15, 15), -40, 0.7f, 7, 10, rb[(int) ((time * 12 + p.id) % rb.length)], 0.85f);
+                        r.drag = 2;
+                        break;
+                    }
+                    case 2: {
+                        Particles.P h = fx.spawn(Particles.CIRCLE, nx + MathUtils.random(-4, 4), ny - 6, MathUtils.random(-30, 30), -30, 0.9f, 3.5f, 1.5f, 0xff4081, 1);
+                        h.grav = -60;
+                        Particles.P h2 = fx.spawn(Particles.CIRCLE, h.x + 3.5f, h.y, h.vx, h.vy, 0.9f, 3.5f, 1.5f, 0xff4081, 1);
+                        h2.grav = -60;
+                        break;
+                    }
+                    case 3: {
+                        Particles.P st = fx.spawn(Particles.LINE, nx + MathUtils.random(-8, 8), ny - 6, MathUtils.random(-40, 40), MathUtils.random(-120, -40), 0.5f, 5, 0.5f, 0xfff59d, 1);
+                        st.additive = true;
+                        st.vrot = 720;
+                        break;
+                    }
+                    default: {
+                        Particles.P bb = fx.spawn(Particles.RING, nx + MathUtils.random(-6, 6), ny - 6, MathUtils.random(-20, 20), -20, 1.1f, 2.5f, 6, 0xb3e5fc, 0.9f);
+                        bb.grav = -140;
+                        bb.a2 = 0.5f;
+                        break;
+                    }
+                }
+            }
+            if (p.look.trail == 0 && MathUtils.randomBoolean(0.6f)) { // fumaca que enrola
                 float curl = MathUtils.sin(time * 9 + p.id * 1.7f) * 55;
                 Particles.P s = fx.spawn(Particles.SOFT, nx, ny - 8, curl + p.vx * 0.15f, -70 + MathUtils.random(-15, 15), 0.9f, 4, 20, 0xd7d7d7, 0.32f);
                 s.drag = 1.6f;

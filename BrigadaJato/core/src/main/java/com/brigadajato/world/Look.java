@@ -53,6 +53,13 @@ public class Look {
     /** 0 nada, 1 cachecol, 2 capa, 3 colete, 4 medalha */
     public int accessory = 0;
     public int accessoryColor = 0xc62828;
+    /** fantasia (0 nenhuma, 1 pirata, 2 astronauta, 3 ninja, 4 palhaco, 5 cavaleiro) */
+    public int costume = 0;
+    /** efeito quando voce abate alguem (0 padrao, 1 confete, 2 fantasma, 3 raio, 4 tinta) */
+    public int killFx = 0;
+    /** rastro do jetpack (0 fumaca, 1 arco-iris, 2 coracoes, 3 estrelas, 4 bolhas) */
+    public int trail = 0;
+    public static final int COSTUME_COUNT = 6, KILLFX_COUNT = 5, TRAIL_COUNT = 5;
 
     public Look() {
     }
@@ -92,6 +99,9 @@ public class Look {
         gunSkin = o.gunSkin;
         accessory = o.accessory;
         accessoryColor = o.accessoryColor;
+        costume = o.costume;
+        killFx = o.killFx;
+        trail = o.trail;
     }
 
     /** Cor da chama (arco-iris muda com o tempo). */
@@ -137,6 +147,9 @@ public class Look {
         l.gunSkin = r.nextFloat() < 0.75f ? 0 : r.nextInt(GUNSKIN_COUNT);
         l.accessory = r.nextFloat() < 0.6f ? 0 : r.nextInt(ACCESSORY_COUNT);
         l.accessoryColor = o[3];
+        l.costume = r.nextFloat() < 0.12f ? 1 + r.nextInt(COSTUME_COUNT - 1) : 0;
+        l.killFx = r.nextFloat() < 0.4f ? r.nextInt(KILLFX_COUNT) : 0;
+        l.trail = r.nextFloat() < 0.25f ? r.nextInt(TRAIL_COUNT) : 0;
         return l;
     }
 
@@ -145,5 +158,36 @@ public class Look {
         int gg = (int) (((a >> 8) & 0xff) * (1 - t) + ((b >> 8) & 0xff) * t);
         int bb = (int) ((a & 0xff) * (1 - t) + (b & 0xff) * t);
         return (rr << 16) | (gg << 8) | bb;
+    }
+
+    /** Aplica a fantasia por cima do visual (em out, que vira uma copia). */
+    public void applyCostume(Look out) {
+        out.set(this);
+        switch (costume) {
+            case 1: // pirata
+                out.body = 0xeeeeee; out.pattern = 2; out.patternColor = 0xc62828; out.pants = 0x4e342e;
+                out.eyewear = 3; out.hat = 7; out.helmet = 0x212121; out.beard = 2; out.hairColor = 0x1b1b1b;
+                out.accessory = 1; out.accessoryColor = 0xc62828;
+                break;
+            case 2: // astronauta
+                out.body = 0xf5f5f5; out.pattern = 0; out.pants = 0xe0e0e0; out.hat = 13; out.helmet = 0x90a4ae;
+                out.eyewear = -1; out.jetpack = 4; out.jetColor = 0xeceff1; out.accessory = 4; out.accessoryColor = 0x1e88e5;
+                break;
+            case 3: // ninja
+                out.body = 0x212121; out.pattern = 0; out.pants = 0x111111; out.eyewear = 4; out.visor = 0x1b1b1b;
+                out.hat = 2; out.helmet = 0xc62828; out.accessory = 0; out.beard = 0;
+                break;
+            case 4: // palhaco
+                out.body = 0xffeb3b; out.pattern = 4; out.patternColor = 0xe53935; out.pants = 0x1e88e5;
+                out.hat = 6; out.hair = 4; out.hairColor = 0xec407a; out.mouth = 1; out.eyewear = -1;
+                out.accessory = 1; out.accessoryColor = 0x43a047;
+                break;
+            case 5: // cavaleiro
+                out.body = 0x9e9e9e; out.pattern = 0; out.pants = 0x616161; out.hat = 0; out.helmet = 0xbdbdbd;
+                out.eyewear = 0; out.visor = 0x616161; out.accessory = 2; out.accessoryColor = 0xb71c1c;
+                break;
+            default:
+                break;
+        }
     }
 }
