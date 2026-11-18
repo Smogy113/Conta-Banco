@@ -21,6 +21,8 @@ public class LobbyScreen extends BaseScreen {
     private final ClientSession client;
     private final Table players = new Table();
     private final Table votes = new Table();
+    private Label chatLabel;
+    private int chatSeen = -1;
     private final Label info, status;
     private String lastSig = "";
 
@@ -112,7 +114,35 @@ public class LobbyScreen extends BaseScreen {
         }
         panel.add(votes).row();
         players.top();
-        panel.add(players).width(640).height(220).row();
+        Table mid = new Table();
+        mid.add(players).width(560).height(220).top();
+        if (error == null) {
+            Table chatBox = new Table(skin);
+            chatBox.setBackground("panel");
+            chatBox.pad(8);
+            chatLabel = label("", "small");
+            chatLabel.setWrap(true);
+            chatLabel.setAlignment(Align.bottomLeft);
+            chatBox.add(chatLabel).width(300).height(120).colspan(2).row();
+            final com.badlogic.gdx.scenes.scene2d.ui.TextField msg = new com.badlogic.gdx.scenes.scene2d.ui.TextField("", skin);
+            msg.setMessageText(I18n.pt ? "mensagem..." : "message...");
+            msg.setMaxLength(60);
+            Runnable send = () -> {
+                say(msg.getText());
+                msg.setText("");
+            };
+            msg.setTextFieldListener((tf, ch) -> {
+                if (ch == '\r' || ch == '\n') send.run();
+            });
+            chatBox.add(msg).width(220).height(42);
+            chatBox.add(button("OK", "blue-small", send)).width(70).height(42).row();
+            Table quick = new Table();
+            for (final String q : I18n.pt ? new String[]{"Bora!", "GG", "Pronto!", "Espera"} : new String[]{"Let's go!", "GG", "Ready!", "Wait"})
+                quick.add(button(q, "gray-small", () -> say(q))).height(36).pad(1);
+            chatBox.add(quick).colspan(2);
+            mid.add(chatBox).width(340).padLeft(10).top();
+        }
+        panel.add(mid).row();
         status = label(error != null ? error : (host != null ? "" : I18n.t("connecting")), "small");
         panel.add(status).row();
         Table buttons = new Table();
@@ -156,6 +186,23 @@ public class LobbyScreen extends BaseScreen {
             sb.append(ip);
         }
         return sb.toString();
+    }
+
+    private void say(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        if (host != null) host.say(text);
+        else if (client != null) client.say(text.trim());
+    }
+
+    private void refreshChat() {
+        if (chatLabel == null) return;
+        com.badlogic.gdx.utils.Array<String> c = host != null ? host.chat : (client != null ? client.chat : null);
+        if (c == null || c.size == chatSeen) return;
+        if (chatSeen >= 0 && c.size > chatSeen) game.audio.ui("emote");
+        chatSeen = c.size;
+        StringBuilder sb = new StringBuilder();
+        for (int i = Math.max(0, c.size - 6); i < c.size; i++) sb.append(c.get(i)).append('\n');
+        chatLabel.setText(sb.toString().trim());
     }
 
     private void switchTeam() {
@@ -223,12 +270,13 @@ public class LobbyScreen extends BaseScreen {
                     lastSig = "";
                 })).height(44).padRight(8);
             }
-            players.add(row).width(620).height(66).pad(3).row();
+            players.add(row).width(540).height(66).pad(3).row();
         }
     }
 
     @Override
     public void render(float delta) {
+        refreshChat();
         if (host != null) {
             host.updateLobby();
             while (host.notices.size > 0) status.setText(host.notices.removeIndex(0));

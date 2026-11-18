@@ -37,10 +37,10 @@ public final class Net {
     public static final int MAX_PLAYERS = 8;
 
     // cliente -> anfitriao
-    public static final byte C_HELLO = 1, C_INPUT = 2, C_TEAM = 3, C_BYE = 4, C_VOTE = 5;
+    public static final byte C_HELLO = 1, C_INPUT = 2, C_TEAM = 3, C_BYE = 4, C_VOTE = 5, C_CHAT = 6;
     // anfitriao -> cliente
     public static final byte S_WELCOME = 10, S_LOBBY = 11, S_START = 12, S_SNAP = 13, S_EVENTS = 14, S_ROSTER = 15,
-            S_LOBBY_RETURN = 16, S_KICK = 17;
+            S_LOBBY_RETURN = 16, S_KICK = 17, S_CHAT = 18;
 
     /** Um pacote recebido (tipo + dados). */
     public static class Packet {

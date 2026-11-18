@@ -29,6 +29,7 @@ public class ClientSession {
     public final MatchConfig cfg = new MatchConfig();
     public final List<HostSession.Entry> lobby = new ArrayList<>();
     public boolean mapVote;
+    public final Array<String> chat = new Array<>();
     public final String[] voteMaps = new String[3];
     public World startedWorld;
     public int startedLocalId = -1;
@@ -111,6 +112,10 @@ public class ClientSession {
             case Net.S_KICK:
                 kicked = in.readUTF();
                 break;
+            case Net.S_CHAT:
+                chat.add(in.readUTF());
+                while (chat.size > 30) chat.removeIndex(0);
+                break;
             case Net.S_LOBBY_RETURN:
                 backToLobby = true;
                 break;
@@ -180,6 +185,15 @@ public class ClientSession {
     /** Desistiu de reconectar? */
     public boolean gaveUp() {
         return reconnecting >= 30;
+    }
+
+    public void say(String text) {
+        try {
+            Net.Writer w = new Net.Writer(Net.C_CHAT);
+            w.out.writeUTF(text.length() > 60 ? text.substring(0, 60) : text);
+            net.send(w.build());
+        } catch (IOException ignored) {
+        }
     }
 
     public void vote(int option) {

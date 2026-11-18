@@ -398,8 +398,9 @@ public class TouchControls extends InputAdapter {
                 dx /= m;
                 dy /= m;
             }
-            moveX = Math.abs(dx) < 0.18f ? 0 : dx;
-            moveY = Math.abs(dy) < 0.22f ? 0 : dy;
+            float dz = settings.deadzone;
+            moveX = Math.abs(dx) < dz ? 0 : Math.signum(dx) * (float) Math.pow((Math.abs(dx) - dz) / (1 - dz), settings.moveCurve);
+            moveY = Math.abs(dy) < dz + 0.04f ? 0 : Math.signum(dy) * (float) Math.pow((Math.abs(dy) - dz - 0.04f) / (0.96f - dz), settings.moveCurve);
             // duas "batidas" rapidas no mesmo lado = rolamento
             if (Math.abs(dx) > 0.85f && Math.abs(dy) < 0.55f) {
                 int dir = dx > 0 ? 1 : -1;
@@ -422,9 +423,19 @@ public class TouchControls extends InputAdapter {
         if (rightPointer != -1) {
             float dx = rX - rBaseX, dy = rY - rBaseY;
             float m = (float) Math.sqrt(dx * dx + dy * dy) / stickR;
-            if (m > 0.12f) aimAngle = MathUtils.atan2(dy, dx);
+            if (m > 0.12f) {
+                float want = MathUtils.atan2(dy, dx);
+                if (settings.aimSmooth <= 0.01f) aimAngle = want;
+                else { // mira suave: gira ate o alvo com velocidade limitada
+                    float diff = want - aimAngle;
+                    while (diff > MathUtils.PI) diff -= MathUtils.PI2;
+                    while (diff < -MathUtils.PI) diff += MathUtils.PI2;
+                    float k = Math.min(1, Gdx.graphics.getDeltaTime() * (30f - 26f * settings.aimSmooth));
+                    aimAngle += diff * k;
+                }
+            }
             aimMag = Math.min(1, m);
-            if (settings.aimToFire && m > 0.72f) firing = true;
+            if (settings.aimToFire && m > settings.fireThreshold) firing = true;
         }
         if (fireButtonHeld) firing = true;
         if (!touchUi) {
@@ -495,11 +506,11 @@ public class TouchControls extends InputAdapter {
         float rbx = rightPointer != -1 ? rBaseX : rightStickX;
         float rby = rightPointer != -1 ? rBaseY : rightStickY;
         if (rightPointer != -1) {
-            boolean hot = settings.aimToFire && aimMag > 0.72f;
+            boolean hot = settings.aimToFire && aimMag > settings.fireThreshold;
             stick(d, rbx, rby, rX, rY, op, hot ? 0xff5252 : 0xffffff);
             if (settings.aimToFire) {
                 d.color(1, 0.3f, 0.3f, op * 0.5f);
-                d.ring(rbx, rby, stickR * 0.72f);
+                d.ring(rbx, rby, stickR * settings.fireThreshold);
             }
         } else {
             stick(d, rbx, rby, rbx, rby, op * 0.6f, 0xffffff);

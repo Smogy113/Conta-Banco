@@ -45,6 +45,8 @@ public class Settings {
     public boolean mapMusic = true;
     /** posicoes personalizadas dos botoes (x,y normalizados por botao; vazio = padrao) */
     public String controlLayout = "";
+    /** mira no toque: suavizacao (0 = instantanea), zona morta dos joysticks, ponto do tiro automatico e curva do movimento */
+    public float aimSmooth = 0f, deadzone = 0.18f, fireThreshold = 0.72f, moveCurve = 1f;
     public static final int[] CROSSHAIR_COLORS = {0xffffff, 0x76ff03, 0xff1744, 0x00e5ff, 0xffea00, 0xff4081};
     public final MatchConfig lastMatch = new MatchConfig();
 
@@ -89,6 +91,10 @@ public class Settings {
         dynamicLights = prefs.getBoolean("v.lights", true);
         mapMusic = prefs.getBoolean("mapmusic", true);
         controlLayout = prefs.getString("ctl.layout", "");
+        aimSmooth = prefs.getFloat("ctl.aimSmooth", 0f);
+        deadzone = prefs.getFloat("ctl.deadzone", 0.18f);
+        fireThreshold = prefs.getFloat("ctl.fireAt", 0.72f);
+        moveCurve = prefs.getFloat("ctl.curve", 1f);
         vibration = prefs.getBoolean("vibration", true);
         showFps = prefs.getBoolean("fps", false);
         leftHanded = prefs.getBoolean("leftHanded", false);
@@ -165,6 +171,10 @@ public class Settings {
         prefs.putBoolean("v.lights", dynamicLights);
         prefs.putBoolean("mapmusic", mapMusic);
         prefs.putString("ctl.layout", controlLayout);
+        prefs.putFloat("ctl.aimSmooth", aimSmooth);
+        prefs.putFloat("ctl.deadzone", deadzone);
+        prefs.putFloat("ctl.fireAt", fireThreshold);
+        prefs.putFloat("ctl.curve", moveCurve);
         prefs.putBoolean("vibration", vibration);
         prefs.putBoolean("fps", showFps);
         prefs.putBoolean("leftHanded", leftHanded);

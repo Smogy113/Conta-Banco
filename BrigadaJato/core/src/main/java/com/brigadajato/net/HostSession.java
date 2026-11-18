@@ -42,6 +42,8 @@ public class HostSession {
     private int tick;
     private final Random rng = new Random();
     public final Array<String> notices = new Array<>();
+    /** mensagens do chat da sala (mais recentes no fim) */
+    public final Array<String> chat = new Array<>();
     /** senha da sala ("" = aberta) */
     public String password = "";
     /** votacao de mapa ligada e as 3 opcoes */
@@ -213,6 +215,9 @@ public class HostSession {
                             changed = true;
                         }
                         break;
+                    case Net.C_CHAT:
+                        if (c != null && c.hello) sayAs(c.name, in.readUTF());
+                        break;
                     case Net.C_VOTE:
                         if (c != null) {
                             int v = in.readByte();
@@ -232,6 +237,26 @@ public class HostSession {
             }
         }
         if (changed) broadcastLobby();
+    }
+
+    /** Mensagem do anfitriao no chat. */
+    public void say(String text) {
+        sayAs(hostName, text);
+    }
+
+    private void sayAs(String who, String text) {
+        text = text.trim();
+        if (text.isEmpty()) return;
+        if (text.length() > 60) text = text.substring(0, 60);
+        String line = who + ": " + text;
+        chat.add(line);
+        while (chat.size > 30) chat.removeIndex(0);
+        try {
+            Net.Writer w = new Net.Writer(Net.S_CHAT);
+            w.out.writeUTF(line);
+            net.broadcast(w.build());
+        } catch (IOException ignored) {
+        }
     }
 
     public void broadcastLobby() {

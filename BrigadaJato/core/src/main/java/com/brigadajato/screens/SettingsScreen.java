@@ -137,6 +137,10 @@ public class SettingsScreen extends BaseScreen {
                 slider(I18n.t("controls_size"), 0.7f, 1.4f, s.controlsScale, v -> s.controlsScale = v);
                 slider(I18n.t("controls_opacity"), 0.2f, 1f, s.controlsOpacity, v -> s.controlsOpacity = v);
                 check(I18n.t("left_handed"), s.leftHanded, v -> s.leftHanded = v);
+                slider(t2("Suavização da mira (0 = instantânea)", "Aim smoothing (0 = instant)"), 0f, 1f, s.aimSmooth, v -> s.aimSmooth = v);
+                slider(t2("Zona morta dos joysticks", "Joystick dead zone"), 0.05f, 0.35f, s.deadzone, v -> s.deadzone = v);
+                slider(t2("Ponto do tiro automático", "Auto-fire point"), 0.45f, 0.95f, s.fireThreshold, v -> s.fireThreshold = v);
+                slider(t2("Curva do movimento (1 = linear)", "Movement curve (1 = linear)"), 0.6f, 2.2f, s.moveCurve, v -> s.moveCurve = v);
                 content.add(button(I18n.t("edit_layout"), "purple-small", () -> {
                     s.save();
                     go(new ControlsEditorScreen(game));
