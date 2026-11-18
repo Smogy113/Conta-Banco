@@ -194,7 +194,8 @@ public class WorldRenderer implements Disposable {
                 if (!w.authority && !replayMode) w.spawnVisualShot(e);
                 if (wt.kind != Projectile.Kind.FLAME && wt.kind != Projectile.Kind.FROST) lighting.flash(mx, my, 120, 0xffd08a, 1f, 0.07f);
                 float vol = e.a == localId ? 0.75f : 1f;
-                audio.play(wt.sound, e.x, e.y, vol, 1f);
+                // cada disparo com o tom um pouco diferente (rajadas nao soam como maquina)
+                audio.play(wt.sound, e.x, e.y, vol, MathUtils.random(0.95f, 1.05f));
                 if (e.a == localId) {
                     shake = Math.max(shake, wt.recoil > 60 ? 6 : (wt.kind == Projectile.Kind.FLAME ? 0.5f : 1.8f));
                     // coice das armas pesadas no celular
