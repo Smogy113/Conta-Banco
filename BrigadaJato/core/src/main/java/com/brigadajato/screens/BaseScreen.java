@@ -63,7 +63,17 @@ public abstract class BaseScreen extends ScreenAdapter {
         if (background) game.menuBg.render(delta);
         stage.getViewport().apply();
         stage.act(Math.min(delta, 0.1f));
+        drawBehind(Math.min(delta, 0.1f));
         stage.draw();
+        drawFront(Math.min(delta, 0.1f));
+    }
+
+    /** Efeitos entre o fundo e a interface (o batch esta fechado). */
+    protected void drawBehind(float delta) {
+    }
+
+    /** Efeitos por cima da interface (o batch esta fechado). */
+    protected void drawFront(float delta) {
     }
 
     @Override

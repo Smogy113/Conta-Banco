@@ -90,7 +90,11 @@ public class BrigadaJatoGame extends Game {
             case "setup":
                 if (p.length > 1) settings.lastMatch.mapId = p[1];
                 return new com.brigadajato.screens.SetupScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE);
-            case "modes": return new com.brigadajato.screens.ModeSelectScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE);
+            case "modes": {
+                com.brigadajato.screens.ModeSelectScreen ms = new com.brigadajato.screens.ModeSelectScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE);
+                if (p.length > 1) ms.autoPickAt = Float.parseFloat(p[1]);
+                return ms;
+            }
             case "setupmode": return new com.brigadajato.screens.SetupScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE,
                     com.brigadajato.world.ModeType.valueOf(p.length > 1 ? p[1] : "BOMB"));
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);
