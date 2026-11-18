@@ -61,11 +61,15 @@ public class MapPreview implements Disposable {
         cfg.timeLimit = 0;
         cfg.scoreLimit = 0;
         cfg.difficulty = 2;
+        long t0 = System.nanoTime();
         world = new World(BrigadaJatoGame.loadMap(id), cfg, true, rng.nextLong());
+        long t1 = System.nanoTime();
         int start = rng.nextInt(Names.BOTS.length);
         for (int i = 0; i < bots; i++) world.addPlayer(Names.BOTS[(start + i) % Names.BOTS.length], C.TEAM_NONE, Look.random(rng), true);
         world.start();
+        long t2 = System.nanoTime();
         renderer.setWorld(world);
+        long t3 = System.nanoTime();
         camX = world.map.worldW() / 2;
         camY = world.map.worldH() / 2;
         follow = -1;
@@ -73,7 +77,11 @@ public class MapPreview implements Disposable {
         sinceChange = 0;
         // avanca um pouco para ja comecar com todo mundo em campo
         for (int i = 0; i < 90; i++) step();
+        long t4 = System.nanoTime();
+        if (PERF) com.badlogic.gdx.Gdx.app.log("perf", String.format("setMap %s: mundo=%.1f inicio=%.1f arte=%.1f aquecer=%.1f ms", id, (t1 - t0) / 1e6, (t2 - t1) / 1e6, (t3 - t2) / 1e6, (t4 - t3) / 1e6));
     }
+
+    private static final boolean PERF = "true".equals(System.getProperty("brigadajato.perf"));
 
     private void step() {
         world.update(C.STEP);

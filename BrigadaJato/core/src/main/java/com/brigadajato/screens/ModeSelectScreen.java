@@ -57,6 +57,11 @@ public class ModeSelectScreen extends BaseScreen {
         super(game);
         this.kind = kind;
         ModeType last = game.settings.lastMatch.mode;
+        // o mapa da ultima partida aparece na proxima tela: ja gera o fundo dele
+        try {
+            com.brigadajato.render.ArtCache.prefetchMap(BrigadaJatoGame.loadMap(game.settings.lastMatch.mapId));
+        } catch (Exception ignored) {
+        }
         for (int i = 0; i < MODES.length; i++) if (MODES[i] == last) focus = i;
 
         Table header = new Table();
@@ -419,6 +424,7 @@ public class ModeSelectScreen extends BaseScreen {
     /** Titulo com letras caindo no lugar e brilho passando. */
     private class TitleFx extends Actor {
         private final String text;
+        private final String[] chars;
         private final float[] adv;
         private final float total;
         private float t;
@@ -426,6 +432,8 @@ public class ModeSelectScreen extends BaseScreen {
         TitleFx(String text) {
             this.text = text;
             adv = new float[text.length() + 1];
+            chars = new String[text.length()];
+            for (int i = 0; i < text.length(); i++) chars[i] = String.valueOf(text.charAt(i));
             BitmapFont f = game.assets.big;
             for (int i = 0; i <= text.length(); i++) adv[i] = textWidth(f, text.substring(0, i));
             total = adv[text.length()];
@@ -458,7 +466,7 @@ public class ModeSelectScreen extends BaseScreen {
                 float drop = (1 - Interpolation.bounceOut.apply(lt)) * 40;
                 float wave = MathUtils.sin(t * 3 - i * 0.5f) * 2;
                 float lx = x0 + adv[i], ly = y + drop + wave;
-                String ch = String.valueOf(c);
+                String ch = chars[i];
                 f.setColor(0, 0, 0, 0.6f * lt * parentAlpha);
                 f.draw(batch, ch, lx + 3, ly - 3);
                 float dist = Math.abs(lx - x0 - shine);
@@ -550,10 +558,21 @@ public class ModeSelectScreen extends BaseScreen {
     private class ModeCard extends Actor {
         final int idx;
         float time, hover, press, launch, pop = 1;
+        // textos fixos do cartao (medidos uma vez so)
+        final String name, tag;
+        final float nameW, tagW;
         final ClickListener click;
 
         ModeCard(int idx) {
             this.idx = idx;
+            name = I18n.t("mode_" + key(MODES[idx]));
+            tag = TAGS[I18n.pt ? 0 : 1][idx];
+            nameW = textWidth(game.assets.normal, name);
+            BitmapFont smf = game.assets.small;
+            float ss0 = smf.getScaleX();
+            smf.getData().setScale(ss0 * 0.7f);
+            tagW = textWidth(smf, tag);
+            smf.getData().setScale(ss0);
             time = -idx * 0.045f;
             click = new ClickListener() {
                 @Override
@@ -687,20 +706,18 @@ public class ModeSelectScreen extends BaseScreen {
             d.rect(x0 + 4, y0 + 4, cw - 8, ch * 0.33f);
             d.rgb(col, alpha);
             d.rect(x0 + 4, y0 + ch * 0.36f - 4, cw - 8, 4);
-            String name = I18n.t("mode_" + key(MODES[idx]));
             BitmapFont f = a.normal;
             float fs = f.getScaleX();
-            float target = Math.min(1f, (cw - 18) / textWidth(f, name)) * scale;
+            float target = Math.min(1f, (cw - 18) / nameW) * scale;
             f.getData().setScale(fs * target);
             f.setColor(1, 1, 1, alpha);
             f.draw(batch, name, cx, y0 + ch * 0.27f, 0, Align.center, false);
             f.getData().setScale(fs);
             // etiqueta
-            String tag = TAGS[I18n.pt ? 0 : 1][idx];
             BitmapFont sm = a.small;
             float ss = sm.getScaleX();
             sm.getData().setScale(ss * 0.7f * scale);
-            float tw = textWidth(sm, tag) + 16 * scale;
+            float tw = tagW * scale + 16 * scale;
             d.rgb(col, alpha);
             box(d, a, cx, y0 + ch * 0.1f, tw, 20 * scale);
             sm.setColor(1, 1, 1, alpha);

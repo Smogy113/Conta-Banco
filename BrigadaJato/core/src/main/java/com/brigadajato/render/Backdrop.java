@@ -35,7 +35,7 @@ public class Backdrop implements Disposable {
         sky.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         pm.dispose();
         Random r = new Random(seedKey.hashCode() * 31L + t.ordinal());
-        art = new BackdropArt(t, seedKey);
+        art = ArtCache.acquire(t, seedKey);
         for (int i = 0; i < 6; i++) far.add(new float[]{i * PERIOD / 6 + r.nextFloat() * 150, r.nextFloat(), 520 + r.nextFloat() * 380, 230 + r.nextFloat() * 220});
         for (int i = 0; i < 8; i++) mid.add(new float[]{i * PERIOD / 8 + r.nextFloat() * 120, r.nextFloat(), 300 + r.nextFloat() * 220, 90 + r.nextFloat() * 140});
         for (int i = 0; i < 12; i++) near.add(new float[]{i * PERIOD / 12 + r.nextFloat() * 80, r.nextFloat(), 40 + r.nextFloat() * 50, 70 + r.nextFloat() * 110});
@@ -735,7 +735,7 @@ public class Backdrop implements Disposable {
 
     @Override
     public void dispose() {
-        art.dispose();
+        ArtCache.release(art);
         sky.dispose();
     }
 }

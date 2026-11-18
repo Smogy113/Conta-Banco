@@ -24,6 +24,13 @@ public class Pathfinder {
     /** buscas recentes sem caminho (inicio, fim): repetir daria o mesmo resultado enquanto o mapa nao mudar */
     private final long[] failed = new long[32];
     private int failCount, failNext;
+    /**
+     * regioes ja exploradas sem achar o destino: de qualquer celula da mesma regiao conectada o
+     * destino tambem e inalcancavel (as ligacoes valem nos dois sentidos), entao a resposta e a mesma
+     */
+    private final int[] regionStamp;
+    private final int[] regionGoal = new int[16], regionId = new int[16];
+    private int stampSeq, regionNext;
 
     public Pathfinder(GameMap map) {
         this.map = map;
@@ -36,6 +43,7 @@ public class Pathfinder {
         closedMark = new int[n];
         heap = new int[n * 4];
         heapKey = new float[n * 4];
+        regionStamp = new int[n];
         for (int y = 0; y < map.h; y++)
             for (int x = 0; x < map.w; x++) computeCell(x, y);
     }
@@ -53,6 +61,7 @@ public class Pathfinder {
     private void computeCell(int x, int y) {
         int i = x + y * map.w;
         failCount = 0; // o mapa mudou: as buscas que falharam podem dar certo agora
+        if (regionStamp != null) java.util.Arrays.fill(regionGoal, -1);
         // caixas e portas fechadas contam como "passaveis caras": o bot quebra a caixa ou abre a porta
         passable[i] = !hard(x, y) && !hard(x, y + 1);
         int below = map.get(x, y - 1);
@@ -142,6 +151,8 @@ public class Pathfinder {
         if (s < 0 || g < 0) return false;
         long key = ((long) s << 32) | (g & 0xffffffffL);
         for (int i = 0; i < failCount; i++) if (failed[i] == key) return false;
+        int rs = regionStamp[s];
+        if (rs != 0) for (int i = 0; i < regionId.length; i++) if (regionId[i] == rs && regionGoal[i] == g) return false;
         mark++;
         heapSize = 0;
         int w = map.w;
@@ -176,6 +187,15 @@ public class Pathfinder {
                     push(n, nd + h);
                 }
             }
+        }
+        if (!found && guard < 40000 && heapSize == 0) {
+            // explorou a regiao inteira de "s" sem chegar em "g": guarda a regiao
+            int stamp = ++stampSeq;
+            int[] cm = closedMark;
+            for (int i = 0; i < cm.length; i++) if (cm[i] == mark) regionStamp[i] = stamp;
+            regionId[regionNext] = stamp;
+            regionGoal[regionNext] = g;
+            regionNext = (regionNext + 1) % regionId.length;
         }
         if (!found) {
             failed[failNext] = key;

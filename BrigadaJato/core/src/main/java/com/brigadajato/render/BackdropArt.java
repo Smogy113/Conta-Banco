@@ -30,7 +30,13 @@ public class BackdropArt implements Disposable {
         public int top;
         /** fracao da altura (a partir de baixo) totalmente opaca, e onde comeca o conteudo (acima e transparente) */
         public float solidFrac = 0, topFrac = 1;
+        /** imagem pronta esperando virar textura (gerada fora da thread do OpenGL) */
+        Pixmap pending;
     }
+
+    /** gerar so as imagens (sem OpenGL): as texturas sao criadas depois em {@link #upload()} */
+    private final boolean defer;
+    public String cacheKey;
 
     public final Layer[] layers;
     private final Random r;
@@ -136,10 +142,32 @@ public class BackdropArt implements Disposable {
 
     private Texture build(Layer l) {
         measure(l);
-        return build();
+        Pixmap pm = pixmap();
+        if (defer) {
+            l.pending = pm;
+            return null;
+        }
+        return texture(pm);
     }
 
-    private Texture build() {
+    /** Cria as texturas das imagens geradas em segundo plano (chamar na thread do OpenGL). */
+    public void upload() {
+        for (Layer l : layers)
+            if (l.pending != null) {
+                l.tex = texture(l.pending);
+                l.pending = null;
+            }
+    }
+
+    private static Texture texture(Pixmap pm) {
+        Texture tex = new Texture(pm, true);
+        tex.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
+        tex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.ClampToEdge);
+        pm.dispose();
+        return tex;
+    }
+
+    private Pixmap pixmap() {
         Pixmap pm = new Pixmap(TW, TH, Pixmap.Format.RGBA8888);
         ByteBuffer buf = pm.getPixels();
         byte[] bytes = new byte[TW * TH * 4];
@@ -153,11 +181,7 @@ public class BackdropArt implements Disposable {
         buf.position(0);
         buf.put(bytes);
         buf.position(0);
-        Texture tex = new Texture(pm, true);
-        tex.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
-        tex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.ClampToEdge);
-        pm.dispose();
-        return tex;
+        return pm;
     }
 
     /**
@@ -327,6 +351,11 @@ public class BackdropArt implements Disposable {
     // ------------------------------------------------------------------ montagem por tema
 
     public BackdropArt(Theme t, String seedKey) {
+        this(t, seedKey, false);
+    }
+
+    public BackdropArt(Theme t, String seedKey, boolean defer) {
+        this.defer = defer;
         this.t = t;
         this.r = new Random(seedKey.hashCode() * 7919L + t.ordinal() * 31L);
         this.haze = t.skyBottom;
@@ -505,6 +534,11 @@ public class BackdropArt implements Disposable {
 
     @Override
     public void dispose() {
-        for (Layer l : layers) if (l.tex != null) l.tex.dispose();
+        for (Layer l : layers) {
+            if (l.tex != null) l.tex.dispose();
+            if (l.pending != null) l.pending.dispose();
+            l.tex = null;
+            l.pending = null;
+        }
     }
 }

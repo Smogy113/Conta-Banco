@@ -105,10 +105,10 @@ public class WorldRenderer implements Disposable {
         debris.clear();
         applySettings();
         disposeArt();
-        art1 = new TileArt(w.map.theme);
+        art1 = TileArt.get(w.map.theme);
         bg1 = new Backdrop(w.map.theme, w.map.id, w.map.worldH());
         if (w.map.theme2 != null) {
-            art2 = new TileArt(w.map.theme2);
+            art2 = TileArt.get(w.map.theme2);
             bg2 = new Backdrop(w.map.theme2, w.map.id + "2", w.map.worldH());
         }
         for (int i = 0; i < 60; i++) lavaSeen.add(new float[2]);

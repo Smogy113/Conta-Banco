@@ -17,9 +17,11 @@ import java.util.Random;
  */
 public class TileArt implements Disposable {
     public final Theme theme;
-    private final Texture tex;
+    private Texture tex;
+    /** imagem pintada esperando virar textura (pintada fora da thread do OpenGL) */
+    private Pixmap pending;
     public final TextureRegion[] solid = new TextureRegion[4];
-    public final TextureRegion top, plat, spike, crate, door, doorOpen;
+    public TextureRegion top, plat, spike, crate, door, doorOpen;
     /** espinhos viram lava nos temas de vulcao */
     public final boolean lava;
 
@@ -35,7 +37,38 @@ public class TileArt implements Disposable {
         return (r << 16) | (g << 8) | b;
     }
 
+    // ---- cache: a arte de cada tema e pintada uma vez (em segundo plano quando possivel) e reaproveitada
+    private static final com.badlogic.gdx.utils.ObjectMap<Theme, TileArt> CACHE = new com.badlogic.gdx.utils.ObjectMap<>();
+    private static final com.badlogic.gdx.utils.ObjectMap<Theme, java.util.concurrent.Future<TileArt>> PENDING = new com.badlogic.gdx.utils.ObjectMap<>();
+
+    public static synchronized void prefetch(final Theme t) {
+        if (CACHE.containsKey(t) || PENDING.containsKey(t)) return;
+        PENDING.put(t, ArtCache.submit(() -> new TileArt(t, true)));
+    }
+
+    /** Arte pronta do tema (chamar na thread do OpenGL). Nao descartar: fica no cache. */
+    public static synchronized TileArt get(Theme t) {
+        TileArt a = CACHE.get(t);
+        if (a != null) return a;
+        java.util.concurrent.Future<TileArt> f = PENDING.remove(t);
+        if (f != null) {
+            try {
+                a = f.get();
+            } catch (Exception e) {
+                a = null;
+            }
+        }
+        if (a == null) a = new TileArt(t, true);
+        a.upload();
+        CACHE.put(t, a);
+        return a;
+    }
+
     public TileArt(Theme t) {
+        this(t, false);
+    }
+
+    private TileArt(Theme t, boolean defer) {
         this.theme = t;
         this.lava = t.ambient == Theme.Amb.EMBERS;
         Pixmap pm = new Pixmap(256, 256, Pixmap.Format.RGBA8888);
@@ -50,6 +83,14 @@ public class TileArt implements Disposable {
         else spikes(pm);
         crate(pm, r);
         door(pm, t);
+        pending = pm;
+        if (!defer) upload();
+    }
+
+    private void upload() {
+        if (pending == null) return;
+        Pixmap pm = pending;
+        pending = null;
         tex = new Texture(pm, true);
         tex.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
         pm.dispose();
@@ -259,6 +300,10 @@ public class TileArt implements Disposable {
 
     @Override
     public void dispose() {
-        tex.dispose();
+        synchronized (TileArt.class) {
+            if (CACHE.get(theme) == this) return; // a do cache continua viva
+        }
+        if (tex != null) tex.dispose();
+        if (pending != null) pending.dispose();
     }
 }

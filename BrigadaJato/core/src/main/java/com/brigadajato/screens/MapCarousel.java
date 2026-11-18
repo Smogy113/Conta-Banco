@@ -32,6 +32,7 @@ public class MapCarousel extends Actor implements Disposable {
     private final String[] ids;
     private final ObjectMap<String, Texture> thumbs = new ObjectMap<>();
     private final ObjectMap<String, String> names = new ObjectMap<>();
+    private final ObjectMap<String, GameMap> maps = new ObjectMap<>();
     private final Listener listener;
     private int index;
     private float strip, time, nameIn, dragX, dragStart;
@@ -48,10 +49,12 @@ public class MapCarousel extends Actor implements Disposable {
         strip = index;
         for (String id : ids) {
             GameMap m = BrigadaJatoGame.loadMap(id);
+            maps.put(id, m);
             thumbs.put(id, MapCard.buildThumb(m));
             names.put(id, I18n.pt ? m.name : m.nameEn);
         }
         preview.setMap(ids[index]);
+        prefetchNeighbors();
         addListener(new InputListener() {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
@@ -88,11 +91,17 @@ public class MapCarousel extends Actor implements Disposable {
         dir = d;
     }
 
+    /** Gera em segundo plano o fundo dos mapas ao lado (a proxima troca fica instantanea). */
+    private void prefetchNeighbors() {
+        for (int d = -1; d <= 1; d += 2) com.brigadajato.render.ArtCache.prefetchMap(maps.get(ids[(index + d + ids.length) % ids.length]));
+    }
+
     private void jump(int k) {
         dir = k > index ? 1 : -1;
         index = k;
         nameIn = 0;
         preview.setMap(ids[index]);
+        prefetchNeighbors();
         game.audio.ui("ui_click");
         if (listener != null) listener.select(ids[index]);
     }
@@ -104,13 +113,20 @@ public class MapCarousel extends Actor implements Disposable {
                 index = i;
                 nameIn = 0;
                 preview.setMap(id);
+                prefetchNeighbors();
             }
     }
+
+    private float autoT;
 
     @Override
     public void act(float delta) {
         super.act(delta);
         time += delta;
+        if (BaseScreen.AUTO_CYCLE > 0 && (autoT += delta) > BaseScreen.AUTO_CYCLE) {
+            autoT = 0;
+            move(1);
+        }
         nameIn = Math.min(1, nameIn + delta * 2.5f);
         strip += (index - strip) * Math.min(1, delta * 8);
         preview.update(delta);

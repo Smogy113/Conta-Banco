@@ -28,6 +28,8 @@ public class MenuBackground implements Disposable {
     private Player follow;
     private float followTimer, acc;
     private final Random rng = new Random();
+    /** proximo mapa do fundo (a arte ja vai sendo gerada em segundo plano) */
+    private String nextMap;
 
     public MenuBackground(BrigadaJatoGame game) {
         this.game = game;
@@ -40,7 +42,8 @@ public class MenuBackground implements Disposable {
     private void restart() {
         MatchConfig cfg = new MatchConfig();
         cfg.mode = rng.nextBoolean() ? ModeType.TEAM_DEATHMATCH : ModeType.DEATHMATCH;
-        cfg.mapId = GameMap.PLAY_IDS[rng.nextInt(GameMap.PLAY_IDS.length)];
+        cfg.mapId = nextMap != null ? nextMap : GameMap.PLAY_IDS[rng.nextInt(GameMap.PLAY_IDS.length)];
+        nextMap = GameMap.PLAY_IDS[rng.nextInt(GameMap.PLAY_IDS.length)];
         cfg.timeLimit = 0;
         cfg.scoreLimit = 0;
         cfg.difficulty = 1;
@@ -51,6 +54,7 @@ public class MenuBackground implements Disposable {
         }
         world.start();
         renderer.setWorld(world);
+        com.brigadajato.render.ArtCache.prefetchMap(BrigadaJatoGame.loadMap(nextMap));
         follow = null;
         cam.position.set(world.map.worldW() / 2, world.map.worldH() / 2, 0);
     }

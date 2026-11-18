@@ -57,8 +57,35 @@ public abstract class BaseScreen extends ScreenAdapter {
     protected void onBack() {
     }
 
+    // medicao de desempenho dos menus (--perf=true no PC)
+    private static final boolean PERF = "true".equals(System.getProperty("brigadajato.perf"));
+    private long pLast, pAcc, pWorst, pCpu, pCpuLast;
+    private int pFrames;
+    /** teste: troca o mapa do carrossel sozinho a cada N segundos */
+    protected static final float AUTO_CYCLE = Float.parseFloat(System.getProperty("brigadajato.autocycle", "0"));
+
+    private void perfFrame() {
+        long now = System.nanoTime();
+        long cpu = java.lang.management.ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+        if (pLast != 0) {
+            long dtn = now - pLast;
+            pAcc += dtn;
+            pWorst = Math.max(pWorst, dtn);
+            pCpu += cpu - pCpuLast;
+            pFrames++;
+        }
+        pLast = now;
+        pCpuLast = cpu;
+        if (pAcc > 4_000_000_000L) {
+            Gdx.app.log("perf", String.format("%s media=%.2fms pior=%.1fms cpu=%.2fms", getClass().getSimpleName(), pAcc / 1e6 / pFrames, pWorst / 1e6, pCpu / 1e6 / pFrames));
+            pAcc = pWorst = pCpu = 0;
+            pFrames = 0;
+        }
+    }
+
     @Override
     public void render(float delta) {
+        if (PERF) perfFrame();
         ScreenUtils.clear(0.05f, 0.06f, 0.1f, 1);
         if (background) game.menuBg.render(delta);
         stage.getViewport().apply();
