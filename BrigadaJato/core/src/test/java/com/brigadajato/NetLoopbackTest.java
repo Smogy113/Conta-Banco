@@ -90,13 +90,13 @@ public class NetLoopbackTest {
                 host.afterStep(hw, hw.events);
                 hw.events.clear();
                 Thread.sleep(2);
-                client.receive(cw, events, myId);
+                client.receive(cw, events, myId, 1f / 60f);
                 for (WorldEvent e : events) if (e.type == WorldEvent.Type.SHOT) shots++;
                 events.clear();
                 cw.update(C.STEP);
             }
             Thread.sleep(150);
-            client.receive(cw, events, myId);
+            client.receive(cw, events, myId, 1f / 60f);
             Player hostView = hw.player(myId), clientView = cw.player(myId);
             System.out.println("cliente no host=(" + (int) hostView.x + "," + (int) hostView.y + ") no cliente=(" + (int) clientView.x + "," + (int) clientView.y
                     + ") tiros recebidos=" + shots + " tempo host=" + hw.time + " cliente=" + cw.time);
