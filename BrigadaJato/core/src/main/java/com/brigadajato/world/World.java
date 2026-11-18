@@ -42,6 +42,7 @@ public class World {
     public final IntIntMap changedTiles = new IntIntMap();
 
     public GameMode mode;
+    private boolean collapsed;
     public float time;
     private int nextEntityId = 1;
     private int nextPlayerId = 0;
@@ -257,8 +258,47 @@ public class World {
         }
         updatePickups(dt);
         updateProps(dt);
+        updateMapEvents(dt);
         for (int i = 0; i < leverCd.length; i++) leverCd[i] = Math.max(0, leverCd[i] - dt);
         mode.update(dt);
+    }
+
+    /** Mare/lava e desabamento. */
+    private void updateMapEvents(float dt) {
+        if (map.collapseTime > 0 && !collapsed && time >= map.collapseTime) {
+            collapsed = true;
+            for (int i = 0; i < map.collapse.size; i++) {
+                int idx = map.collapse.get(i);
+                setTile(idx % map.w, idx / map.w, GameMap.EMPTY);
+            }
+            message("map_collapse", -1, -1, 1);
+            WorldEvent e = emit(WorldEvent.Type.BOSS); // reaproveita o tremor/pancada
+            e.a = -1;
+            e.b = 3;
+            if (map.collapse.size > 0) {
+                int idx = map.collapse.get(map.collapse.size / 2);
+                e.x = (idx % map.w) * C.TILE;
+                e.y = (idx / map.w) * C.TILE;
+            }
+        }
+        if (!map.hasFlood()) return;
+        float level = map.floodLevel(time);
+        for (int i = 0; i < players.size; i++) {
+            Player p = players.get(i);
+            if (!p.alive || p.y > level) continue;
+            if (map.floodLava) {
+                p.lavaTimer += dt;
+                if (p.lavaTimer > 0.25f) {
+                    p.lavaTimer = 0;
+                    damage(p, 9, null, C.KILL_LAVA, false, 0, 260);
+                }
+            } else {
+                // agua: empurra para cima e freia
+                p.vx *= 1 - 2.5f * dt;
+                p.vy += gravity * 0.75f * dt;
+                if (p.vy < -220) p.vy = -220;
+            }
+        }
     }
 
     public void respawn(Player p) {

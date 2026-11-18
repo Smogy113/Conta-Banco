@@ -58,6 +58,7 @@ public final class C {
     public static final int KILL_BOSS = 107;
     public static final int KILL_ZONE = 108;
     public static final int KILL_INFECT = 109;
+    public static final int KILL_LAVA = 110;
 
     // emotes: 0..5 frases rapidas, 6..9 reacoes, 10..13 dancas
     public static final int EMOTE_PHRASES = 6;

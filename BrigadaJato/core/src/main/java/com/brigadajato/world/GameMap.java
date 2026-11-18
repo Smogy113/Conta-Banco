@@ -19,6 +19,12 @@ public class GameMap {
     /** mapa sempre de noite */
     public boolean night;
     public short[] tileHp;
+    /** mare/lava que sobe e desce: nivel minimo e maximo (em blocos a partir do chao), periodo em segundos */
+    public float floodMin = -1, floodMax = -1, floodPeriod = 80;
+    public boolean floodLava;
+    /** blocos que desabam (estrutura que cai no meio da partida) e quando */
+    public final com.badlogic.gdx.utils.IntArray collapse = new com.badlogic.gdx.utils.IntArray();
+    public float collapseTime = -1;
     public final Array<Vector2> levers = new Array<>();
     public final Array<Vector2> barrels = new Array<>();
     public final Array<Vector2> lamps = new Array<>();
@@ -67,6 +73,17 @@ public class GameMap {
         return theme2 != null && ty <= lowerTop ? theme2 : theme;
     }
 
+    public boolean hasFlood() {
+        return floodMax > 0;
+    }
+
+    /** Altura (mundo) da agua/lava no instante t. */
+    public float floodLevel(float t) {
+        if (floodMax <= 0) return -1;
+        float k = 0.5f - 0.5f * (float) Math.cos(t / floodPeriod * Math.PI * 2);
+        return (floodMin + (floodMax - floodMin) * k) * C.TILE;
+    }
+
     public boolean solidAt(float x, float y) {
         return solid((int) Math.floor(x / C.TILE), (int) Math.floor(y / C.TILE));
     }
@@ -88,6 +105,13 @@ public class GameMap {
                 else if (key.equals("theme2")) m.theme2 = Theme.parse(val);
                 else if (key.equals("split")) splitRow = Integer.parseInt(val);
                 else if (key.equals("night")) m.night = "1".equals(val) || "true".equals(val);
+                else if (key.equals("flood")) { // @flood min max water|lava periodo
+                    String[] f = val.split("\\s+");
+                    m.floodMin = Float.parseFloat(f[0]);
+                    m.floodMax = Float.parseFloat(f[1]);
+                    m.floodLava = f.length > 2 && f[2].equals("lava");
+                    if (f.length > 3) m.floodPeriod = Float.parseFloat(f[3]);
+                } else if (key.equals("collapse")) m.collapseTime = Float.parseFloat(val);
                 continue;
             }
             if (line.trim().isEmpty()) continue;
@@ -111,6 +135,7 @@ public class GameMap {
                 float px = tx * C.TILE + C.TILE / 2f, py = ty * C.TILE;
                 switch (ch) {
                     case '#': t = SOLID; break;
+                    case 'Z': t = SOLID; m.collapse.add(tx + ty * m.w); break;
                     case '=': t = PLATFORM; break;
                     case '^': t = SPIKES; break;
                     case 'D': t = BREAKABLE; m.tileHp[tx + ty * m.w] = BREAKABLE_HP; break;

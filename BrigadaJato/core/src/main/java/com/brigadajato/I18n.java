@@ -390,6 +390,7 @@ public final class I18n {
         d("nade_3", "Flashbang", "Flashbang");
         d("nade_4", "Grudenta", "Sticky");
         d("roll", "Rolar", "Roll");
+        d("map_collapse", "A ESTRUTURA DESABOU!", "THE STRUCTURE COLLAPSED!");
         d("mode_hideseek", "Pique-Esconde", "Prop Hunt");
         d("desc_hideseek", "Vire um objeto do cenário e não seja achado. Tiro errado custa vida!", "Turn into a prop and don't get found. Missed shots cost health!");
         d("hs_hiders", "Escondidos", "Hiders");

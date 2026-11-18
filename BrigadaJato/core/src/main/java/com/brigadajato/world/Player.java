@@ -42,6 +42,7 @@ public class Player {
     public float flash;
     /** disfarce no pique-esconde (-1 = nenhum) */
     public int disguise = -1;
+    public float lavaTimer;
     /** rolamento/esquiva */
     public float rollTimer, rollCd;
     public int rollDir = 1;

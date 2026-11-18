@@ -57,8 +57,16 @@ def border(rows):
     return out
 
 
-def save(fid, name_pt, name_en, theme, rows, gravity=None, theme2=None, split=None, night=False):
+def save(fid, name_pt, name_en, theme, rows, gravity=None, theme2=None, split=None, night=False, flood=None, collapse=None):
     rows = border(rows)
+    if collapse is not None:  # (tempo, [(x0, y0, x1, y1), ...]): blocos que desabam viram 'Z'
+        rows = [list(r) for r in rows]
+        for (x0, y0, x1, y1) in collapse[1]:
+            for y in range(y0, y1 + 1):
+                for x in range(x0, x1 + 1):
+                    if rows[y][x] == "#":
+                        rows[y][x] = "Z"
+        rows = ["".join(r) for r in rows]
     path = os.path.join(OUT, fid + ".txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write(f"@name {name_pt}\n@name_en {name_en}\n@theme {theme}\n")
@@ -68,6 +76,10 @@ def save(fid, name_pt, name_en, theme, rows, gravity=None, theme2=None, split=No
             f.write(f"@theme2 {theme2}\n@split {split}\n")
         if night:
             f.write("@night 1\n")
+        if flood is not None:
+            f.write(f"@flood {flood}\n")
+        if collapse is not None:
+            f.write(f"@collapse {collapse[0]}\n")
         for r in rows:
             f.write(r + "\n")
     print(f"{fid}: {len(rows[0])}x{len(rows)}")
@@ -516,9 +528,10 @@ def main():
     save("caverna", "Caverna Gelada", "Frozen Cave", "ice", mirror(f))
     save("selva", "Templo da Selva", "Jungle Temple", "jungle", mirror(SELVA))
     save("lua", "Base Lunar", "Moon Base", "space", mirror(LUA), gravity=0.55)
-    save("navio", "Navio Pirata", "Pirate Ship", "ship", mirror(NAVIO), theme2="hold", split=13)
-    save("cidade", "Cidade à Noite", "Night City", "city", mirror(CIDADE), theme2="sewer", split=13, night=True)
-    save("vulcao", "Vulcão", "Volcano", "volcano", mirror(VULCAO), theme2="magma", split=13)
+    save("navio", "Navio Pirata", "Pirate Ship", "ship", mirror(NAVIO), theme2="hold", split=13, flood="1 6 water 80")
+    save("cidade", "Cidade à Noite", "Night City", "city", mirror(CIDADE), theme2="sewer", split=13, night=True,
+         collapse=(75, [(27, 1, 30, 8), (49, 1, 52, 8)]))
+    save("vulcao", "Vulcão", "Volcano", "volcano", mirror(VULCAO), theme2="magma", split=13, flood="1 5 lava 70")
     save("submarina", "Base Submarina", "Undersea Base", "undersea", mirror(SUBMARINA), theme2="reactor", split=13)
     save("escola", "Escola", "School", "school", mirror(ESCOLA), theme2="gym", split=13)
     save("mercado", "Mercado", "Market", "market", mirror(MERCADO), theme2="cellar", split=13)

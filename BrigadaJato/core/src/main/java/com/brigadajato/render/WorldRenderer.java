@@ -742,6 +742,7 @@ public class WorldRenderer implements Disposable {
         }
         debris.drawCasings(d, minX, minY, maxX, maxY);
         drawSmoke(d, w, minX, minY, maxX, maxY);
+        drawFlood(d, w, minX, minY, maxX, maxY);
         fx.draw(d, false, minX, minY, maxX, maxY);
         d.additive(true);
         drawProjectilesGlow(d, w, minX, minY, maxX, maxY);
@@ -1010,6 +1011,34 @@ public class WorldRenderer implements Disposable {
             d.region(a.tri, p.hookX, p.hookY, 11, 11, ang - 90);
             d.rgb(0x90a4ae, 1);
             d.region(a.tri, p.hookX, p.hookY, 8, 8, ang - 90);
+        }
+    }
+
+    /** Agua da mare ou lava subindo. */
+    private void drawFlood(Draw d, World w, float minX, float minY, float maxX, float maxY) {
+        GameMap m = w.map;
+        if (!m.hasFlood()) return;
+        float level = m.floodLevel(w.time);
+        if (level < minY) return;
+        boolean lava = m.floodLava;
+        float top = Math.min(level, maxY + 10);
+        if (lava) d.color(1f, 0.38f, 0.08f, 0.82f);
+        else d.color(0.15f, 0.45f, 0.75f, 0.5f);
+        d.rect(minX, minY, maxX - minX, top - minY);
+        // ondas na superficie
+        if (level <= maxY + 10) {
+            float step = 24;
+            for (float x = minX - (minX % step) - step; x < maxX + step; x += step) {
+                float wy = level + 3 * MathUtils.sin(time * 2.5f + x * 0.05f);
+                if (lava) d.color(1f, 0.85f, 0.3f, 0.95f);
+                else d.color(0.8f, 0.95f, 1f, 0.75f);
+                d.rect(x, wy - 2, step + 1, 3.5f);
+            }
+            if (lava && !fx.skip() && MathUtils.randomBoolean(0.3f)) {
+                Particles.P b = fx.spawn(Particles.SOFT, minX + MathUtils.random(maxX - minX), level, 0, 60, 0.8f, 4, 2, 0xffab40, 1);
+                b.additive = true;
+            }
+            if (lava) for (float x = minX; x < maxX; x += 160) lighting.light(x, level, 180, 0xff6a00, 0.7f);
         }
     }
 

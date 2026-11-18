@@ -122,6 +122,7 @@ public class Hud implements Disposable {
         if (code == C.KILL_BOSS) return I18n.pt ? "Chefão" : "Boss";
         if (code == C.KILL_ZONE) return I18n.pt ? "Zona" : "Zone";
         if (code == C.KILL_INFECT) return I18n.pt ? "Infecção" : "Infection";
+        if (code == C.KILL_LAVA) return I18n.pt ? "Lava" : "Lava";
         WeaponType t = WeaponType.of(code);
         return t == null ? "?" : (I18n.pt ? t.pt : t.en);
     }
