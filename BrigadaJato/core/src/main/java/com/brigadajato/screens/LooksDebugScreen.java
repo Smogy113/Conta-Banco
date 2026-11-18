@@ -13,6 +13,24 @@ public class LooksDebugScreen extends BaseScreen {
         background = false;
         Random r = new Random(42);
         WeaponType[] all = WeaponType.values();
+        if (System.getProperty("brigadajato.guns") != null) {
+            final com.brigadajato.render.SoldierPainter painter = new com.brigadajato.render.SoldierPainter();
+            final WeaponType[] ws = WeaponType.values();
+            root.addActor(new com.badlogic.gdx.scenes.scene2d.Actor() {
+                @Override
+                public void draw(com.badlogic.gdx.graphics.g2d.Batch batch, float parentAlpha) {
+                    for (int i = 0; i < ws.length; i++) {
+                        float cx = 150 + (i % 5) * 245, cy = 640 - (i / 5) * 140;
+                        game.draw.color(0.2f, 0.22f, 0.3f, 1);
+                        game.draw.rect(cx - 115, cy - 60, 230, 125);
+                        painter.drawGun(game.draw, ws[i], cx, cy, 0, 3.2f, 1);
+                        game.assets.small.draw(batch, ws[i].pt, cx - 105, cy - 38);
+                    }
+                    batch.setColor(1, 1, 1, 1);
+                }
+            });
+            return;
+        }
         boolean big = System.getProperty("brigadajato.big") != null;
         for (int i = 0; i < (big ? 4 : 24); i++) {
             Look l = Look.random(r);

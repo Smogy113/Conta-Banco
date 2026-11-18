@@ -639,93 +639,226 @@ public class SoldierPainter {
         }
     }
 
+    // ---- desenho das armas em coordenadas locais (lx ao longo do cano, ly para cima da arma)
+    private float gx, gy, gc, gs, gdeg;
+    private int gsy;
+
+    private float wx(float lx, float ly) {
+        return gx + gc * lx - gs * ly * gsy;
+    }
+
+    private float wy(float lx, float ly) {
+        return gy + gs * lx + gc * ly * gsy;
+    }
+
+    /** peca arredondada que sai do ponto local (lx, ly) com comprimento len e grossura th, girada angOff graus */
+    private void part(float lx, float ly, float len, float th, float angOff, int col) {
+        float px0 = wx(lx, ly), py0 = wy(lx, ly);
+        add(T_BOX, px0, py0 - th / 2, len, th, 0, th / 2, gdeg + angOff * gsy, col, true);
+    }
+
+    private void tube(float lx, float ly, float len, float th, int col) {
+        float px0 = wx(lx, ly), py0 = wy(lx, ly);
+        add(T_PILL, px0 - th / 2, py0 - th / 2, len + th, th, th / 2, th / 2, gdeg, col, true);
+    }
+
+    private void detail(float lx, float ly, float len, float th, float angOff, int col) {
+        float px0 = wx(lx, ly), py0 = wy(lx, ly);
+        add(T_RECT, px0, py0 - th / 2, len, th, 0, th / 2, gdeg + angOff * gsy, col, false);
+    }
+
+    private void dot(float lx, float ly, float r, int col, boolean outline) {
+        add(outline ? T_BALL : T_CIRCLE, wx(lx, ly), wy(lx, ly), r, r, 0, 0, 0, col, outline);
+    }
+
     /** Desenha a arma com a coronha em (x, y) apontando no angulo dado. */
     private void gun(WeaponType w, int skin, float x, float y, float deg, int f) {
-        float len = w.gunLen, h = w.gunH;
+        gx = x;
+        gy = y;
+        gdeg = deg;
+        gc = MathUtils.cosDeg(deg);
+        gs = MathUtils.sinDeg(deg);
+        gsy = f > 0 ? 1 : -1;
+        float L = w.gunLen, H = w.gunH;
         int col = gunColor(w.color, skin);
-        float sy = f > 0 ? 1 : -1;
-        if (w == WeaponType.BOW) {
-            float c = MathUtils.cosDeg(deg), s = MathUtils.sinDeg(deg);
-            sbox(x + c * 8, y + s * 8, 3.5f, 17, 1.75f, 0, deg + 90 - 18 * sy, skin == 0 ? 0x8d5524 : col);
-            sbox(x + c * 8, y + s * 8, 3.5f, 17, 1.75f, 0, deg - 90 + 18 * sy, skin == 0 ? 0x8d5524 : col);
-            float tx1 = x + c * 8 + MathUtils.cosDeg(deg + 90 - 18 * sy) * 17, ty1 = y + s * 8 + MathUtils.sinDeg(deg + 90 - 18 * sy) * 17;
-            float tx2 = x + c * 8 + MathUtils.cosDeg(deg - 90 + 18 * sy) * 17, ty2 = y + s * 8 + MathUtils.sinDeg(deg - 90 + 18 * sy) * 17;
-            float ang = MathUtils.atan2(ty2 - ty1, tx2 - tx1) * MathUtils.radiansToDegrees;
-            float l2 = (float) Math.sqrt((tx2 - tx1) * (tx2 - tx1) + (ty2 - ty1) * (ty2 - ty1));
-            dRect(tx1, ty1 - 0.5f, l2, 1f, 0, 0.5f, ang, 0xeeeeee);
-            sbox(x, y - 1, 22, 2, 0, 1, deg, 0xa1887f); // flecha
-            add(T_TRI, x + c * 22 - 3, y + s * 22 - 3, 6, 6, 3, 3, deg - 90, 0x9e9e9e, true);
-            return;
-        }
-        if (w == WeaponType.BOOMERANG) {
-            float c = MathUtils.cosDeg(deg), s = MathUtils.sinDeg(deg);
-            int bc = skin == 0 ? 0xffb300 : col;
-            sbox(x + c * 4, y + s * 4 - 2.5f, 14, 5, 0, 2.5f, deg + 35, bc);
-            sbox(x + c * 4, y + s * 4 - 2.5f, 14, 5, 0, 2.5f, deg - 35, darker(bc, 0.85f));
-            return;
-        }
-        sbox(x, y - h / 2, len * 0.72f, h, 0, h / 2, deg, col);
-        if (skin == 1 || skin == 3 || skin == 4) { // brilho
-            dRect(x, y + h * 0.1f - h / 2 + h * 0.55f * (sy > 0 ? 1 : 0.2f), len * 0.7f, h * 0.18f, 0, h * 0.09f - h * 0.05f, deg, 0xffffff);
-            alphaLast(0.45f);
-        }
-        if (skin == 2) {
-            dEllipse(x + MathUtils.cosDeg(deg) * len * 0.3f, y + MathUtils.sinDeg(deg) * len * 0.3f, len * 0.1f, h * 0.25f, deg, 0x33402a);
-        }
-        float c = MathUtils.cosDeg(deg), s = MathUtils.sinDeg(deg);
-        float bx = x + c * len * 0.7f, by = y + s * len * 0.7f;
-        float bh = Math.max(3, h * 0.45f);
-        int barrel = skin == 0 ? darker(col, 0.55f) : darker(col, 0.7f);
-        if (w == WeaponType.FROST || w == WeaponType.TESLA || w == WeaponType.GRAVITY || w == WeaponType.HARPOON) {
-            int accent = w == WeaponType.FROST ? 0x4fc3f7 : (w == WeaponType.TESLA ? 0xffee58 : (w == WeaponType.GRAVITY ? 0xb388ff : 0xbdbdbd));
-            if (w == WeaponType.HARPOON) {
-                sbox(bx, by - bh / 2, len * 0.42f, bh, 0, bh / 2, deg, barrel);
-                sbox(x + c * len * 0.95f, y + s * len * 0.95f - 1, 12, 2, 0, 1, deg, 0xcfd8dc);
-                add(T_TRI, x + c * (len + 11) - 3.5f, y + s * (len + 11) - 3.5f, 7, 7, 3.5f, 3.5f, deg - 90, 0x90a4ae, true);
-                return;
+        int dark = darker(col, 0.62f);
+        int metal = skin == 0 ? 0x3d4448 : darker(col, 0.7f);
+        int metalL = skin == 0 ? 0x5f6b72 : col;
+        int wood = skin == 0 ? 0x8d5a2b : darker(col, 0.85f);
+        int woodD = darker(wood, 0.75f);
+        switch (w) {
+            case PISTOL:
+            case DUAL_PISTOLS:
+            case MAGNUM: {
+                boolean mag = w == WeaponType.MAGNUM;
+                part(1, -1, H * 1.25f, H * 0.62f, -105, mag ? wood : dark); // cabo
+                part(0, H * 0.18f, L * 0.82f, H * 0.62f, 0, col); // ferrolho
+                if (mag) {
+                    dot(L * 0.32f, -H * 0.05f, H * 0.38f, metal, true); // tambor
+                    tube(L * 0.6f, H * 0.12f, L * 0.45f, H * 0.32f, metalL);
+                } else tube(L * 0.7f, H * 0.05f, L * 0.22f, H * 0.3f, metal);
+                detail(L * 0.08f, -H * 0.38f, L * 0.28f, 1.1f, 0, dark); // guarda-mato
+                detail(L * 0.7f, H * 0.52f, 2, 1.6f, 90, dark); // mira
+                break;
             }
-            sbox(bx, by - bh / 2, len * 0.3f, bh, 0, bh / 2, deg, barrel);
-            if (w == WeaponType.FROST) {
-                circle(x + c * 7 - s * sy * 6, y + s * 7 + c * sy * 6, 4.8f, accent);
-                dCircle(x + c * len, y + s * len, 2.4f, 0xe1f5fe);
-            } else if (w == WeaponType.TESLA) {
-                for (int k = 0; k < 3; k++) {
-                    float kx = x + c * (len * 0.35f + k * 4.5f), ky = y + s * (len * 0.35f + k * 4.5f);
-                    add(T_RING, kx, ky, h * 0.55f, h * 0.55f, 0, 0, 0, accent, false);
+            case SMG:
+            case DUAL_SMG: {
+                part(-4, H * 0.05f, 7, H * 0.4f, -12, dark); // coronha curta
+                part(0, 0, L * 0.6f, H * 0.8f, 0, col);
+                part(L * 0.18f, -H * 0.2f, H * 0.9f, H * 0.42f, -105, dark); // cabo
+                part(L * 0.4f, -H * 0.25f, H * 1.4f, H * 0.42f, -92, metal); // carregador reto
+                tube(L * 0.6f, H * 0.1f, L * 0.32f, H * 0.32f, metal);
+                detail(L * 0.3f, H * 0.42f, L * 0.18f, 1.3f, 0, dark);
+                break;
+            }
+            case RIFLE: {
+                part(-7, -H * 0.05f, 10, H * 0.72f, -6, skin == 0 ? 0x2f3437 : dark); // coronha
+                part(0, 0, L * 0.5f, H * 0.82f, 0, col); // corpo
+                part(L * 0.12f, -H * 0.25f, H * 0.95f, H * 0.4f, -108, dark); // cabo
+                part(L * 0.3f, -H * 0.25f, H * 1.25f, H * 0.42f, -80, metal); // carregador curvo
+                part(L * 0.48f, H * 0.02f, L * 0.3f, H * 0.6f, 0, dark); // guarda-mao
+                tube(L * 0.76f, H * 0.08f, L * 0.24f, H * 0.26f, metal); // cano
+                part(L * 0.18f, H * 0.48f, L * 0.2f, H * 0.28f, 0, metal); // trilho/mira
+                detail(L * 0.98f, H * 0.08f, 2.5f, H * 0.45f, 0, metalL); // quebra-chama
+                break;
+            }
+            case SHOTGUN: {
+                part(-8, -H * 0.12f, 11, H * 0.78f, -10, wood);
+                part(0, 0, L * 0.38f, H * 0.82f, 0, col);
+                part(L * 0.1f, -H * 0.25f, H * 0.85f, H * 0.4f, -112, wood);
+                tube(L * 0.36f, H * 0.18f, L * 0.62f, H * 0.32f, metal); // cano
+                tube(L * 0.36f, -H * 0.18f, L * 0.5f, H * 0.3f, metalL); // tubo
+                part(L * 0.5f, -H * 0.2f, L * 0.2f, H * 0.5f, 0, woodD); // bomba
+                break;
+            }
+            case SNIPER: {
+                part(-9, -H * 0.1f, 13, H * 0.85f, -7, wood);
+                detail(-6, -H * 0.1f, 5, H * 0.4f, -7, woodD);
+                part(0, 0, L * 0.42f, H * 0.78f, 0, col);
+                part(L * 0.1f, -H * 0.25f, H * 1.0f, H * 0.42f, -110, wood);
+                part(L * 0.24f, -H * 0.25f, H * 0.7f, H * 0.4f, -90, metal);
+                tube(L * 0.42f, H * 0.05f, L * 0.58f, H * 0.28f, metal);
+                tube(L * 0.08f, H * 0.62f, L * 0.3f, H * 0.5f, 0x1c1f22); // luneta
+                dot(L * 0.4f, H * 0.62f, H * 0.28f, 0x4fc3f7, false);
+                detail(L * 0.22f, H * 0.42f, 2, H * 0.35f, 90, 0x1c1f22);
+                detail(L * 0.7f, -H * 0.12f, H * 1.0f, 1.2f, -120, metal); // bipe
+                detail(L * 0.7f, -H * 0.12f, H * 1.0f, 1.2f, -60, metal);
+                break;
+            }
+            case LMG: {
+                part(-7, -H * 0.05f, 10, H * 0.7f, -6, dark);
+                part(0, 0, L * 0.45f, H * 0.9f, 0, col);
+                part(L * 0.1f, -H * 0.3f, H * 0.85f, H * 0.4f, -110, dark);
+                part(L * 0.22f, -H * 0.38f, H * 0.95f, H * 1.0f, -90, metalL); // caixa de municao
+                part(L * 0.45f, H * 0.05f, L * 0.35f, H * 0.7f, 0, metal); // camisa do cano
+                for (int i = 0; i < 3; i++) detail(L * (0.5f + i * 0.09f), H * 0.05f, 2, H * 0.28f, 0, 0x111111);
+                tube(L * 0.8f, H * 0.05f, L * 0.2f, H * 0.3f, metal);
+                part(L * 0.1f, H * 0.5f, L * 0.3f, H * 0.32f, 0, dark); // alca
+                detail(L * 0.75f, -H * 0.3f, H * 1.1f, 1.3f, -125, metal);
+                detail(L * 0.75f, -H * 0.3f, H * 1.1f, 1.3f, -55, metal);
+                break;
+            }
+            case ROCKET: {
+                tube(-6, 0, L, H * 0.85f, col); // tubo
+                part(L * 0.22f, -H * 0.4f, H * 0.9f, H * 0.38f, -100, dark);
+                part(L * 0.45f, -H * 0.4f, H * 0.6f, H * 0.36f, -95, dark);
+                part(L * 0.25f, H * 0.42f, L * 0.18f, H * 0.36f, 0, metal); // mira
+                detail(-4, 0, 3, H * 0.95f, 0, dark);
+                detail(L - 8, 0, 3, H * 0.95f, 0, dark);
+                add(T_TRI, wx(L - 2, 0) - H * 0.4f, wy(L - 2, 0) - H * 0.4f, H * 0.8f, H * 0.9f, H * 0.4f, H * 0.4f, deg - 90, 0x9e2b25, true);
+                break;
+            }
+            case GRENADE_LAUNCHER: {
+                part(-6, -H * 0.1f, 9, H * 0.6f, -8, dark);
+                part(0, 0, L * 0.35f, H * 0.7f, 0, col);
+                dot(L * 0.38f, -H * 0.05f, H * 0.55f, metal, true); // tambor
+                part(L * 0.1f, -H * 0.25f, H * 0.8f, H * 0.4f, -108, dark);
+                tube(L * 0.5f, H * 0.05f, L * 0.42f, H * 0.62f, metalL);
+                detail(L * 0.88f, H * 0.05f, 2.5f, H * 0.7f, 0, dark);
+                break;
+            }
+            case FLAMETHROWER: {
+                dot(L * 0.18f, -H * 0.55f, H * 0.62f, skin == 0 ? 0xd35400 : col, true); // tanque
+                part(0, 0, L * 0.45f, H * 0.62f, 0, metal);
+                part(L * 0.12f, -H * 0.2f, H * 0.8f, H * 0.4f, -108, dark);
+                tube(L * 0.45f, H * 0.02f, L * 0.45f, H * 0.36f, metalL);
+                part(L * 0.88f, H * 0.02f, L * 0.1f, H * 0.55f, 0, dark); // bocal
+                dot(L * 0.96f, -H * 0.32f, 1.6f, 0x29b6f6, false); // chama piloto
+                break;
+            }
+            case LASER: {
+                tube(-2, 0, L * 0.85f, H * 0.78f, col);
+                part(L * 0.12f, -H * 0.25f, H * 0.85f, H * 0.4f, -108, dark);
+                for (int i = 0; i < 3; i++) dot(L * (0.28f + i * 0.13f), 0, H * 0.18f, 0x7fffd4, false);
+                part(L * 0.1f, H * 0.62f, L * 0.32f, H * 0.36f, 0, 0x0e6655);
+                tube(L * 0.84f, 0, L * 0.12f, H * 0.42f, metal);
+                dot(L * 1.0f, 0, H * 0.22f, 0x7fffd4, false);
+                break;
+            }
+            case SAW: {
+                part(0, 0, L * 0.55f, H * 0.75f, 0, col);
+                part(L * 0.12f, -H * 0.25f, H * 0.85f, H * 0.4f, -108, dark);
+                tube(L * 0.5f, 0, L * 0.25f, H * 0.4f, metal);
+                add(T_STAR, wx(L * 0.95f, 0), wy(L * 0.95f, 0), H * 1.5f, H * 1.5f, 0, 0, 0, 0xcfd8dc, true);
+                dot(L * 0.95f, 0, H * 0.18f, metal, false);
+                break;
+            }
+            case SHIELD:
+                break;
+            case BOW: {
+                int bc = skin == 0 ? 0x8d5524 : col;
+                part(8, 0, 18, 3.5f, 90 - 22, bc);
+                part(8, 0, 18, 3.5f, -90 + 22, bc);
+                float tx1 = wx(8 + MathUtils.cosDeg(68) * 18, MathUtils.sinDeg(68) * 18), ty1 = wy(8 + MathUtils.cosDeg(68) * 18, MathUtils.sinDeg(68) * 18);
+                float tx2 = wx(8 + MathUtils.cosDeg(68) * 18, -MathUtils.sinDeg(68) * 18), ty2 = wy(8 + MathUtils.cosDeg(68) * 18, -MathUtils.sinDeg(68) * 18);
+                float ang = MathUtils.atan2(ty2 - ty1, tx2 - tx1) * MathUtils.radiansToDegrees;
+                float l2 = (float) Math.sqrt((tx2 - tx1) * (tx2 - tx1) + (ty2 - ty1) * (ty2 - ty1));
+                dRect(tx1, ty1 - 0.5f, l2, 1f, 0, 0.5f, ang, 0xeeeeee);
+                tube(0, 0, 22, 2, 0xa1887f); // flecha
+                add(T_TRI, wx(23, 0) - 3, wy(23, 0) - 3, 6, 6, 3, 3, deg - 90, 0x9e9e9e, true);
+                detail(0, 1.5f, 4, 2, 30, 0xef5350);
+                detail(0, -1.5f, 4, 2, -30, 0xef5350);
+                break;
+            }
+            case BOOMERANG: {
+                int bc = skin == 0 ? 0xffb300 : col;
+                part(4, 0, 14, 5, 35, bc);
+                part(4, 0, 14, 5, -35, darker(bc, 0.85f));
+                break;
+            }
+            case HARPOON: {
+                part(-5, -H * 0.05f, 8, H * 0.6f, -8, wood);
+                part(0, 0, L * 0.5f, H * 0.8f, 0, col);
+                part(L * 0.12f, -H * 0.25f, H * 0.85f, H * 0.4f, -108, dark);
+                tube(L * 0.5f, 0.5f, L * 0.42f, H * 0.4f, metal);
+                tube(L * 0.6f, H * 0.45f, L * 0.45f, 1.6f, 0xcfd8dc); // arpao
+                add(T_TRI, wx(L * 1.08f, H * 0.45f) - 3.5f, wy(L * 1.08f, H * 0.45f) - 3.5f, 7, 7, 3.5f, 3.5f, deg - 90, 0x90a4ae, true);
+                break;
+            }
+            default: { // FROST, TESLA, GRAVITY
+                int accent = w == WeaponType.FROST ? 0x4fc3f7 : (w == WeaponType.TESLA ? 0xffee58 : 0xb388ff);
+                part(-4, -H * 0.05f, 7, H * 0.55f, -8, dark);
+                part(0, 0, L * 0.55f, H * 0.85f, 0, col);
+                part(L * 0.14f, -H * 0.28f, H * 0.85f, H * 0.4f, -108, dark);
+                if (w == WeaponType.FROST) {
+                    dot(L * 0.3f, H * 0.55f, H * 0.45f, accent, true);
+                    tube(L * 0.55f, 0, L * 0.35f, H * 0.42f, metal);
+                    dot(L * 0.95f, 0, H * 0.28f, 0xe1f5fe, false);
+                } else if (w == WeaponType.TESLA) {
+                    tube(L * 0.55f, 0, L * 0.3f, H * 0.3f, metal);
+                    for (int k = 0; k < 3; k++) add(T_RING, wx(L * (0.6f + k * 0.11f), 0), wy(L * (0.6f + k * 0.11f), 0), H * 0.5f, H * 0.5f, 0, 0, 0, accent, false);
+                    dot(L * 0.95f, 0, H * 0.3f, 0xfff9c4, false);
+                } else {
+                    tube(L * 0.55f, 0, L * 0.25f, H * 0.5f, metal);
+                    dot(L * 0.95f, 0, H * 0.55f, 0x311b92, true);
+                    dot(L * 0.95f, 0, H * 0.3f, accent, false);
                 }
-                dCircle(x + c * (len + 1), y + s * (len + 1), 3, 0xfff9c4);
-            } else {
-                circle(x + c * (len + 2), y + s * (len + 2), h * 0.55f, 0x311b92);
-                dCircle(x + c * (len + 2), y + s * (len + 2), h * 0.3f, accent);
+                break;
             }
-            return;
         }
-        if (w == WeaponType.ROCKET) {
-            sbox(x - c * 6, y - h / 2 - s * 6, len + 6, h, 0, h / 2, deg, col);
-            sbox(x + c * (len - 2), y + s * (len - 2) - h * 0.65f, 5, h * 1.3f, 0, h * 0.65f, deg, darker(col, 0.6f));
-        } else if (w == WeaponType.SAW) {
-            sbox(bx, by - bh / 2, len * 0.3f, bh, 0, bh / 2, deg, 0x555555);
-            circle(x + c * len, y + s * len, 6.5f, 0xbdc3c7);
-            dCircle(x + c * len, y + s * len, 2, 0x555555);
-        } else if (w == WeaponType.FLAMETHROWER) {
-            sbox(bx, by - bh / 2, len * 0.32f, bh, 0, bh / 2, deg, 0x444444);
-            circle(x + c * 6 - s * sy * 7, y + s * 6 + c * sy * 7, 4.5f, skin == 0 ? 0xe67e22 : col);
-        } else {
-            sbox(bx, by - bh / 2, len * 0.32f, bh, 0, bh / 2, deg, barrel);
-        }
-        if (w == WeaponType.SMG || w == WeaponType.RIFLE || w == WeaponType.LMG || w == WeaponType.PISTOL || w == WeaponType.MAGNUM
-                || w == WeaponType.DUAL_PISTOLS || w == WeaponType.DUAL_SMG) {
-            float mx = x + c * len * 0.32f + s * sy * h * 0.5f, my = y + s * len * 0.32f - c * sy * h * 0.5f;
-            float mh = w == WeaponType.LMG ? 9 : 7;
-            sbox(mx, my, 4.5f, mh, 2.25f, mh, deg, darker(col, 0.5f));
-        }
-        if (w == WeaponType.SNIPER || w == WeaponType.LASER) {
-            float mx = x + c * len * 0.25f - s * sy * h * 0.75f, my = y + s * len * 0.25f + c * sy * h * 0.75f;
-            sbox(mx, my - 2, 14, 4, 0, 2, deg, w == WeaponType.LASER ? 0x0e6655 : 0x1b1b1b);
-        }
-        if (w == WeaponType.LASER) dCircle(x + c * len, y + s * len, 2.5f, 0x7fffd4);
-        if (w == WeaponType.SHOTGUN || w == WeaponType.RIFLE || w == WeaponType.SNIPER) {
-            sbox(x - c * 7, y - s * 7 - h * 0.4f, 9, h * 0.8f, 0, h * 0.4f, deg, skin == 0 ? 0x8d5524 : darker(col, 0.75f));
+        if (skin == 1 || skin == 3 || skin == 4) { // brilho metalico
+            detail(L * 0.05f, H * 0.28f, L * 0.4f, H * 0.12f, 0, 0xffffff);
+            alphaLast(0.4f);
         }
     }
 
