@@ -209,7 +209,10 @@ public class Hud implements Disposable {
                 Player p = world.player(e.a);
                 if ("surv_lives".equals(e.text)) text = I18n.f(e.text, name(p), e.b);
                 else if ("player_left".equals(e.text) || "player_joined".equals(e.text)) text = I18n.f(e.text, name(p));
-                else if ("surv_cleared".equals(e.text)) text = I18n.f(e.text, e.a);
+                else if ("surv_cleared".equals(e.text) || "surv_boss".equals(e.text)) text = I18n.f(e.text, e.a);
+                else if ("player_back".equals(e.text) || "player_joined_game".equals(e.text) || "gg_knife".equals(e.text)
+                        || "inf_infected".equals(e.text)) text = I18n.f(e.text, name(p));
+                else if ("gg_demoted".equals(e.text)) text = I18n.f(e.text, name(p), e.b);
                 else text = I18n.t(e.text);
                 if (e.c == 0 || e.c == 2) big(text, e.c == 2 ? 0x81c784 : 0xffffff, 2.2f);
                 else toast(text, 0xffcc80);

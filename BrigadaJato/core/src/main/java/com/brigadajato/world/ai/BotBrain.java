@@ -49,6 +49,12 @@ public class BotBrain {
     private float dummyTimer;
 
     private final Vector2 goal = new Vector2();
+    /** chefao na mira (Sobrevivencia) */
+    private com.brigadajato.world.Boss boss;
+    private float useCd, emoteCd = 5;
+    /** bloco no caminho para quebrar / porta para abrir */
+    private float blockX, blockY;
+    private boolean blocked;
     /** texto de depuracao (somente testes) */
     public static boolean DEBUG = false;
     public String debug = "";
@@ -127,9 +133,17 @@ public class BotBrain {
             perceive(w);
         }
         if (target != null && !target.alive) {
+            // comemora de vez em quando
+            emoteCd -= 1;
+            if (emoteCd <= 0 && rng.nextFloat() < 0.35f) {
+                emoteCd = 4 + rng.nextInt(6);
+                p.input.emote = rng.nextFloat() < 0.5f ? 4 : (C.EMOTE_PHRASES + rng.nextInt(C.EMOTE_DANCE_FIRST - C.EMOTE_PHRASES));
+            }
             target = null;
             targetVisible = false;
         }
+        useCd -= dt;
+        if (boss != null && !boss.alive) boss = null;
 
         // ---------- escolhe para onde ir
         boolean hasObjective = w.mode.botGoal(p, goal);
@@ -149,11 +163,16 @@ public class BotBrain {
             gx = goal.x;
             gy = goal.y;
         } else if (targetVisible) {
-            float range = g != null ? g.type.botRange : 400;
+            float range = g != null ? g.type.botRange : 0;
             float side = Math.signum(p.x - target.x);
             if (side == 0) side = 1;
             gx = target.x + side * range * 0.75f + strafeDir * 60;
             gy = target.y + 20;
+        } else if (boss != null) {
+            float side = Math.signum(p.x - boss.x);
+            if (side == 0) side = 1;
+            gx = boss.x + side * 380 + strafeDir * 80;
+            gy = boss.type == com.brigadajato.world.Boss.HELI ? boss.y - 160 : boss.y;
         } else if (target != null && w.time - lastSeenTime < 4) {
             gx = lastSeenX;
             gy = lastSeenY;
@@ -225,6 +244,19 @@ public class BotBrain {
                 best = q;
             }
         }
+        boss = null;
+        if (best == null && w.canHurtBoss(p.team)) {
+            float bd = vision * 1.2f;
+            for (int i = 0; i < w.bosses.size; i++) {
+                com.brigadajato.world.Boss b = w.bosses.get(i);
+                float dx = b.x - p.x, dy = b.centerY() - p.centerY();
+                float d = (float) Math.sqrt(dx * dx + dy * dy);
+                if (d < bd && w.lineOfSight(ex, ey, b.x, b.centerY())) {
+                    bd = d;
+                    boss = b;
+                }
+            }
+        }
         if (best != null) {
             if (best != target || !targetVisible) reactTimer = reaction * (0.7f + rng.nextFloat() * 0.6f);
             target = best;
@@ -276,6 +308,22 @@ public class BotBrain {
                 p.grenadeType = p.frags > 0 ? 0 : 1;
                 in.press(PlayerInput.P_GRENADE);
             }
+        } else if (boss != null) {
+            float d = (float) Math.hypot(boss.x - p.x, boss.centerY() - p.shoulderY());
+            desired = MathUtils.atan2(boss.centerY() - p.shoulderY(), boss.x - p.x) + aimNoise * 0.5f;
+            float diff = angleDiff(in.aim, desired);
+            in.aim = rotate(in.aim, desired, turnSpeed * dt);
+            float range = g != null ? Math.max(g.type.range, 300) : 0;
+            if (Math.abs(diff) < 0.3f && d < range + boss.halfW()) in.fire = true;
+        } else if (blocked) {
+            // quebra a caixa que fecha o caminho
+            desired = MathUtils.atan2(blockY - p.shoulderY(), blockX - p.x);
+            in.aim = rotate(in.aim, desired, turnSpeed * dt);
+            float d = (float) Math.hypot(blockX - p.x, blockY - p.shoulderY());
+            if (Math.abs(angleDiff(in.aim, desired)) < 0.25f) {
+                if (g != null && !g.empty() && !g.type.isShield() && !(g.type.isExplosive() && d < 130)) in.fire = true;
+                else if (d < C.MELEE_RANGE + 30) in.press(PlayerInput.P_MELEE);
+            }
         } else {
             if (target != null && w.time - lastSeenTime < 2.5f) {
                 desired = MathUtils.atan2(lastSeenY + 22 - p.shoulderY(), lastSeenX - p.x);
@@ -313,6 +361,39 @@ public class BotBrain {
             }
             tx = pf.cellX(path.get(look));
             ty = pf.cellY(path.get(look));
+            blocked = false;
+            for (int k = pathIdx; k < Math.min(path.size, pathIdx + 3) && !blocked; k++) {
+                int idx = path.get(k);
+                int cx = idx % w.map.w, cy = idx / w.map.w;
+                for (int up = 0; up <= 1; up++) {
+                    int t = w.map.get(cx, cy + up);
+                    if (t == GameMap.BREAKABLE) {
+                        blocked = true;
+                        blockX = cx * C.TILE + C.TILE / 2f;
+                        blockY = (cy + up) * C.TILE + C.TILE / 2f;
+                        tx = blockX;
+                        ty = p.y;
+                        break;
+                    }
+                    if (t == GameMap.DOOR) {
+                        int lever = leverFor(w, cx + (cy + up) * w.map.w);
+                        if (lever >= 0) {
+                            Vector2 l = w.map.levers.get(lever);
+                            if (w.nearLever(p) == lever) {
+                                if (useCd <= 0) {
+                                    in.use = true;
+                                    useCd = 1.5f;
+                                }
+                            } else { // vai ate a alavanca
+                                tx = l.x;
+                                ty = l.y;
+                            }
+                        }
+                        k = 99;
+                        break;
+                    }
+                }
+            }
         }
         float dx = tx - p.x, dy = ty - p.y;
         if (DEBUG) debug = "path=" + path.size + " idx=" + pathIdx + " wp=(" + (int) tx + "," + (int) ty + ") goal=(" + (int) gx + "," + (int) gy + ")";
@@ -355,6 +436,11 @@ public class BotBrain {
             in.moveX = unstuckDir;
             in.moveY = (p.onGround ? p.fuel > 45 : p.fuel > 8) ? 1 : 0;
         }
+    }
+
+    private static int leverFor(World w, int doorIdx) {
+        for (int i = 0; i < w.map.leverDoors.size; i++) if (w.map.leverDoors.get(i).contains(doorIdx)) return i;
+        return -1;
     }
 
     /** Quanto o caminho ainda sobe nos proximos waypoints (para economizar combustivel). */

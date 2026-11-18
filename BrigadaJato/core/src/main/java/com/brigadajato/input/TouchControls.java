@@ -21,7 +21,9 @@ import com.brigadajato.world.PlayerInput;
  */
 public class TouchControls extends InputAdapter {
     public static final int B_GRENADE = 0, B_GTYPE = 1, B_RELOAD = 2, B_MELEE = 3, B_SWAP = 4, B_ZOOM = 5, B_PICKUP = 6,
-            B_USE = 7, B_PAUSE = 8, B_SCORE = 9, B_FIRE = 10, B_COUNT = 11;
+            B_USE = 7, B_PAUSE = 8, B_SCORE = 9, B_FIRE = 10, B_HOOK = 11, B_EMOTE = 12, B_COUNT = 13;
+    /** nomes salvos no layout personalizado (botoes + "L"/"R" para os joysticks) */
+    public static final String[] KEYS = {"gren", "gtype", "reload", "melee", "swap", "zoom", "pickup", "use", "pause", "score", "fire", "hook", "emote"};
 
     private final Settings settings;
     public final boolean touchUi;
@@ -45,6 +47,13 @@ public class TouchControls extends InputAdapter {
     public boolean pauseRequested;
     public boolean zoomToggled;
     private boolean fireButtonHeld;
+    /** roda de emotes aberta */
+    public boolean wheelOpen;
+    private int pendingEmote = -1;
+    /** posicao padrao dos joysticks (pode ser personalizada) */
+    public float leftStickX = 180, leftStickY = 170, rightStickX = -1, rightStickY = 190;
+    /** modo editor de layout: tudo visivel, nada dispara */
+    public boolean editMode;
 
     // teclado / mouse
     public boolean mouseAim;
@@ -87,6 +96,81 @@ public class TouchControls extends InputAdapter {
         place(B_PAUSE, W - 44, H - 44, 28);
         place(B_SCORE, W - 112, H - 44, 28);
         place(B_FIRE, W - 300 * s, 230 * s, 60);
+        place(B_HOOK, W - 92 * s, 190 * s, 36);
+        place(B_EMOTE, W - 248, H - 44, 28);
+        leftStickX = settings.leftHanded ? W - 180 : 180;
+        leftStickY = 170;
+        rightStickX = settings.leftHanded ? 300 : W - 330;
+        rightStickY = 190;
+        applyCustom();
+    }
+
+    /** Aplica as posicoes salvas pelo editor de layout (x,y normalizados). */
+    private void applyCustom() {
+        String lay = settings.controlLayout;
+        if (lay == null || lay.isEmpty()) return;
+        for (String part : lay.split(";")) {
+            int c = part.indexOf(':');
+            if (c < 0) continue;
+            String key = part.substring(0, c);
+            String[] xy = part.substring(c + 1).split(",");
+            if (xy.length < 2) continue;
+            float x, y;
+            try {
+                x = Float.parseFloat(xy[0]) * hudW;
+                y = Float.parseFloat(xy[1]) * hudH;
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (key.equals("L")) {
+                leftStickX = x;
+                leftStickY = y;
+            } else if (key.equals("R")) {
+                rightStickX = x;
+                rightStickY = y;
+            } else for (int i = 0; i < KEYS.length; i++) if (KEYS[i].equals(key)) {
+                bx[i] = x;
+                by[i] = y;
+            }
+        }
+    }
+
+    /** Monta o texto do layout atual (para salvar). */
+    public String layoutString() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < B_COUNT; i++) sb.append(KEYS[i]).append(':').append(bx[i] / hudW).append(',').append(by[i] / hudH).append(';');
+        sb.append("L:").append(leftStickX / hudW).append(',').append(leftStickY / hudH).append(';');
+        sb.append("R:").append(rightStickX / hudW).append(',').append(rightStickY / hudH);
+        return sb.toString();
+    }
+
+    // ---- roda de emotes
+    public float wheelX() {
+        return hudW / 2;
+    }
+
+    public float wheelY() {
+        return hudH / 2 + 20;
+    }
+
+    public static final float WHEEL_R = 190;
+
+    /** Indice do emote no ponto (x,y) do HUD, ou -1 (centro = fechar). */
+    public int wheelSlot(float x, float y) {
+        float dx = x - wheelX(), dy = y - wheelY();
+        float d = (float) Math.sqrt(dx * dx + dy * dy);
+        if (d < 55 || d > WHEEL_R + 70) return -1;
+        float ang = MathUtils.atan2(dy, dx);
+        if (ang < 0) ang += MathUtils.PI2;
+        int n = com.brigadajato.world.C.EMOTE_COUNT;
+        float step = MathUtils.PI2 / n;
+        int slot = (int) ((ang + step / 2) / step) % n;
+        return slot;
+    }
+
+    public void chooseEmote(int e) {
+        pendingEmote = e;
+        wheelOpen = false;
     }
 
     private float hx(int sx) {
@@ -118,11 +202,24 @@ public class TouchControls extends InputAdapter {
     @Override
     public boolean touchDown(int sx, int sy, int pointer, int button) {
         if (!touchUi) {
+            if (wheelOpen) {
+                int slot = wheelSlot(hx(sx), hy(sy));
+                if (slot >= 0) chooseEmote(slot);
+                else wheelOpen = false;
+                return true;
+            }
             if (button == Input.Buttons.LEFT) mouseFire = true;
             if (button == Input.Buttons.RIGHT) presses |= PlayerInput.P_GRENADE;
+            if (button == Input.Buttons.MIDDLE) presses |= PlayerInput.P_HOOK;
             return true;
         }
         float x = hx(sx), y = hy(sy);
+        if (wheelOpen) {
+            int slot = wheelSlot(x, y);
+            if (slot >= 0) chooseEmote(slot);
+            else wheelOpen = false;
+            return true;
+        }
         int b = hitButton(x, y);
         if (b >= 0) {
             buttonPointer[b] = pointer;
@@ -141,6 +238,8 @@ public class TouchControls extends InputAdapter {
                 case B_USE: useHeld = true; break;
                 case B_SCORE: scoreHeld = true; break;
                 case B_FIRE: fireButtonHeld = true; break;
+                case B_HOOK: presses |= PlayerInput.P_HOOK; break;
+                case B_EMOTE: wheelOpen = !wheelOpen; break;
                 default: break;
             }
             return true;
@@ -226,6 +325,8 @@ public class TouchControls extends InputAdapter {
             case Input.Keys.F: presses |= PlayerInput.P_MELEE; break;
             case Input.Keys.Q: presses |= PlayerInput.P_SWAP; break;
             case Input.Keys.E: presses |= PlayerInput.P_PICKUP; break;
+            case Input.Keys.C: presses |= PlayerInput.P_HOOK; break;
+            case Input.Keys.V: wheelOpen = !wheelOpen; break;
             case Input.Keys.Z:
                 zoomToggled = !zoomToggled;
                 presses |= PlayerInput.P_ZOOM;
@@ -236,6 +337,11 @@ public class TouchControls extends InputAdapter {
                 pauseRequested = true;
                 break;
             default:
+                if (wheelOpen && keycode >= Input.Keys.NUM_0 && keycode <= Input.Keys.NUM_9) {
+                    int n = keycode == Input.Keys.NUM_0 ? 9 : keycode - Input.Keys.NUM_1;
+                    chooseEmote(n);
+                    return true;
+                }
                 return false;
         }
         return true;
@@ -300,6 +406,11 @@ public class TouchControls extends InputAdapter {
         in.use = useHeld || keyUse;
         in.presses |= presses;
         presses = 0;
+        if (pendingEmote >= 0) {
+            in.emote = pendingEmote;
+            pendingEmote = -1;
+        }
+        if (wheelOpen) in.fire = false;
         scoreHeldKey = keyScore;
     }
 
@@ -314,6 +425,7 @@ public class TouchControls extends InputAdapter {
         for (int i = 0; i < B_COUNT; i++) buttonPointer[i] = -1;
         useHeld = scoreHeld = fireButtonHeld = mouseFire = false;
         presses = 0;
+        wheelOpen = false;
     }
 
     // ------------------------------------------------------------------ desenho
@@ -331,6 +443,9 @@ public class TouchControls extends InputAdapter {
         visible[B_PAUSE] = true;
         visible[B_SCORE] = true;
         visible[B_FIRE] = alive && !settings.aimToFire;
+        visible[B_HOOK] = alive;
+        visible[B_EMOTE] = alive;
+        if (editMode) for (int i = 0; i < B_COUNT; i++) visible[i] = true;
         if (!touchUi) {
             for (int i = 0; i < B_COUNT; i++) visible[i] = false;
         }
@@ -340,12 +455,12 @@ public class TouchControls extends InputAdapter {
         if (!touchUi) return;
         float op = settings.controlsOpacity;
         // joystick esquerdo
-        float lbx = leftPointer != -1 ? lBaseX : (settings.leftHanded ? hudW - 180 : 180);
-        float lby = leftPointer != -1 ? lBaseY : 170;
+        float lbx = leftPointer != -1 ? lBaseX : leftStickX;
+        float lby = leftPointer != -1 ? lBaseY : leftStickY;
         stick(d, lbx, lby, leftPointer != -1 ? lX : lbx, leftPointer != -1 ? lY : lby, op, 0xffffff);
         // joystick direito
-        float rbx = rightPointer != -1 ? rBaseX : (settings.leftHanded ? 300 : hudW - 330);
-        float rby = rightPointer != -1 ? rBaseY : 190;
+        float rbx = rightPointer != -1 ? rBaseX : rightStickX;
+        float rby = rightPointer != -1 ? rBaseY : rightStickY;
         if (rightPointer != -1) {
             boolean hot = settings.aimToFire && aimMag > 0.72f;
             stick(d, rbx, rby, rX, rY, op, hot ? 0xff5252 : 0xffffff);
@@ -399,6 +514,40 @@ public class TouchControls extends InputAdapter {
             }
             normal.setColor(1, 1, 1, 1);
         }
+        small.setColor(1, 1, 1, 1);
+    }
+
+    /** Desenha a roda de emotes (no PC e no celular). */
+    public void drawWheel(Draw d, BitmapFont small, BitmapFont normal) {
+        if (!wheelOpen) return;
+        float cx = wheelX(), cy = wheelY();
+        d.rgb(0x000000, 0.45f);
+        d.circle(cx, cy, WHEEL_R + 62);
+        int n = com.brigadajato.world.C.EMOTE_COUNT;
+        int hover = -1;
+        if (!touchUi) hover = wheelSlot(hx((int) mouseX), hy((int) mouseY));
+        for (int i = 0; i < n; i++) {
+            float ang = i / (float) n * MathUtils.PI2;
+            float x = cx + MathUtils.cos(ang) * WHEEL_R, y = cy + MathUtils.sin(ang) * WHEEL_R;
+            boolean dance = i >= com.brigadajato.world.C.EMOTE_DANCE_FIRST;
+            boolean phrase = i < com.brigadajato.world.C.EMOTE_PHRASES;
+            int col = dance ? 0xb388ff : (phrase ? 0x4fc3f7 : 0xffd740);
+            d.rgb(0x15151c, 0.9f);
+            d.circle(x, y, 42);
+            d.rgb(col, i == hover ? 0.95f : 0.7f);
+            d.circle(x, y, 38);
+            String label = I18n.t(phrase ? "phrase_" + i : (dance ? "dance_" + (i - com.brigadajato.world.C.EMOTE_DANCE_FIRST) : "react_" + (i - com.brigadajato.world.C.EMOTE_PHRASES)));
+            small.setColor(0.05f, 0.05f, 0.08f, 1);
+            small.getData().setScale(small.getScaleX() * 0.78f);
+            small.draw(d.batch, label, x, y + 8, 0, Align.center, false);
+            small.getData().setScale(small.getScaleX() / 0.78f);
+            if (!touchUi && i < 10) {
+                small.setColor(1, 1, 1, 0.8f);
+                small.draw(d.batch, "" + ((i + 1) % 10), x, y - 22, 0, Align.center, false);
+            }
+        }
+        normal.setColor(1, 1, 1, 1);
+        normal.draw(d.batch, I18n.t("emotes"), cx, cy + 10, 0, Align.center, false);
         small.setColor(1, 1, 1, 1);
     }
 
@@ -465,6 +614,18 @@ public class TouchControls extends InputAdapter {
             case B_FIRE:
                 d.ring(x, y, r * 0.45f);
                 d.circle(x, y, 4);
+                break;
+            case B_HOOK: {
+                d.rect(x - 1.5f, y - r * 0.5f, 3, r * 0.75f);
+                d.region(d.a.tri, x, y + r * 0.35f, r * 0.55f, r * 0.45f, 0);
+                d.ring(x, y - r * 0.5f, r * 0.18f);
+                break;
+            }
+            case B_EMOTE:
+                d.ring(x, y, r * 0.55f);
+                d.circle(x - r * 0.2f, y + r * 0.12f, r * 0.08f);
+                d.circle(x + r * 0.2f, y + r * 0.12f, r * 0.08f);
+                d.batch.draw(d.a.half, x - r * 0.25f, y - r * 0.05f, r * 0.25f, 0, r * 0.5f, r * 0.25f, 1, 1, 180);
                 break;
             default:
                 break;

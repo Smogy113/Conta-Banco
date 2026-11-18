@@ -292,4 +292,99 @@ public final class I18n {
         d("tut_zoom", "Toque na LUPA para dar zoom  (PC: Z)", "Tap the MAGNIFIER to zoom  (PC: Z)");
         d("tut_done", "Treino concluído! Teste todas as armas à vontade.", "Training complete! Try every weapon freely.");
     }
+
+    static {
+        // ---- novidades: emotes
+        d("emotes", "Emotes", "Emotes");
+        d("phrase_0", "Bora!", "Let's go!");
+        d("phrase_1", "Cuidado!", "Watch out!");
+        d("phrase_2", "Me cobre!", "Cover me!");
+        d("phrase_3", "Valeu!", "Thanks!");
+        d("phrase_4", "GG", "GG");
+        d("phrase_5", "Socorro!", "Help!");
+        d("react_0", "Joinha", "Thumbs up");
+        d("react_1", "Haha", "Haha");
+        d("react_2", "Bravo", "Angry");
+        d("react_3", "Amor", "Love");
+        d("dance_0", "Balanço", "Groove");
+        d("dance_1", "Fio dental", "Floss");
+        d("dance_2", "Polichinelo", "Jumping");
+        d("dance_3", "Robô", "Robot");
+        // ---- modos novos
+        d("mode_gungame", "Gun Game", "Gun Game");
+        d("mode_koth", "Rei do Morro", "King of the Hill");
+        d("mode_infection", "Zumbis", "Infection");
+        d("mode_br", "Battle Royale", "Battle Royale");
+        d("mode_duel", "Duelo", "Duel");
+        d("desc_gungame", "Cada abate troca sua arma. Termine no soco!", "Every kill swaps your gun. Finish with a punch!");
+        d("desc_koth", "Fique na zona para seu time pontuar.", "Hold the zone to score for your team.");
+        d("desc_infection", "Sobreviva aos zumbis... ou vire um.", "Survive the zombies... or become one.");
+        d("desc_br", "Uma vida, zona fechando. Último de pé vence.", "One life, closing zone. Last one standing wins.");
+        d("desc_duel", "1 contra 1, mesma arma. Vence quem ganhar 3.", "1v1, same weapon. First to 3 wins.");
+        d("level", "Nível", "Level");
+        d("gg_final", "Soco final!", "Final punch!");
+        d("gg_demoted", "%s foi rebaixado no soco!", "%s got demoted by a punch!");
+        d("gg_knife", "%s chegou no soco final!", "%s reached the final punch!");
+        d("end_gungame", "Completou todas as armas!", "Finished every weapon!");
+        d("koth_moved", "A zona mudou de lugar!", "The hill moved!");
+        d("koth_contested", "ZONA DISPUTADA", "CONTESTED");
+        d("inf_humans", "Humanos", "Humans");
+        d("inf_zombies", "Zumbis", "Zombies");
+        d("inf_countdown", "O vírus se espalha em %d...", "Infection starts in %d...");
+        d("inf_start", "O VÍRUS SE ESPALHOU!", "THE INFECTION HAS STARTED!");
+        d("inf_infected", "%s virou zumbi!", "%s turned into a zombie!");
+        d("inf_survived", "Os humanos sobreviveram!", "The humans survived!");
+        d("inf_all", "Todo mundo virou zumbi!", "Everyone got infected!");
+        d("br_alive", "Vivos", "Alive");
+        d("br_shrinking", "Zona fechando!", "Zone closing!");
+        d("br_next", "Zona fecha em %ds", "Zone closes in %ds");
+        d("br_closing", "A ZONA ESTÁ FECHANDO!", "THE ZONE IS CLOSING!");
+        d("br_outside", "VOLTE PARA A ZONA!", "GET BACK IN THE ZONE!");
+        d("br_win", "Último de pé!", "Last one standing!");
+        d("round", "Rodada", "Round");
+        d("duel_prep", "Rodada %d  ·  %s  ·  %d", "Round %d  ·  %s  ·  %d");
+        d("duel_fight", "LUTEM!", "FIGHT!");
+        d("duel_round_won", "%s venceu a rodada!", "%s won the round!");
+        d("duel_draw", "Empate!", "Draw!");
+        d("duel_win", "Venceu o duelo!", "Won the duel!");
+        d("surv_boss", "CHEFÃO NA ONDA %d!", "BOSS WAVE %d!");
+        d("boss_heli", "Helicóptero de Ataque", "Attack Helicopter");
+        d("boss_robot", "Robô Gigante", "Giant Robot");
+        // ---- sala
+        d("player_kicked", "%s foi expulso", "%s was kicked");
+        d("player_back", "%s voltou!", "%s is back!");
+        d("player_joined_game", "%s entrou na partida", "%s joined the match");
+        d("kick", "Expulsar", "Kick");
+        d("kicked", "Você foi expulso da sala", "You were kicked from the room");
+        d("password", "Senha", "Password");
+        d("password_wrong", "Senha errada", "Wrong password");
+        d("room_password", "Senha da sala (vazio = aberta)", "Room password (empty = open)");
+        d("map_vote", "Votação de mapa", "Map vote");
+        d("vote", "Votar", "Vote");
+        d("join_ingame", "Entrar no meio da partida", "Join in progress");
+        d("reconnecting", "Reconectando...", "Reconnecting...");
+        d("in_game", "em partida", "in game");
+        d("locked", "com senha", "locked");
+        d("bluetooth", "Bluetooth", "Bluetooth");
+        d("bt_host", "Criar sala Bluetooth", "Host via Bluetooth");
+        d("bt_join", "Entrar por Bluetooth", "Join via Bluetooth");
+        d("bt_off", "Bluetooth indisponível", "Bluetooth unavailable");
+        d("bt_scanning", "Procurando aparelhos...", "Searching devices...");
+        d("bt_hint", "Pareie os celulares nas configurações do Bluetooth antes.", "Pair the phones in Bluetooth settings first.");
+        // ---- opcoes novas
+        d("day_night", "Dia e noite", "Day & night");
+        d("dn_day", "Sempre dia", "Always day");
+        d("dn_cycle", "Ciclo", "Cycle");
+        d("dn_night", "Sempre noite", "Always night");
+        d("dyn_lights", "Luzes dinâmicas", "Dynamic lights");
+        d("map_music", "Música do mapa", "Map music");
+        d("edit_layout", "Editar posição dos botões", "Edit button layout");
+        d("layout_hint", "Arraste os botões e joysticks. Toque em Salvar.", "Drag the buttons and sticks. Tap Save.");
+        d("save", "Salvar", "Save");
+        d("reset", "Restaurar", "Reset");
+        d("unlocked_all", "Versão de teste: tudo liberado (nível máximo)", "Test build: everything unlocked (max level)");
+        d("hook", "Gancho", "Hook");
+        d("lever", "Alavanca", "Lever");
+        d("podium", "Pódio", "Podium");
+    }
 }

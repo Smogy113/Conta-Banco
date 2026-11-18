@@ -235,7 +235,17 @@ public class GameScreen extends ScreenAdapter {
                 go(LobbyScreen.resume(game, null, client));
                 return;
             }
-            if (client.net.state == NetClient.State.CLOSED || client.net.state == NetClient.State.FAILED) {
+            if (client.rejoinedWorld != null) { // voltou depois de cair
+                World nw = client.rejoinedWorld;
+                client.rejoinedWorld = null;
+                go(new GameScreen(game, nw, client.rejoinedLocalId, null, client));
+                return;
+            }
+            if (client.kicked != null) {
+                go(new MultiplayerScreen(game, I18n.t("kicked".equals(client.kicked) ? "kicked" : "disconnected")));
+                return;
+            }
+            if (client.gaveUp()) {
                 go(new MultiplayerScreen(game, I18n.t("disconnected")));
                 return;
             }
@@ -311,6 +321,7 @@ public class GameScreen extends ScreenAdapter {
         renderer.render(game.draw, cam, world, local, true, crossX, crossY);
         game.batch.end();
         if (filtered) filter.end(game.batch);
+        renderer.renderLights(game.batch, cam, local);
 
         game.batch.setProjectionMatrix(hudScaled.combined);
         game.batch.begin();
@@ -320,6 +331,12 @@ public class GameScreen extends ScreenAdapter {
         hud.draw(game.draw, world, local, fpsSmooth, controls.scoreboardVisible() || (world.mode.over && !resultsShown && overTimer > 0.5f), mobile);
         game.batch.setProjectionMatrix(hudCam.combined);
         if (!paused && !resultsShown) controls.draw(game.draw, game.assets.small, game.assets.normal, local, painter);
+        if (!paused && !resultsShown && local != null && local.alive) controls.drawWheel(game.draw, game.assets.small, game.assets.normal);
+        if (client != null && client.reconnecting >= 0) {
+            game.draw.color(0, 0, 0, 0.55f);
+            game.draw.rect(0, 300, hudCam.viewportWidth, 120);
+            game.assets.big.draw(game.batch, I18n.t("reconnecting"), hudCam.viewportWidth / 2, 380, 0, com.badlogic.gdx.utils.Align.center, false);
+        }
         if (!mobile && local != null && local.alive && nearWeapon) {
             game.assets.small.draw(game.batch, "[E] " + I18n.t("pickup"), hudCam.viewportWidth / 2, 160, 0, com.badlogic.gdx.utils.Align.center, false);
         }
@@ -399,6 +416,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private boolean useAvailable(Player p) {
+        if (world.nearLever(p) >= 0) return true;
         if (!(world.mode instanceof BombMode)) return false;
         BombMode bm = (BombMode) world.mode;
         if (p.hasBomb && bm.siteAt(p.x, p.y) >= 0) return true;
@@ -418,7 +436,8 @@ public class GameScreen extends ScreenAdapter {
         }
         if (focus == null || !focus.alive) {
             // espectador: segue um aliado vivo (modo bomba) ou fica parado
-            if (world.mode instanceof BombMode || world.mode instanceof SurvivalMode) {
+            if (world.mode instanceof BombMode || world.mode instanceof SurvivalMode || world.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode
+                    || world.mode instanceof com.brigadajato.world.modes.DuelMode) {
                 for (int i65_ = 0; i65_ < world.players.size; i65_++) {
                     Player p = world.players.get(i65_); if (p.alive && (local == null || p.team == local.team)) {
                     focus = p;
@@ -624,6 +643,7 @@ public class GameScreen extends ScreenAdapter {
         Label big = new Label(isWin() ? I18n.t("victory") : I18n.t("defeat"), game.skin, "title");
         if (world.mode instanceof SurvivalMode) big.setText(I18n.t("mode_survival"));
         p.add(big).row();
+        if (!(world.mode instanceof SurvivalMode)) p.add(new PodiumActor(game.draw, game.assets, world.ranking(), world.config.mode.teams)).size(560, 230).padTop(4).row();
         p.add(new Label(title, game.skin, "big")).row();
         p.add(new Label(I18n.t(world.mode.endReason), game.skin, "gray")).row();
         Table score = new Table(game.skin);

@@ -25,7 +25,8 @@ public class SetupScreen extends BaseScreen {
     private Label modeLabel, modeDesc, mapLabel, botsLabel, timeLabel, scoreLabel, teamLabel, diffLabel;
     private Slider botsSlider;
 
-    private static final ModeType[] MODES = {ModeType.DEATHMATCH, ModeType.TEAM_DEATHMATCH, ModeType.CTF, ModeType.BOMB, ModeType.SURVIVAL};
+    private static final ModeType[] MODES = {ModeType.DEATHMATCH, ModeType.TEAM_DEATHMATCH, ModeType.CTF, ModeType.BOMB, ModeType.SURVIVAL,
+            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL};
     private static final int[] TIMES = {0, 120, 180, 300, 420, 600};
 
     public SetupScreen(BrigadaJatoGame game, Kind kind) {
@@ -174,6 +175,9 @@ public class SetupScreen extends BaseScreen {
             case CTF: return new int[]{0, 1, 3, 5, 10};
             case BOMB: return new int[]{3, 5, 8, 10};
             case SURVIVAL: return new int[]{0};
+            case GUN_GAME: case INFECTION: case BATTLE_ROYALE: return new int[]{0};
+            case KING_HILL: return new int[]{60, 120, 180, 300};
+            case DUEL: return new int[]{1, 2, 3, 5, 7};
             default: return new int[]{0, 10, 15, 20, 30, 50};
         }
     }
@@ -194,6 +198,11 @@ public class SetupScreen extends BaseScreen {
             case BOMB: return "bomb";
             case SURVIVAL: return "survival";
             case TRAINING: return "training";
+            case GUN_GAME: return "gungame";
+            case KING_HILL: return "koth";
+            case INFECTION: return "infection";
+            case BATTLE_ROYALE: return "br";
+            case DUEL: return "duel";
             default: return "deathmatch";
         }
     }
@@ -214,12 +223,14 @@ public class SetupScreen extends BaseScreen {
         timeLabel.setText(cfg.timeLimit == 0 ? I18n.t("none") : (cfg.timeLimit / 60) + " " + I18n.t("min"));
         if (cfg.mode == ModeType.BOMB) timeLabel.setText("-");
         scoreLabel.setText(cfg.scoreLimit == 0 ? I18n.t("none") : "" + cfg.scoreLimit);
-        if (surv) scoreLabel.setText("-");
-        teamLabel.setText(!cfg.mode.teams || surv ? "-" : (cfg.playerTeam == 0 ? I18n.t("auto") : (cfg.playerTeam == C.TEAM_RED ? I18n.t("team_red") : I18n.t("team_blue"))));
+        if (surv || scoreOptions().length == 1) scoreLabel.setText("-");
+        if (cfg.mode == ModeType.DUEL) botsLabel.setText(I18n.t("bots") + ": 1");
+        if (cfg.mode == ModeType.BATTLE_ROYALE || cfg.mode == ModeType.DUEL) timeLabel.setText("-");
+        teamLabel.setText(!cfg.mode.chooseTeams() ? "-" : (cfg.playerTeam == 0 ? I18n.t("auto") : (cfg.playerTeam == C.TEAM_RED ? I18n.t("team_red") : I18n.t("team_blue"))));
     }
 
     private void start() {
-        if (cfg.mode == ModeType.BOMB) cfg.timeLimit = 0;
+        if (cfg.mode == ModeType.BOMB || cfg.mode == ModeType.BATTLE_ROYALE || cfg.mode == ModeType.DUEL) cfg.timeLimit = 0;
         game.settings.lastMatch.mode = cfg.mode;
         game.settings.lastMatch.mapId = cfg.mapId;
         game.settings.lastMatch.bots = cfg.bots;
