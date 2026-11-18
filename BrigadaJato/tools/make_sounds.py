@@ -184,48 +184,7 @@ def main():
     save("spawn", mix(sine(lambda tt: 300 + 1500 * tt, 0.3) * env_ad(0.3, 0.05, 8)), 0.5)
     save("step", lowpass(noise(0.05), 6) * env_exp(0.05, 70), 0.3)
 
-    # ------------------------------------------------------------ banner de abates em sequencia
-    # Cada abate seguido toca um som mais agudo e mais "cheio" (1 a 5).
-    def fm_bell(f, d, ratio=2.0, index=2.5, decay=5.0):
-        tt = t(d)
-        mod = np.sin(2 * np.pi * f * ratio * tt) * index * np.exp(-tt * decay * 1.6)
-        return np.sin(2 * np.pi * f * tt + mod) * np.exp(-tt * decay)
-
-    def kick(d=0.24):
-        return sine(lambda tt: 46 + 150 * np.exp(-tt * 32), d) * env_exp(d, 13)
-
-    def reverb(x, gain=0.33):
-        out = np.concatenate([x, np.zeros(int(SR * 0.6))])
-        for i, dl in enumerate((0.029, 0.043, 0.061, 0.079, 0.097, 0.131)):
-            n = int(SR * dl)
-            out[n:n + len(x)] += x * gain * (0.78 ** i)
-        return out
-
-    roots = [523.25, 587.33, 659.26, 783.99, 1046.5]
-    for level in range(1, 6):
-        f = roots[level - 1]
-        d = 0.8 + level * 0.12
-        x = kick() * 0.85
-        x = mix(x, highpass(noise(0.05), 2) * env_exp(0.05, 60) * 0.3)
-        x = mix(x, fm_bell(f, d, 2.0, 2.4, 4.5) * 0.85, at(fm_bell(f * 1.5, d, 2.0, 1.8, 5.5) * 0.5, 0.018))
-        if level >= 2:
-            x = mix(x, at(fm_bell(f * 2, d, 3.5, 1.4, 6.5) * 0.32, 0.045))
-        if level >= 3:  # brilho em arpejo
-            for k, mult in enumerate((2.0, 2.52, 3.0, 4.0)):
-                x = mix(x, at(sine(f * mult, 0.22) * env_exp(0.22, 16) * 0.16, 0.06 + k * 0.045))
-        if level >= 4:  # grave que bate no peito
-            x = mix(x, sine(lambda tt: 38 + 40 * np.exp(-tt * 6), 0.5) * env_exp(0.5, 5) * 0.55)
-        if level == 5:  # fanfarra final
-            chord = [f / 2, f * 0.63, f * 0.75, f]
-            for k, cf in enumerate(chord):
-                x = mix(x, at(lowpass(saw(cf, 1.1), 3) * env_ad(1.1, 0.03, 2.4) * 0.16, 0.12 + k * 0.03))
-            x = mix(x, at(highpass(noise(1.2), 2) * env_ad(1.2, 0.25, 2.8) * 0.12, 0.1))
-        save("kill%d" % level, reverb(x), 0.9)
-
-    # "tim" do tiro na cabeca
-    ding = mix(fm_bell(1760, 0.4, 3.5, 3.0, 11) * 0.8, fm_bell(2637, 0.3, 2.0, 1.2, 14) * 0.4,
-               highpass(noise(0.02), 2) * env_exp(0.02, 120) * 0.3)
-    save("headshot", reverb(ding, 0.22), 0.8)
+    # (os sons de abate em sequencia ficam em tools/make_kill_sounds.py)
 
     # ------------------------------------------------------------ musica
     bpm = 124

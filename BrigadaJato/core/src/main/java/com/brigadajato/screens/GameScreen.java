@@ -76,6 +76,7 @@ public class GameScreen extends ScreenAdapter {
     private float crossX, crossY;
     private boolean mobile;
     private float lifeTime;
+    private float zoomPunch;
     private float shotWait;
     private static final String SHOT_WHEN = System.getProperty("brigadajato.shotWhen");
     private static final float SHOT_DELAY = Float.parseFloat(System.getProperty("brigadajato.shotDelay", "1.3"));
@@ -258,6 +259,12 @@ public class GameScreen extends ScreenAdapter {
 
         renderer.update(dt);
         hud.update(dt);
+        float impact = hud.consumeImpact();
+        if (impact > 0) {
+            renderer.shake = Math.max(renderer.shake, 3 + impact * 4);
+            zoomPunch = Math.min(0.09f, 0.035f * impact);
+        }
+        zoomPunch = Math.max(0, zoomPunch - dt * 0.35f);
         director.update(dt, local);
         if (director.active() && Gdx.input.justTouched() && !paused) director.skip();
         if (SHOT_WHEN != null && director.active() && director.mode.name().equalsIgnoreCase(SHOT_WHEN)) {
@@ -421,7 +428,7 @@ public class GameScreen extends ScreenAdapter {
             wantZoom = controls.zoomToggled ? Math.max(1.45f, wz * 1.3f) : (wz > 1.3f ? 1.15f : 1f);
         }
         zoom += (wantZoom - zoom) * Math.min(1, dt * 4);
-        cam.zoom = zoom;
+        cam.zoom = zoom * (1 - zoomPunch);
         if (focus != null && (focus.alive || focus == local)) {
             float look = 110 * zoom;
             float ax = MathUtils.cos(focus.aim), ay = MathUtils.sin(focus.aim);

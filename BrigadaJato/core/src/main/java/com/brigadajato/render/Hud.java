@@ -122,6 +122,11 @@ public class Hud implements Disposable {
         return t == null ? "?" : (I18n.pt ? t.pt : t.en);
     }
 
+    /** Impacto do emblema de abates (para tremer/aproximar a camera). */
+    public float consumeImpact() {
+        return killBanner.consumeImpact();
+    }
+
     public void big(String text, int color, float time) {
         Msg m = new Msg();
         m.text = text;
