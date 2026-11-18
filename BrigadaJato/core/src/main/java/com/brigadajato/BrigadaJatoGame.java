@@ -81,6 +81,8 @@ public class BrigadaJatoGame extends Game {
                 cfg.bots = p.length > 3 ? Integer.parseInt(p[3]) : 5;
                 if (p.length > 4) cfg.scoreLimit = Integer.parseInt(p[4]);
                 if (p.length > 5) cfg.timeLimit = Integer.parseInt(p[5]);
+                cfg.spectate = "true".equals(System.getProperty("brigadajato.spectate"));
+                if ("true".equals(System.getProperty("brigadajato.instagib"))) cfg.instagib = true;
                 return com.brigadajato.screens.GameScreen.offline(this, cfg);
             }
             case "settings": return new com.brigadajato.screens.SettingsScreen(this, p.length > 1 ? Integer.parseInt(p[1]) : 0);
@@ -95,8 +97,12 @@ public class BrigadaJatoGame extends Game {
                 if (p.length > 1) ms.autoPickAt = Float.parseFloat(p[1]);
                 return ms;
             }
-            case "setupmode": return new com.brigadajato.screens.SetupScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE,
-                    com.brigadajato.world.ModeType.valueOf(p.length > 1 ? p[1] : "BOMB"));
+            case "setupmode": {
+                com.brigadajato.screens.SetupScreen ss = new com.brigadajato.screens.SetupScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE,
+                        com.brigadajato.world.ModeType.valueOf(p.length > 1 ? p[1] : "BOMB"));
+                if (p.length > 2 && "rules".equals(p[2])) ss.openRules();
+                return ss;
+            }
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);
             case "host": {
                 com.brigadajato.world.MatchConfig cfg = settings.lastMatch.copy();

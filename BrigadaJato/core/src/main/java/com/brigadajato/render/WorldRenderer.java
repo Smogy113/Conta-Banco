@@ -84,6 +84,8 @@ public class WorldRenderer implements Disposable {
     }
 
     private final Array<FloatText> texts = new Array<>();
+    /** tamanho do alvo de desenho quando e uma textura (0 = tela) */
+    public int targetW, targetH;
 
     public WorldRenderer(Assets a, Audio audio, Settings settings) {
         this.a = a;
@@ -794,8 +796,8 @@ public class WorldRenderer implements Disposable {
         bg1.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
         d.batch.flush();
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        int bh = Gdx.graphics.getBackBufferHeight();
-        Gdx.gl.glScissor(0, 0, Gdx.graphics.getBackBufferWidth(), Math.max(0, (int) (f * bh)));
+        int bh = targetH > 0 ? targetH : Gdx.graphics.getBackBufferHeight();
+        Gdx.gl.glScissor(0, 0, targetW > 0 ? targetW : Gdx.graphics.getBackBufferWidth(), Math.max(0, (int) (f * bh)));
         bg2.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
         d.batch.flush();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
@@ -1808,6 +1810,21 @@ public class WorldRenderer implements Disposable {
             d.rect(p.x - Math.signum(p.vx) * 30 - 10, p.y + 10, 20, 3);
             d.rect(p.x - Math.signum(p.vx) * 40 - 10, p.y + 22, 24, 3);
         }
+        if (p.juggernaut) { // aura do Juggernaut
+            d.additive(true);
+            d.color(1, 0.25f, 0.1f, 0.3f + 0.12f * MathUtils.sin(time * 6));
+            d.soft(p.x, p.y + 30, 64);
+            d.additive(false);
+            float ty = p.y + p.height() * 1.3f + 26 + MathUtils.sin(time * 3) * 3;
+            d.rgb(0x15151c, 0.9f);
+            d.region(a.rrect, p.x, ty, 64, 18, 0);
+            d.rgb(0xd32f2f, 1);
+            d.region(a.rrect, p.x, ty, 60, 14, 0);
+            a.small.getData().setScale(a.small.getScaleX() * 0.55f);
+            a.small.setColor(1, 1, 1, 1);
+            a.small.draw(d.batch, "JUGGERNAUT", p.x, ty + 5, 0, com.badlogic.gdx.utils.Align.center, false);
+            a.small.getData().setScale(a.small.getScaleX() / 0.55f);
+        }
         if (p.rollTimer > 0) { // rolamento: gira o boneco inteiro em volta do centro
             float spin = (1 - p.rollTimer / 0.34f) * 360 * -p.rollDir;
             float cx = p.x, cy = p.y + 14;
@@ -1820,6 +1837,12 @@ public class WorldRenderer implements Disposable {
                 Particles.P dust = fx.spawn(Particles.SOFT, p.x - p.rollDir * 10, p.y + 3, -p.rollDir * 40, 20, 0.5f, 5, 14, 0xbcaaa4, 0.4f);
                 dust.drag = 3;
             }
+        } else if (p.juggernaut) { // tanque gigante: desenha maior a partir dos pes
+            com.badlogic.gdx.math.Matrix4 m = d.batch.getTransformMatrix();
+            m.idt().translate(p.x, p.y, 0).scale(1.32f, 1.32f, 1).translate(-p.x, -p.y, 0);
+            d.batch.setTransformMatrix(m);
+            painter.draw(d, pose);
+            d.batch.setTransformMatrix(m.idt());
         } else painter.draw(d, pose);
         if (p.frozen > 0) { // bloco de gelo
             float h = p.height() + 10;

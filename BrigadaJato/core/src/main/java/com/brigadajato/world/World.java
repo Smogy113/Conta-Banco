@@ -57,7 +57,7 @@ public class World {
         this.authority = authority;
         this.rng = new Random(seed);
         this.pathfinder = new Pathfinder(map);
-        this.gravity = C.GRAVITY * map.gravity;
+        this.gravity = C.GRAVITY * map.gravity * config.gravityMul;
         this.leverOn = new boolean[map.levers.size];
         this.leverCd = new float[map.levers.size];
         this.mode = GameMode.create(this, config.mode);
@@ -160,7 +160,7 @@ public class World {
                 pk.weapon = all[1 + (i % (all.length - 1))];
                 pk.respawnTime = 3;
             } else {
-                pk.weapon = WeaponType.random(rng);
+                pk.weapon = randomWeapon();
             }
             i++;
         }
@@ -301,10 +301,41 @@ public class World {
         }
     }
 
+    /** Arma sorteada respeitando o conjunto de armas das regras personalizadas. */
+    public WeaponType randomWeapon() {
+        WeaponType[] set = MatchConfig.setWeapons(config.weaponSet);
+        if (set == null) return WeaponType.random(rng);
+        return set[rng.nextInt(set.length)];
+    }
+
+    public boolean infiniteAmmo(Player p) {
+        return config.infiniteAmmo || mode.infiniteAmmo(p);
+    }
+
+    /** Aplica as regras personalizadas no equipamento de quem acabou de nascer. */
+    private void applyRules(Player p) {
+        if (config.noGrenades) {
+            p.frags = p.mines = p.smokes = p.flashes = p.stickies = 0;
+        }
+        WeaponType[] set = MatchConfig.setWeapons(config.weaponSet);
+        if (set == null || p.zombie || p.disguise >= 0) return;
+        ModeType m = config.mode;
+        if (m == ModeType.GUN_GAME || m == ModeType.DUEL || m == ModeType.TRAINING || m == ModeType.HIDE_SEEK || !mode.allowWeaponChange(p)) return;
+        if (config.weaponSet == MatchConfig.SET_MELEE) {
+            p.guns[0] = null;
+            p.guns[1] = null;
+        } else {
+            p.guns[0] = new Gun(set[rng.nextInt(set.length)]);
+            p.guns[1] = set.length > 1 ? new Gun(set[rng.nextInt(set.length)]) : null;
+        }
+        p.slot = 0;
+    }
+
     public void respawn(Player p) {
         Vector2 s = mode.chooseSpawn(p);
         p.resetForSpawn(s.x, s.y);
         mode.giveLoadout(p);
+        applyRules(p);
         if (p.bot != null) p.bot.onSpawn();
         WorldEvent e = emit(WorldEvent.Type.RESPAWN);
         e.a = p.id;
@@ -314,6 +345,7 @@ public class World {
 
     private void updatePlayer(Player p, float dt) {
         PlayerInput in = p.input;
+        if (p.alive && !mode.over) p.timeAlive += dt;
         p.chill = Math.max(0, p.chill - dt * 0.45f);
         p.frozen = Math.max(0, p.frozen - dt);
         p.stun = Math.max(0, p.stun - dt);
@@ -368,7 +400,7 @@ public class World {
         // andar
         Gun g = p.gun();
         float speed = C.WALK_SPEED * (g != null ? g.type.moveMul : 1f) * (p.speedBoost > 0 ? 1.35f : 1f)
-                * (p.crouching ? 0.45f : 1f) * mode.speedMul(p) * (p.chill > 0 ? 1 - Math.min(0.6f, p.chill * 0.6f) : 1f);
+                * (p.crouching ? 0.45f : 1f) * mode.speedMul(p) * config.speedMul * (p.chill > 0 ? 1 - Math.min(0.6f, p.chill * 0.6f) : 1f);
         float target = frozen ? 0 : MathUtils.clamp(in.moveX, -1, 1) * speed;
         float accel = p.onGround ? C.GROUND_ACCEL : C.AIR_ACCEL;
         if (p.frozen > 0) accel *= 0.15f; // escorrega no gelo
@@ -401,7 +433,7 @@ public class World {
         if (wantJet && !p.fuelLocked) {
             float power = MathUtils.clamp((in.moveY - 0.3f) / 0.5f, 0.35f, 1f);
             if (p.vy < C.MAX_RISE) p.vy = Math.min(C.MAX_RISE, p.vy + C.JET_ACCEL * power * dt);
-            if (p.jetBoost <= 0) p.fuel = Math.max(0, p.fuel - C.FUEL_USE * dt * (0.4f + 0.6f * power) * mode.fuelMul(p));
+            if (p.jetBoost <= 0 && !config.infiniteJet) p.fuel = Math.max(0, p.fuel - C.FUEL_USE * dt * (0.4f + 0.6f * power) * mode.fuelMul(p));
             p.jetting = true;
             p.fuelDelay = C.FUEL_REGEN_DELAY;
             p.crouching = false;
@@ -464,7 +496,7 @@ public class World {
                     p.fireCooldown = 1f / g.type.rate;
                 } else if (g.mag > 0) {
                     fire(p, g);
-                    if (!mode.infiniteAmmo(p)) g.mag--;
+                    if (!infiniteAmmo(p)) g.mag--;
                     p.fireCooldown += 1f / g.type.rate;
                     if (p.fireCooldown < 0) p.fireCooldown = 1f / g.type.rate;
                     if (g.mag <= 0 && g.reserve > 0 && g.type != WeaponType.BOOMERANG) startReload(p, g);
@@ -865,7 +897,7 @@ public class World {
         int need = g.type.mag - g.mag;
         int take = Math.min(need, g.reserve);
         g.mag += take;
-        if (!mode.infiniteAmmo(p)) g.reserve -= take;
+        if (!infiniteAmmo(p)) g.reserve -= take;
         p.reloadTimer = 0;
     }
 
@@ -888,6 +920,7 @@ public class World {
 
     private void fire(Player p, Gun g) {
         WeaponType w = g.type;
+        if (!w.isExplosive() && w.kind != Projectile.Kind.FLAME && w.kind != Projectile.Kind.FROST) p.shotsFired++;
         float sx = p.x, sy = p.shoulderY();
         if (w.dual) {
             p.dualFlip = !p.dualFlip;
@@ -1317,7 +1350,7 @@ public class World {
             if (type < 0) return;
         }
         p.grenadeCooldown = 0.6f;
-        if (!mode.infiniteAmmo(p)) p.addNades(type, -1);
+        if (!infiniteAmmo(p)) p.addNades(type, -1);
         statGrenades++;
         boolean mine = type == Player.NADE_MINE;
         Projectile pr = new Projectile();
@@ -2067,10 +2100,19 @@ public class World {
         if (victim.dummy && attacker == null) return;
         amount *= mode.damageMul(victim, attacker);
         if (victim.rollTimer > 0) amount *= 0.5f; // esquiva: metade do dano
+        if (config.healthMul != 1f) amount /= config.healthMul;
+        if (config.instagib && attacker != null && attacker != victim && !sameTeam(attacker, victim)) amount = Math.max(amount, 999);
         if (victim.armor > 0) {
             float absorb = Math.min(victim.armor, amount * 0.6f);
             victim.armor -= absorb;
             amount -= absorb;
+        }
+        if (attacker != null && attacker != victim && !sameTeam(attacker, victim)) {
+            attacker.damageDealt += Math.min(amount, Math.max(0, victim.health));
+            WeaponType hw = WeaponType.of(code);
+            boolean aimed = hw != null && !hw.isExplosive() && hw.kind != Projectile.Kind.FLAME && hw.kind != Projectile.Kind.FROST;
+            if (aimed && attacker.lastHitTime != time) attacker.shotsHit++;
+            if (aimed) attacker.lastHitTime = time;
         }
         victim.health -= amount;
         victim.lastDamageTime = time;
@@ -2107,6 +2149,15 @@ public class World {
                 attacker.kills++;
                 attacker.score += 1;
                 attacker.streak++;
+                attacker.bestStreak = Math.max(attacker.bestStreak, attacker.streak);
+                if (head) attacker.headshots++;
+                if (code == C.KILL_MELEE) attacker.meleeKills++;
+                WeaponType kw = WeaponType.of(code);
+                if (code == C.KILL_FRAG || code == C.KILL_MINE || (kw != null && kw.isExplosive())) attacker.explosiveKills++;
+                float kdx = attacker.x - victim.x, kdy = attacker.centerY() - victim.centerY();
+                attacker.longestKill = Math.max(attacker.longestKill, (float) Math.sqrt(kdx * kdx + kdy * kdy));
+                if (time - attacker.lastKillTime < 2.5f) attacker.multiKills++;
+                attacker.lastKillTime = time;
                 attacker.money += 300;
                 if (attacker.streak == 3 || attacker.streak == 5 || attacker.streak == 8 || attacker.streak == 12) {
                     WorldEvent s = emit(WorldEvent.Type.STREAK);
@@ -2116,6 +2167,7 @@ public class World {
             }
         } else if (code != C.KILL_BOSS && code != C.KILL_ZONE) {
             victim.score -= 1;
+            victim.suicides++;
             if (code < C.KILL_MELEE) code = C.KILL_SUICIDE;
         }
         dropStuff(victim);
@@ -2170,7 +2222,7 @@ public class World {
                 pk.respawnTimer -= dt;
                 if (pk.respawnTimer <= 0) {
                     pk.active = true;
-                    if (pk.type == Pickup.Type.WEAPON && !pk.fixedWeapon) pk.weapon = WeaponType.random(rng);
+                    if (pk.type == Pickup.Type.WEAPON && !pk.fixedWeapon) pk.weapon = randomWeapon();
                     else if (pk.type == Pickup.Type.WEAPON) { // treino: o rack passa para a proxima arma
                         WeaponType[] all = WeaponType.values();
                         int n = pk.weapon.ordinal() + 12;

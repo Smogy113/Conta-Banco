@@ -75,6 +75,14 @@ public class Player {
     public boolean dualFlip;
     /** nivel no Gun Game */
     public int gunLevel;
+    /** Juggernaut (tanque gigante do modo Juggernaut) */
+    public boolean juggernaut;
+    public int timesJugg, juggKills;
+    // ---- estatisticas da partida (medalhas)
+    public int shotsFired, shotsHit, headshots, bestStreak, meleeKills, explosiveKills, suicides, objectives, multiKills;
+    public float damageDealt, longestKill, timeAlive;
+    public float lastKillTime = -99, lastHitTime = -99;
+    public int quickKills;
 
     // ---- somente visual / rede
     public float anim;

@@ -216,7 +216,7 @@ public class Hud implements Disposable {
                 else if ("player_left".equals(e.text) || "player_joined".equals(e.text)) text = I18n.f(e.text, name(p));
                 else if ("surv_cleared".equals(e.text) || "surv_boss".equals(e.text)) text = I18n.f(e.text, e.a);
                 else if ("player_back".equals(e.text) || "player_joined_game".equals(e.text) || "gg_knife".equals(e.text)
-                        || "inf_infected".equals(e.text) || "hs_found".equals(e.text)) text = I18n.f(e.text, name(p));
+                        || "inf_infected".equals(e.text) || "hs_found".equals(e.text) || "jug_new".equals(e.text)) text = I18n.f(e.text, name(p));
                 else if ("gg_demoted".equals(e.text)) text = I18n.f(e.text, name(p), e.b);
                 else text = I18n.t(e.text);
                 if (e.c == 0 || e.c == 2) big(text, e.c == 2 ? 0x81c784 : 0xffffff, 2.2f);
@@ -334,7 +334,7 @@ public class Hud implements Disposable {
             midText = w.config.timeLimit > 0 ? clock.of(w.mode.timeLeft) : "--:--";
             boolean custom = w.mode instanceof com.brigadajato.world.modes.HideSeekMode || w.mode instanceof com.brigadajato.world.modes.GunGameMode || w.mode instanceof com.brigadajato.world.modes.KingHillMode
                     || w.mode instanceof com.brigadajato.world.modes.InfectionMode || w.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode
-                    || w.mode instanceof com.brigadajato.world.modes.DuelMode;
+                    || w.mode instanceof com.brigadajato.world.modes.DuelMode || w.mode instanceof com.brigadajato.world.modes.JuggernautMode;
             if (custom) {
                 subText = w.mode.hud(local);
                 if (w.mode instanceof com.brigadajato.world.modes.KingHillMode) subText = I18n.t("mode_koth");

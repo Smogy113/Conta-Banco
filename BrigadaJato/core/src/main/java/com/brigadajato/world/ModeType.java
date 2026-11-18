@@ -13,7 +13,8 @@ public enum ModeType {
     INFECTION("Zumbis", "Infection", true, 0, 180),
     BATTLE_ROYALE("Battle Royale", "Battle Royale", false, 0, 0),
     DUEL("Duelo", "Duel", false, 3, 0),
-    HIDE_SEEK("Pique-Esconde", "Prop Hunt", true, 0, 210);
+    HIDE_SEEK("Pique-Esconde", "Prop Hunt", true, 0, 210),
+    JUGGERNAUT("Juggernaut", "Juggernaut", false, 15, 420);
 
     public final String pt, en;
     public final boolean teams;

@@ -79,6 +79,16 @@ public class GameScreen extends ScreenAdapter {
     private float zoomPunch;
     private float shotWait;
     private float holdTime;
+    // camera lenta do abate final
+    private boolean wasOver;
+    private float lastKillAt = -99, finalX, finalY, finalSlow, finalTotal;
+    /** torneio (ou outro fluxo) que continua depois da partida */
+    public interface MatchHook {
+        void finished(boolean win, GameScreen screen);
+    }
+
+    public MatchHook matchHook;
+    public String hookButton;
     // medicao de desempenho (--perf=true no PC)
     private static final boolean PERF = "true".equals(System.getProperty("brigadajato.perf"));
     private long pSim, pRender, pLights, pHud, pFrames;
@@ -95,16 +105,18 @@ public class GameScreen extends ScreenAdapter {
         Random rng = new Random();
         boolean teams = cfg.mode.chooseTeams();
         int team = teams ? (cfg.playerTeam == 0 ? C.TEAM_RED : cfg.playerTeam) : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE);
-        Player me = w.addPlayer(game.settings.name, team, game.settings.look.copy(), false);
-        if (AUTOPLAY) me.bot = new com.brigadajato.world.ai.BotBrain(me, 2, rng.nextLong());
+        boolean spectate = cfg.spectate && cfg.mode != ModeType.TRAINING;
+        Player me = spectate ? null : w.addPlayer(game.settings.name, team, game.settings.look.copy(), false);
+        if (AUTOPLAY && me != null) me.bot = new com.brigadajato.world.ai.BotBrain(me, 2, rng.nextLong());
         int start = rng.nextInt(Names.BOTS.length);
         int nb = cfg.mode == ModeType.DUEL ? 1 : cfg.bots;
+        if (spectate) nb = Math.max(nb + (cfg.mode == ModeType.DUEL ? 1 : 0), 2);
         for (int i = 0; i < nb; i++) {
             int t = teams ? w.balancedTeam() : (cfg.mode.teams ? C.TEAM_RED : C.TEAM_NONE);
             w.addPlayer(Names.BOTS[(start + i) % Names.BOTS.length], t, Look.random(rng), true);
         }
         w.start();
-        return new GameScreen(game, w, me.id, null, null);
+        return new GameScreen(game, w, me != null ? me.id : -1, null, null);
     }
 
     public static GameScreen host(BrigadaJatoGame game, HostSession h) {
@@ -195,6 +207,19 @@ public class GameScreen extends ScreenAdapter {
         fpsSmooth += (Gdx.graphics.getFramesPerSecond() - fpsSmooth) * 0.05f;
         local = world.player(localId);
 
+        if (world.mode.over && !wasOver) {
+            wasOver = true;
+            if (world.time - lastKillAt < 0.7f) {
+                finalSlow = finalTotal = 2.4f;
+                game.audio.ui("streak");
+            }
+        }
+        float simDt = dt;
+        if (finalSlow > 0) {
+            finalSlow -= dt;
+            simDt = dt * 0.22f;
+        }
+
         if (controls.pauseRequested) {
             controls.pauseRequested = false;
             if (!resultsShown) togglePause();
@@ -260,7 +285,7 @@ public class GameScreen extends ScreenAdapter {
                 holdTime += dt;
                 local.respawnTimer = Math.max(local.respawnTimer, 0.15f);
             } else if (local != null && local.alive) holdTime = 0;
-            acc += dt;
+            acc += simDt;
             int steps = 0;
             while (acc >= C.STEP && steps < 6) {
                 if (host != null) {
@@ -280,7 +305,7 @@ public class GameScreen extends ScreenAdapter {
             pSim += System.nanoTime() - t0;
         }
 
-        renderer.update(dt);
+        renderer.update(simDt);
         hud.update(dt);
         float impact = hud.consumeImpact();
         if (impact > 0) {
@@ -294,9 +319,16 @@ public class GameScreen extends ScreenAdapter {
             shotWait += dt;
             if (shotWait > SHOT_DELAY) game.shotNow();
         }
-        if (world.mode.over && !director.reelDone && overTimer > 1.2f) {
+        if (world.mode.over && !director.reelDone && overTimer > 1.2f && finalSlow <= 0) {
             if (game.settings.highlights) director.startReel();
             else director.reelDone = true;
+        }
+        if (SHOT_WHEN != null) { // testes: screenshot automatica em momentos especiais
+            if ("finalkill".equals(SHOT_WHEN) && finalSlow > 0 && finalTotal - finalSlow > 0.8f) game.shotNow();
+            if ("medals".equals(SHOT_WHEN) && medalsShown) {
+                shotWait += dt;
+                if (shotWait > SHOT_DELAY) game.shotNow();
+            }
         }
         updateCamera(dt);
         updateBuyMenu();
@@ -335,6 +367,7 @@ public class GameScreen extends ScreenAdapter {
         long r1 = System.nanoTime();
         renderer.renderLights(game.batch, cam, local);
         if (scaled) endWorldFbo();
+        renderer.targetW = renderer.targetH = 0;
         long r2 = System.nanoTime();
         pRender += r1 - r0;
         pLights += r2 - r1;
@@ -346,7 +379,8 @@ public class GameScreen extends ScreenAdapter {
         controls.updateVisibility(local, nearWeapon, useAvail);
         hud.draw(game.draw, world, local, fpsSmooth, controls.scoreboardVisible() || (world.mode.over && !resultsShown && overTimer > 0.5f), mobile);
         game.batch.setProjectionMatrix(hudCam.combined);
-        if (!paused && !resultsShown) controls.draw(game.draw, game.assets.small, game.assets.normal, local, painter);
+        if (finalSlow > 0) drawFinalKill();
+        if (!paused && !resultsShown && local != null && finalSlow <= 0) controls.draw(game.draw, game.assets.small, game.assets.normal, local, painter);
         if (!paused && !resultsShown && local != null && local.alive) controls.drawWheel(game.draw, game.assets.small, game.assets.normal);
         if (client != null && client.reconnecting >= 0) {
             game.draw.color(0, 0, 0, 0.55f);
@@ -380,10 +414,32 @@ public class GameScreen extends ScreenAdapter {
 
         // ---- fim de partida
         if (world.mode.over) {
-            overTimer += dt;
+            if (finalSlow <= 0) overTimer += dt;
             if (!statsSaved) saveStats();
             if (overTimer > 2.5f && !resultsShown && director.reelDone && !director.active()) showResults();
         }
+    }
+
+    private void drawFinalKill() {
+        float t = finalTotal - finalSlow;
+        float k = Math.min(1, t / 0.3f) * Math.min(1, finalSlow / 0.3f);
+        float bar = 70 * k, W = hudCam.viewportWidth;
+        game.draw.color(0, 0, 0, 1);
+        game.draw.rect(0, 720 - bar, W, bar);
+        game.draw.rect(0, 0, W, bar);
+        float pop = com.badlogic.gdx.math.Interpolation.swingOut.apply(Math.min(1, t / 0.4f));
+        com.badlogic.gdx.graphics.g2d.BitmapFont f = game.assets.huge;
+        float keep = f.getScaleX();
+        f.getData().setScale(keep * (0.7f + 0.3f * pop));
+        f.setColor(0, 0, 0, 0.6f * k);
+        f.draw(game.batch, I18n.t("final_kill"), W / 2 + 4, 610 - 4, 0, com.badlogic.gdx.utils.Align.center, false);
+        f.setColor(1, 0.82f, 0.25f, k);
+        f.draw(game.batch, I18n.t("final_kill"), W / 2, 610, 0, com.badlogic.gdx.utils.Align.center, false);
+        f.getData().setScale(keep);
+        f.setColor(1, 1, 1, 1);
+        game.draw.color(1, 1, 1, 0.12f * k);
+        game.draw.rect(0, bar, W, 2);
+        game.draw.rect(0, 720 - bar - 2, W, 2);
     }
 
     private com.badlogic.gdx.graphics.glutils.FrameBuffer worldFbo;
@@ -410,6 +466,8 @@ public class GameScreen extends ScreenAdapter {
         }
         worldFbo.begin();
         ScreenUtils.clear(0, 0, 0, 1);
+        renderer.targetW = w;
+        renderer.targetH = h;
         return true;
     }
 
@@ -432,6 +490,11 @@ public class GameScreen extends ScreenAdapter {
         hud.handle(e, local);
         director.onEvent(e, local);
         if (e.type == WorldEvent.Type.KILL && e.b == localId) killerId = e.a;
+        if (e.type == WorldEvent.Type.KILL && e.a >= 0 && e.a != e.b) {
+            lastKillAt = world.time;
+            finalX = e.x;
+            finalY = e.y;
+        }
     }
 
     /** Teste dos joysticks no PC: dois "dedos" falsos (--touchtest=true --touch=true). */
@@ -494,14 +557,105 @@ public class GameScreen extends ScreenAdapter {
         return false;
     }
 
+    // ------------------------------------------------------------------ espectador
+
+    private boolean specFree;
+    private int specTarget = -1;
+    private Table specBar;
+    private Label specName;
+    private float specZoom = 1f;
+
+    /** Assistindo: sem jogador (so bots) ou morto num modo sem renascer. */
+    private boolean spectating() {
+        if (resultsShown || world.mode.over) return false;
+        if (local == null) return true;
+        if (local.alive) return false;
+        return world.mode instanceof BombMode || world.mode instanceof SurvivalMode || world.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode
+                || world.mode instanceof com.brigadajato.world.modes.DuelMode || !world.mode.canRespawn(local);
+    }
+
+    private boolean canWatch(Player p) {
+        if (p == null || !p.alive || p.dummy) return false;
+        // morto num modo de rodadas: so assiste o proprio time
+        return local == null || !world.config.mode.teams || p.team == local.team || world.mode.over;
+    }
+
+    private void specCycle(int d) {
+        int n = world.players.size;
+        if (n == 0) return;
+        int start = 0;
+        for (int i = 0; i < n; i++) if (world.players.get(i).id == specTarget) start = i;
+        for (int k = 1; k <= n; k++) {
+            Player p = world.players.get(((start + d * k) % n + n) % n);
+            if (canWatch(p)) {
+                specTarget = p.id;
+                specFree = false;
+                return;
+            }
+        }
+    }
+
+    private void updateSpectator(float dt) {
+        boolean on = spectating() && !paused;
+        if (on && specBar == null) {
+            specBar = new Table(game.skin);
+            specBar.setFillParent(true);
+            specBar.bottom().padBottom(18);
+            Table bar = new Table(game.skin);
+            bar.setBackground(game.skin.newDrawable("field", new com.badlogic.gdx.graphics.Color(0.06f, 0.08f, 0.12f, 0.88f)));
+            bar.pad(6, 10, 6, 10);
+            bar.add(button("<", "gray", () -> specCycle(-1))).size(64, 52);
+            Table mid = new Table();
+            mid.add(new Label(I18n.t("spec_title"), game.skin, "gray")).row();
+            specName = new Label("", game.skin, "yellow");
+            mid.add(specName);
+            bar.add(mid).width(300);
+            bar.add(button(">", "gray", () -> specCycle(1))).size(64, 52).padRight(14);
+            bar.add(button(I18n.t("spec_free"), "blue-small", () -> {
+                specFree = !specFree;
+                if (specFree) specZoom = 1.35f;
+            })).width(190).height(52);
+            specBar.add(bar);
+            stage.addActor(specBar);
+        } else if (!on && specBar != null) {
+            specBar.remove();
+            specBar = null;
+        }
+        if (!on) return;
+        Player t = world.player(specTarget);
+        if (!specFree && !canWatch(t)) {
+            specCycle(1);
+            t = world.player(specTarget);
+        }
+        if (specName != null) {
+            if (specFree) specName.setText(I18n.t("spec_hint"));
+            else specName.setText(t != null ? t.name + "   " + t.kills + "/" + t.deaths : "-");
+        }
+        if (specFree) {
+            float sp = 900 * dt * zoom;
+            if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.A) || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.LEFT)) camX -= sp;
+            if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.D) || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.RIGHT)) camX += sp;
+            if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.W) || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.UP)) camY += sp;
+            if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.S) || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.DOWN)) camY -= sp;
+            if (Gdx.input.isTouched() && Gdx.input.getY() < Gdx.graphics.getHeight() * 0.8f) {
+                float k = cam.viewportHeight * zoom / Gdx.graphics.getHeight();
+                camX -= Gdx.input.getDeltaX() * k;
+                camY += Gdx.input.getDeltaY() * k;
+            }
+        }
+    }
+
     private void updateCamera(float dt) {
+        updateSpectator(dt);
         Player focus = local;
-        if (focus != null && !focus.alive && killerId >= 0 && killerId != localId) {
+        if (spectating()) {
+            focus = specFree ? null : world.player(specTarget);
+        } else if (focus != null && !focus.alive && killerId >= 0 && killerId != localId) {
             // camera mostra quem te abateu enquanto espera renascer
             Player k = world.player(killerId);
             if (k != null && k.alive) focus = k;
         }
-        if (focus == null || !focus.alive) {
+        if ((focus == null || !focus.alive) && !(specFree && spectating())) {
             // espectador: segue um aliado vivo (modo bomba) ou fica parado
             if (world.mode instanceof BombMode || world.mode instanceof SurvivalMode || world.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode
                     || world.mode instanceof com.brigadajato.world.modes.DuelMode) {
@@ -519,9 +673,17 @@ public class GameScreen extends ScreenAdapter {
             float wz = g != null ? g.type.zoom : 1f;
             wantZoom = controls.zoomToggled ? Math.max(1.45f, wz * 1.3f) : (wz > 1.3f ? 1.15f : 1f);
         }
+        if (spectating()) wantZoom = specFree ? specZoom : 1.1f;
+        if (finalSlow > 0) {
+            wantZoom = 0.62f;
+            float k = Math.min(1, dt * 5);
+            camX += (finalX - camX) * k;
+            camY += (finalY - camY) * k;
+            focus = null;
+        }
         zoom += (wantZoom - zoom) * Math.min(1, dt * 4);
         cam.zoom = zoom * (1 - zoomPunch);
-        if (focus != null && (focus.alive || focus == local)) {
+        if (focus != null && (focus.alive || (focus == local && !spectating()))) {
             float look = 110 * zoom;
             float ax = MathUtils.cos(focus.aim), ay = MathUtils.sin(focus.aim);
             float tx = focus.x + ax * look, ty = focus.centerY() + ay * look * 0.6f;
@@ -701,12 +863,28 @@ public class GameScreen extends ScreenAdapter {
         return world.mode.winnerId == local.id;
     }
 
+    private boolean medalsShown;
+
     private void showResults() {
         resultsShown = true;
         paused = false;
         buyShown = false;
         overlay.clearChildren();
         controls.release();
+        if (!medalsShown && world.config.mode != ModeType.TRAINING) {
+            medalsShown = true;
+            com.badlogic.gdx.utils.Array<com.brigadajato.world.Medals.Award> awards = com.brigadajato.world.Medals.compute(world);
+            onMedals(awards);
+            if (awards.size > 0) {
+                Table p = new Table(game.skin);
+                p.setBackground("panel");
+                p.pad(20, 24, 16, 24);
+                p.add(new MedalsBoard(game.draw, game.assets, game.audio, awards, localId, world.config.mode.teams)).size(1120, 440).row();
+                p.add(button(I18n.t("scoreboard") + "  >", "green", this::showResults)).width(300).height(62).padTop(14);
+                overlay.add(p);
+                return;
+            }
+        }
         Table p = new Table(game.skin);
         p.setBackground("panel");
         p.pad(26);
@@ -745,7 +923,10 @@ public class GameScreen extends ScreenAdapter {
         p.add(score).padTop(6).padBottom(10).row();
         Table buttons = new Table();
         buttons.defaults().pad(6);
-        if (host == null && client == null) {
+        if (matchHook != null) {
+            final boolean win = isWin();
+            buttons.add(button(hookButton != null ? hookButton : "OK", "green", () -> matchHook.finished(win, this))).width(320).height(62);
+        } else if (host == null && client == null) {
             buttons.add(button(I18n.t("play_again"), "green", () -> go(GameScreen.offline(game, world.config.copy())))).width(280).height(62);
         } else if (host != null) {
             buttons.add(button(I18n.t("lobby"), "green", () -> {
@@ -755,9 +936,22 @@ public class GameScreen extends ScreenAdapter {
         } else {
             buttons.add(new Label(I18n.t("waiting_host"), game.skin, "small"));
         }
-        buttons.add(button(I18n.t("menu"), "gray", this::leave)).width(200).height(62);
+        if (matchHook == null) buttons.add(button(I18n.t("menu"), "gray", this::leave)).width(200).height(62);
         p.add(buttons);
         overlay.add(p);
+    }
+
+    /** Medalhas calculadas (as conquistas usam). */
+    private void onMedals(com.badlogic.gdx.utils.Array<com.brigadajato.world.Medals.Award> awards) {
+    }
+
+    /** Sai da partida para outra tela (usado pelo torneio). */
+    public void goTo(com.badlogic.gdx.Screen next) {
+        go(next);
+    }
+
+    public World world() {
+        return world;
     }
 
     private void go(com.badlogic.gdx.Screen next) {

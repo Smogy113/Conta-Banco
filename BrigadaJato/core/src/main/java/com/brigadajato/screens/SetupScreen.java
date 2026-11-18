@@ -25,9 +25,12 @@ public class SetupScreen extends BaseScreen {
     private Label modeLabel, modeDesc, mapLabel, botsLabel, timeLabel, scoreLabel, teamLabel, diffLabel;
     private Slider botsSlider;
     private MapCard mapCard;
+    private MapCarousel carousel;
+    private TextButton rulesButton;
+    private Table rulesOverlay;
 
     private static final ModeType[] MODES = {ModeType.DEATHMATCH, ModeType.TEAM_DEATHMATCH, ModeType.CTF, ModeType.BOMB, ModeType.SURVIVAL,
-            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK};
+            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK, ModeType.JUGGERNAUT};
     private static final int[] TIMES = {0, 120, 180, 300, 420, 600};
 
     public SetupScreen(BrigadaJatoGame game, Kind kind) {
@@ -62,7 +65,7 @@ public class SetupScreen extends BaseScreen {
     private void build() {
         Table panel = new Table(skin);
         panel.setBackground("panel");
-        panel.pad(14, 26, 14, 26);
+        panel.pad(12, 26, 12, 26);
         panel.defaults().pad(3);
         final int[] row = {0};
 
@@ -94,21 +97,21 @@ public class SetupScreen extends BaseScreen {
         fadeRow(panel.add(head).colspan(2).padBottom(6).growX(), row);
         panel.row();
 
-        // mapa
+        // ---- coluna da esquerda: carrossel de mapas com previa ao vivo
         mapLabel = label("", "yellow");
-        Table mapRow = new Table();
-        mapRow.add(label(I18n.t("map"), "default")).width(110).left();
-        mapRow.add(button("<", "gray", () -> cycleMap(-1))).size(56, 40);
-        mapLabel.setAlignment(Align.center);
-        mapRow.add(mapLabel).width(560);
-        mapRow.add(button(">", "gray", () -> cycleMap(1))).size(56, 40);
-        fadeRow(panel.add(mapRow).colspan(2), row);
-        panel.row();
+        Table left = new Table();
+        carousel = new MapCarousel(game, GameMap.PLAY_IDS, cfg.mapId, id -> {
+            cfg.mapId = id;
+            refresh();
+        });
+        left.add(carousel).size(520, 316).row();
         mapCard = new MapCard(game.draw, game.assets);
-        fadeRow(panel.add(mapCard).colspan(2).size(760, 112), row);
-        panel.row();
+        mapCard.iconsOnly = true;
+        left.add(mapCard).size(520, 84).padTop(2).row();
 
-        // bots + fogo amigo
+        // ---- coluna da direita: bots, regras e opcoes
+        Table right = new Table();
+        right.defaults().pad(3);
         botsLabel = label("", "yellow");
         botsSlider = new Slider(0, 11, 1, false, skin);
         botsSlider.setValue(cfg.bots);
@@ -119,6 +122,10 @@ public class SetupScreen extends BaseScreen {
                 refresh();
             }
         });
+        Table botsRow = new Table();
+        botsRow.add(botsLabel).width(150).left();
+        botsRow.add(botsSlider).width(270);
+        right.add(botsRow).row();
         final CheckBox ff = new CheckBox(" " + I18n.t("friendly_fire"), skin);
         ff.setChecked(cfg.friendlyFire);
         ff.addListener(new ChangeListener() {
@@ -127,35 +134,45 @@ public class SetupScreen extends BaseScreen {
                 cfg.friendlyFire = ff.isChecked();
             }
         });
-        Table botsRow = new Table();
-        botsRow.add(botsLabel).width(170).left();
-        botsRow.add(botsSlider).width(400).padRight(30);
-        botsRow.add(ff);
-        fadeRow(panel.add(botsRow).colspan(2).padTop(4), row);
-        panel.row();
-
-        // grade 2x2 de opcoes
+        Table checks = new Table();
+        checks.add(ff).left().padRight(24);
+        if (kind == Kind.OFFLINE) {
+            final CheckBox spec = new CheckBox(" " + I18n.t("spectate"), skin);
+            spec.setChecked(cfg.spectate);
+            spec.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    cfg.spectate = spec.isChecked();
+                }
+            });
+            checks.add(spec).left();
+        }
+        right.add(checks).left().row();
         diffLabel = label("", "yellow");
         timeLabel = label("", "yellow");
         scoreLabel = label("", "yellow");
         teamLabel = label("", "yellow");
-        fadeRow(panel.add(option(I18n.t("difficulty"), diffLabel, () -> {
+        right.add(option(I18n.t("difficulty"), diffLabel, () -> {
             cfg.difficulty = (cfg.difficulty + 2) % 3;
             refresh();
         }, () -> {
             cfg.difficulty = (cfg.difficulty + 1) % 3;
             refresh();
-        })), row);
-        fadeRow(panel.add(option(I18n.t("time_limit"), timeLabel, () -> cycleTime(-1), () -> cycleTime(1))), row);
-        panel.row();
-        fadeRow(panel.add(option(I18n.t("score_limit"), scoreLabel, () -> cycleScore(-1), () -> cycleScore(1))), row);
-        fadeRow(panel.add(option(I18n.t("your_team"), teamLabel, () -> {
+        })).row();
+        right.add(option(I18n.t("time_limit"), timeLabel, () -> cycleTime(-1), () -> cycleTime(1))).row();
+        right.add(option(I18n.t("score_limit"), scoreLabel, () -> cycleScore(-1), () -> cycleScore(1))).row();
+        right.add(option(I18n.t("your_team"), teamLabel, () -> {
             cfg.playerTeam = (cfg.playerTeam + 2) % 3;
             refresh();
         }, () -> {
             cfg.playerTeam = (cfg.playerTeam + 1) % 3;
             refresh();
-        })), row);
+        })).row();
+        rulesButton = button("", "purple-small", this::openRules);
+        right.add(rulesButton).width(420).height(48).padTop(4).row();
+
+        fadeRow(panel.add(left).top(), row);
+        fadeRow(panel.add(right).top().padLeft(18), row);
         panel.row();
 
         Table buttons = new Table();
@@ -177,16 +194,18 @@ public class SetupScreen extends BaseScreen {
                 com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeIn(0.25f, com.badlogic.gdx.math.Interpolation.pow2Out)));
     }
 
-    /** Bloco de opcao: titulo pequeno em cima e "<  valor  >" embaixo. */
+    /** Linha de opcao compacta: titulo a esquerda e "<  valor  >" a direita. */
     private Table option(String title, Label value, Runnable prev, Runnable next) {
         Table t = new Table(skin);
         t.setBackground(skin.newDrawable("field", new com.badlogic.gdx.graphics.Color(0.11f, 0.13f, 0.17f, 0.95f)));
-        t.pad(6, 10, 8, 10);
-        t.add(label(title, "gray")).colspan(3).left().padBottom(2).row();
-        t.add(button("<", "gray", prev)).size(50, 38);
+        t.pad(5, 12, 5, 8);
+        Label tl = label(title, "gray");
+        tl.setWrap(true);
+        t.add(tl).width(130).left();
+        t.add(button("<", "gray", prev)).size(46, 38);
         value.setAlignment(Align.center);
-        t.add(value).width(300);
-        t.add(button(">", "gray", next)).size(50, 38);
+        t.add(value).width(180);
+        t.add(button(">", "gray", next)).size(46, 38);
         return t;
     }
 
@@ -224,6 +243,7 @@ public class SetupScreen extends BaseScreen {
             case GUN_GAME: case INFECTION: case BATTLE_ROYALE: case HIDE_SEEK: return new int[]{0};
             case KING_HILL: return new int[]{60, 120, 180, 300};
             case DUEL: return new int[]{1, 2, 3, 5, 7};
+            case JUGGERNAUT: return new int[]{10, 15, 20, 30};
             default: return new int[]{0, 10, 15, 20, 30, 50};
         }
     }
@@ -250,6 +270,7 @@ public class SetupScreen extends BaseScreen {
             case BATTLE_ROYALE: return "br";
             case DUEL: return "duel";
             case HIDE_SEEK: return "hideseek";
+            case JUGGERNAUT: return "juggernaut";
             default: return "deathmatch";
         }
     }
@@ -260,6 +281,11 @@ public class SetupScreen extends BaseScreen {
         GameMap m = BrigadaJatoGame.loadMap(cfg.mapId);
         mapLabel.setText(I18n.pt ? m.name : m.nameEn);
         if (mapCard != null) mapCard.setMap(m);
+        if (carousel != null) carousel.show(cfg.mapId);
+        if (rulesButton != null) {
+            int n = rulesCount();
+            rulesButton.setText(n == 0 ? I18n.t("rules_off") + "   >" : I18n.t("rules_on") + " (" + n + ")   >");
+        }
         boolean surv = cfg.mode == ModeType.SURVIVAL;
         if (surv && cfg.bots > 3) {
             cfg.bots = 1;
@@ -287,6 +313,16 @@ public class SetupScreen extends BaseScreen {
         game.settings.lastMatch.scoreLimit = cfg.scoreLimit;
         game.settings.lastMatch.friendlyFire = cfg.friendlyFire;
         game.settings.lastMatch.playerTeam = cfg.playerTeam;
+        MatchConfig lm = game.settings.lastMatch;
+        lm.gravityMul = cfg.gravityMul;
+        lm.healthMul = cfg.healthMul;
+        lm.speedMul = cfg.speedMul;
+        lm.weaponSet = cfg.weaponSet;
+        lm.infiniteAmmo = cfg.infiniteAmmo;
+        lm.infiniteJet = cfg.infiniteJet;
+        lm.instagib = cfg.instagib;
+        lm.noGrenades = cfg.noGrenades;
+        lm.spectate = cfg.spectate;
         game.settings.save();
         if (kind == Kind.OFFLINE) go(GameScreen.offline(game, cfg));
         else if (kind == Kind.HOST) go(LobbyScreen.host(game, cfg));
@@ -294,7 +330,146 @@ public class SetupScreen extends BaseScreen {
     }
 
     @Override
+    protected void drawBehind(float delta) {
+        if (carousel != null) carousel.renderPreview();
+    }
+
+    private int rulesCount() {
+        int n = 0;
+        if (cfg.gravityMul != 1f) n++;
+        if (cfg.healthMul != 1f) n++;
+        if (cfg.speedMul != 1f) n++;
+        if (cfg.weaponSet != MatchConfig.SET_NORMAL) n++;
+        if (cfg.infiniteAmmo) n++;
+        if (cfg.infiniteJet) n++;
+        if (cfg.instagib) n++;
+        if (cfg.noGrenades) n++;
+        return n;
+    }
+
+    private static int idx(float[] opts, float v) {
+        for (int i = 0; i < opts.length; i++) if (Math.abs(opts[i] - v) < 0.01f) return i;
+        return 0;
+    }
+
+    private static String pct(float v) {
+        return Math.round(v * 100) + "%";
+    }
+
+    /** Janela das regras personalizadas (mutadores). */
+    public void openRules() {
+        if (rulesOverlay != null) return;
+        rulesOverlay = new Table(skin);
+        rulesOverlay.setFillParent(true);
+        rulesOverlay.setBackground(skin.newDrawable("field", new com.badlogic.gdx.graphics.Color(0, 0, 0, 0.7f)));
+        rulesOverlay.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.enabled);
+        Table p = new Table(skin);
+        p.setBackground("panel");
+        p.pad(18, 26, 18, 26);
+        p.defaults().pad(4);
+        p.add(label(I18n.t("rules").toUpperCase(), "big")).colspan(2).padBottom(8).row();
+        final Label grav = label("", "yellow"), hp = label("", "yellow"), spd = label("", "yellow"), set = label("", "yellow");
+        final Runnable upd = () -> {
+            grav.setText(pct(cfg.gravityMul));
+            hp.setText(pct(cfg.healthMul));
+            spd.setText(pct(cfg.speedMul));
+            set.setText(I18n.t("set_" + cfg.weaponSet));
+            refresh();
+        };
+        p.add(option(I18n.t("r_gravity"), grav, () -> {
+            float[] o = MatchConfig.GRAVITY_OPTS;
+            cfg.gravityMul = o[(idx(o, cfg.gravityMul) + o.length - 1) % o.length];
+            upd.run();
+        }, () -> {
+            float[] o = MatchConfig.GRAVITY_OPTS;
+            cfg.gravityMul = o[(idx(o, cfg.gravityMul) + 1) % o.length];
+            upd.run();
+        }));
+        p.add(option(I18n.t("r_health"), hp, () -> {
+            float[] o = MatchConfig.HEALTH_OPTS;
+            cfg.healthMul = o[(idx(o, cfg.healthMul) + o.length - 1) % o.length];
+            upd.run();
+        }, () -> {
+            float[] o = MatchConfig.HEALTH_OPTS;
+            cfg.healthMul = o[(idx(o, cfg.healthMul) + 1) % o.length];
+            upd.run();
+        })).row();
+        p.add(option(I18n.t("r_speed"), spd, () -> {
+            float[] o = MatchConfig.SPEED_OPTS;
+            cfg.speedMul = o[(idx(o, cfg.speedMul) + o.length - 1) % o.length];
+            upd.run();
+        }, () -> {
+            float[] o = MatchConfig.SPEED_OPTS;
+            cfg.speedMul = o[(idx(o, cfg.speedMul) + 1) % o.length];
+            upd.run();
+        }));
+        p.add(option(I18n.t("r_weapons"), set, () -> {
+            cfg.weaponSet = (cfg.weaponSet + MatchConfig.SET_COUNT - 1) % MatchConfig.SET_COUNT;
+            upd.run();
+        }, () -> {
+            cfg.weaponSet = (cfg.weaponSet + 1) % MatchConfig.SET_COUNT;
+            upd.run();
+        })).row();
+        final CheckBox ammo = rulesCheck(I18n.t("r_inf_ammo"), cfg.infiniteAmmo, v -> cfg.infiniteAmmo = v);
+        final CheckBox jet = rulesCheck(I18n.t("r_inf_jet"), cfg.infiniteJet, v -> cfg.infiniteJet = v);
+        final CheckBox gib = rulesCheck(I18n.t("r_instagib"), cfg.instagib, v -> cfg.instagib = v);
+        final CheckBox nades = rulesCheck(I18n.t("r_no_nades"), cfg.noGrenades, v -> cfg.noGrenades = v);
+        p.add(ammo).left().padLeft(12);
+        p.add(jet).left().padLeft(12).row();
+        p.add(gib).left().padLeft(12);
+        p.add(nades).left().padLeft(12).row();
+        Table b = new Table();
+        b.add(button(I18n.t("r_reset"), "gray", () -> {
+            cfg.resetRules();
+            ammo.setChecked(false);
+            jet.setChecked(false);
+            gib.setChecked(false);
+            nades.setChecked(false);
+            upd.run();
+        })).width(200).height(58).padRight(16);
+        b.add(button("OK", "green", () -> {
+            rulesOverlay.remove();
+            rulesOverlay = null;
+            refresh();
+        })).width(240).height(60);
+        p.add(b).colspan(2).padTop(12);
+        rulesOverlay.add(p);
+        p.setTransform(true);
+        p.setOrigin(com.badlogic.gdx.utils.Align.center);
+        p.setScale(0.8f);
+        p.getColor().a = 0;
+        p.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.parallel(
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.scaleTo(1, 1, 0.25f, com.badlogic.gdx.math.Interpolation.swingOut),
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeIn(0.18f)));
+        stage.addActor(rulesOverlay);
+        upd.run();
+    }
+
+    private interface BoolSet {
+        void set(boolean v);
+    }
+
+    private CheckBox rulesCheck(String text, boolean value, final BoolSet setter) {
+        final CheckBox c = new CheckBox(" " + text, skin);
+        c.setChecked(value);
+        c.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                setter.set(c.isChecked());
+                refresh();
+            }
+        });
+        return c;
+    }
+
+    @Override
     protected void onBack() {
+        if (rulesOverlay != null) {
+            rulesOverlay.remove();
+            rulesOverlay = null;
+            refresh();
+            return;
+        }
         if (kind == Kind.OFFLINE || kind == Kind.HOST) go(new ModeSelectScreen(game, kind));
         else if (onDone != null) onDone.run();
     }
@@ -329,6 +504,7 @@ public class SetupScreen extends BaseScreen {
     @Override
     public void dispose() {
         if (mapCard != null) mapCard.dispose();
+        if (carousel != null) carousel.dispose();
         super.dispose();
     }
 }

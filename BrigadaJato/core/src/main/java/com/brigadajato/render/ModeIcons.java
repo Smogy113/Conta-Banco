@@ -162,6 +162,7 @@ public final class ModeIcons {
             case BATTLE_ROYALE: royale(x, y, size, t); break;
             case DUEL: duel(x, y, size, t); break;
             case HIDE_SEEK: hide(x, y, size, t); break;
+            case JUGGERNAUT: juggernaut(x, y, size, t); break;
             default:
                 frame(x, y, size, 0);
                 part(STAR, STAR, 0, 0, 0.8f, 0.8f, 0, 0xffca28);
@@ -680,5 +681,90 @@ public final class ModeIcons {
         flat(CIRC, 0.05f, -0.05f, 0.4f, 0.4f, 0, 0x81d4fa, 0.5f);
         flat(RECT, -0.1f, 0.1f, 0.06f, 0.24f, 45, 0xffffff, 0.8f);
         flat(CIRC, 0.12f, -0.12f, 0.05f, 0.05f, 0, 0xffffff, 0.7f);
+    }
+
+    private void juggernaut(float x, float y, float size, float t) {
+        frame(x, y, size, 0);
+        float pulse = 0.5f + 0.5f * MathUtils.sin(t * 3);
+        glow(0, 0, 0.62f, 0xff3d00, 0.25f + 0.2f * pulse);
+        // vapor saindo dos ombros
+        for (int i = 0; i < 4; i++) {
+            float u = (t * 0.7f + i * 0.25f) % 1f;
+            float side = i % 2 == 0 ? -1 : 1;
+            flat(SOFT, side * (0.38f + u * 0.1f), 0.12f + u * 0.4f, 0.12f + u * 0.2f, 0.12f + u * 0.2f, 0, 0xcfd8dc, (1 - u) * 0.5f);
+        }
+        // metralhadora embaixo
+        painter.drawGun(d, WeaponType.LMG, 0, x + size * 0.08f, y - size * 0.34f, 0, size * 0.026f, al, 1);
+        frame(x, y + MathUtils.sin(t * 2) * size * 0.015f, size, 0);
+        int steel = 0x546e7a, steelD = 0x37474f, red = 0xc62828;
+        // ombreiras e peitoral
+        part(CIRC, BALL, -0.33f, -0.08f, 0.3f, 0.26f, 0, steel);
+        part(CIRC, BALL, 0.33f, -0.08f, 0.3f, 0.26f, 0, steel);
+        slab(0, -0.18f, 0.5f, 0.22f, 0, steelD);
+        // capacete
+        part(RECT, BOX, 0, 0.12f, 0.56f, 0.52f, 0, steel);
+        flush();
+        flat(RECT, 0, -0.16f, 0.12f, 0.16f, 0, red, 1);
+        flat(RECT, -0.33f, -0.04f, 0.2f, 0.04f, 0, red, 1);
+        flat(RECT, 0.33f, -0.04f, 0.2f, 0.04f, 0, red, 1);
+        // viseira brilhando
+        flat(RECT, 0, 0.1f, 0.44f, 0.12f, 0, INK, 1);
+        float scan = MathUtils.sin(t * 2.4f) * 0.15f;
+        flat(RECT, 0, 0.1f, 0.4f, 0.06f, 0, 0xff1744, 0.9f);
+        glow(scan, 0.1f, 0.16f, 0xff5252, 0.9f);
+        flat(RECT, scan, 0.1f, 0.06f, 0.06f, 0, 0xffffff, 0.9f);
+        // rebites e grade da boca
+        for (int i = -1; i <= 1; i += 2) {
+            flat(CIRC, i * 0.22f, 0.32f, 0.04f, 0.04f, 0, 0x90a4ae, 1);
+            flat(CIRC, i * 0.22f, -0.07f, 0.04f, 0.04f, 0, 0x90a4ae, 1);
+        }
+        for (int i = -2; i <= 2; i++) flat(RECT, i * 0.06f, -0.04f, 0.02f, 0.08f, 0, INK, 0.8f);
+        flat(RECT, -0.1f, 0.32f, 0.2f, 0.05f, 0, 0xffffff, 0.25f);
+    }
+
+    /** Taca dourada do torneio. */
+    public void trophy(float x, float y, float size, float t, float alpha) {
+        al = alpha;
+        n = 0;
+        frame(x, y, size, 0);
+        glow(0, 0.08f, 0.6f, 0xffd54f, 0.3f + 0.15f * MathUtils.sin(t * 3));
+        // raios
+        d.additive(true);
+        for (int r = 0; r < 8; r++) {
+            float ang = t * 20 + r * 45;
+            float c = MathUtils.cosDeg(ang), sn = MathUtils.sinDeg(ang);
+            flat(TRI, c * 0.36f, 0.1f + sn * 0.36f, 0.12f, 0.6f, ang - 90, 0xffe082, 0.12f);
+        }
+        d.additive(false);
+        int gold = 0xffc107, goldD = 0xc79100;
+        // alcas
+        part(RING, RING, -0.27f, 0.2f, 0.24f, 0.26f, 0, gold);
+        part(RING, RING, 0.27f, 0.2f, 0.24f, 0.26f, 0, gold);
+        // taca
+        part(HALF, HALF, 0, 0.18f, 0.5f, 0.42f, 180, gold);
+        part(RECT, RECT, 0, 0.3f, 0.5f, 0.12f, 0, gold);
+        // haste e base
+        slab(0, -0.1f, 0.09f, 0.2f, 0, goldD);
+        slab(0, -0.24f, 0.3f, 0.08f, 0, gold);
+        slab(0, -0.34f, 0.42f, 0.12f, 0, 0x5d4037);
+        flush();
+        flat(RECT, 0, -0.34f, 0.24f, 0.05f, 0, 0xffe082, 1);
+        flat(STAR, 0, 0.19f, 0.2f, 0.2f, 0, 0xfff8e1, 1);
+        flat(RECT, -0.13f, 0.22f, 0.05f, 0.18f, 0, 0xffffff, 0.45f);
+        // brilho piscando
+        float k = (t * 0.8f) % 1f;
+        if (k < 0.3f) {
+            float p = MathUtils.sin(k / 0.3f * MathUtils.PI);
+            flat(STAR, 0.16f, 0.32f, 0.16f * p, 0.16f * p, t * 90, 0xffffff, p);
+        }
+        // confete caindo
+        int[] pal = {0xe53935, 0x1e88e5, 0x43a047, 0xffeb3b};
+        for (int i = 0; i < 8; i++) {
+            float u = (t * 0.4f + hash(i)) % 1f;
+            float lx = (hash(i + 5) - 0.5f) * 1.0f + MathUtils.sin(t * 3 + i) * 0.03f;
+            flat(RECT, lx, 0.55f - u * 1.0f, 0.05f, 0.03f, t * 200 + i * 40, pal[i % 4], 1 - u * 0.5f);
+        }
+        d.additive(false);
+        d.batch.setColor(1, 1, 1, 1);
     }
 }

@@ -335,6 +335,7 @@ public class BombMode extends GameMode {
                 c.money += 300;
                 c.score += 2;
                 event(EV_PLANTED, c.id);
+                c.objectives++;
             }
         } else c.actionProgress = 0;
     }
@@ -360,6 +361,7 @@ public class BombMode extends GameMode {
                 best.money += 300;
                 best.score += 2;
                 event(EV_DEFUSED, best.id);
+                best.objectives++;
             }
         }
     }

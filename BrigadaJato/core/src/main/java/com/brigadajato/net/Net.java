@@ -31,7 +31,7 @@ public final class Net {
 
     public static final int TCP_PORT = 47130;
     public static final int UDP_PORT = 47131;
-    public static final int PROTOCOL = 8;
+    public static final int PROTOCOL = 9;
     public static final String DISCOVER = "BRIGADAJATO?";
     public static final String ANSWER = "BRIGADAJATO!";
     public static final int MAX_PLAYERS = 8;
@@ -312,6 +312,28 @@ public final class Net {
         o.writeByte(w.leverOn.length);
         for (boolean b : w.leverOn) o.writeBoolean(b);
         w.mode.write(o);
+        // estatisticas para as medalhas (so no fim da partida)
+        o.writeBoolean(w.mode.over);
+        if (w.mode.over) {
+            o.writeShort(w.players.size);
+            for (int i = 0; i < w.players.size; i++) {
+                Player p = w.players.get(i);
+                o.writeShort(p.id);
+                o.writeShort(p.shotsFired);
+                o.writeShort(p.shotsHit);
+                o.writeShort(p.headshots);
+                o.writeByte(Math.min(255, p.bestStreak));
+                o.writeShort(p.meleeKills);
+                o.writeShort(p.explosiveKills);
+                o.writeShort(p.suicides);
+                o.writeShort(p.objectives);
+                o.writeShort(p.multiKills);
+                o.writeShort(p.juggKills);
+                o.writeFloat(p.damageDealt);
+                o.writeFloat(p.longestKill);
+                o.writeFloat(p.timeAlive);
+            }
+        }
     }
 
     private static int clampByte(float v) {
@@ -531,6 +553,29 @@ public final class Net {
             if (i < w.leverOn.length) w.leverOn[i] = b;
         }
         w.mode.read(in);
+        if (in.readBoolean()) {
+            int ns = in.readShort();
+            for (int i = 0; i < ns; i++) {
+                Player p = w.player(in.readShort());
+                int shots = in.readShort(), hits = in.readShort(), heads = in.readShort(), streak = in.readUnsignedByte(), mel = in.readShort(),
+                        exp = in.readShort(), sui = in.readShort(), obj = in.readShort(), multi = in.readShort(), jk = in.readShort();
+                float dmg = in.readFloat(), lk = in.readFloat(), ta = in.readFloat();
+                if (p == null) continue;
+                p.shotsFired = shots;
+                p.shotsHit = hits;
+                p.headshots = heads;
+                p.bestStreak = streak;
+                p.meleeKills = mel;
+                p.explosiveKills = exp;
+                p.suicides = sui;
+                p.objectives = obj;
+                p.multiKills = multi;
+                p.juggKills = jk;
+                p.damageDealt = dmg;
+                p.longestKill = lk;
+                p.timeAlive = ta;
+            }
+        }
     }
 
     /** Estado do cenario para quem entra no meio da partida (blocos quebrados, portas). */

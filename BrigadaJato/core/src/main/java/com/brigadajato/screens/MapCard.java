@@ -47,6 +47,8 @@ public class MapCard extends Actor {
     private GameMap map;
     private final Array<Integer> features = new Array<>();
     private float time;
+    /** so a fileira de icones (a miniatura fica no carrossel) */
+    public boolean iconsOnly;
 
     public MapCard(Draw d, Assets a) {
         this.d = d;
@@ -82,7 +84,7 @@ public class MapCard extends Actor {
         if (m.lamps.size > 0 && features.size < 7) features.add(F_LAMPS);
     }
 
-    private static Texture buildThumb(GameMap m) {
+    static Texture buildThumb(GameMap m) {
         Pixmap pm = new Pixmap(m.w, m.h, Pixmap.Format.RGBA8888);
         Theme top = m.theme;
         for (int y = 0; y < m.h; y++)
@@ -124,12 +126,14 @@ public class MapCard extends Actor {
             tw = 240;
             th = tw * map.h / map.w;
         }
-        float ty = y + (h - th) / 2;
-        d.rgb(SoldierPainter.OUTLINE, parentAlpha);
-        d.rect(x - 3, ty - 3, tw + 6, th + 6);
-        batch.setColor(1, 1, 1, parentAlpha);
-        batch.draw(thumb, x, ty, tw, th);
-        // icones
+        if (iconsOnly) tw = -18;
+        else {
+            float ty = y + (h - th) / 2;
+            d.rgb(SoldierPainter.OUTLINE, parentAlpha);
+            d.rect(x - 3, ty - 3, tw + 6, th + 6);
+            batch.setColor(1, 1, 1, parentAlpha);
+            batch.draw(thumb, x, ty, tw, th);
+        }
         float ix = x + tw + 22, iy = y + h / 2 + 22;
         int n = features.size;
         float slot = Math.min(66, (getWidth() - tw - 26) / Math.max(1, n));

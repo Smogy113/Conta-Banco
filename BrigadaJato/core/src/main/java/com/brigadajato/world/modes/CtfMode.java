@@ -83,6 +83,7 @@ public class CtfMode extends GameMode {
                     c.score += 5;
                     c.carryingFlag = 0;
                     flagEvent(t, EV_CAPTURED, c.id);
+                    c.objectives++;
                     resetFlag(t);
                     if (w.config.scoreLimit > 0 && teamScore[enemy] >= w.config.scoreLimit) finishByScore("end_score");
                 }

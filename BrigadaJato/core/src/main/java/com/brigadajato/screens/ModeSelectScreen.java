@@ -30,12 +30,12 @@ import com.brigadajato.world.WeaponType;
  */
 public class ModeSelectScreen extends BaseScreen {
     static final ModeType[] MODES = {ModeType.DEATHMATCH, ModeType.TEAM_DEATHMATCH, ModeType.CTF, ModeType.BOMB, ModeType.SURVIVAL,
-            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK};
+            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK, ModeType.JUGGERNAUT};
     private static final int[] COLORS = {0xd84315, 0x1565c0, 0x2e7d32, 0xb71c1c, 0x6d4c41, 0xf9a825, 0x7b1fa2, 0x558b2f,
-            0x00838f, 0x455a64, 0xad1457};
+            0x00838f, 0x455a64, 0xad1457, 0x5d4037};
     private static final String[][] TAGS = {
-            {"SOLO", "TIMES", "TIMES", "RODADAS", "CO-OP", "SOLO", "TIMES", "SOLO", "1 VIDA", "1 x 1", "TIMES"},
-            {"SOLO", "TEAMS", "TEAMS", "ROUNDS", "CO-OP", "SOLO", "TEAMS", "SOLO", "1 LIFE", "1 v 1", "TEAMS"}};
+            {"SOLO", "TIMES", "TIMES", "RODADAS", "CO-OP", "SOLO", "TIMES", "SOLO", "1 VIDA", "1 x 1", "TIMES", "1 x TODOS"},
+            {"SOLO", "TEAMS", "TEAMS", "ROUNDS", "CO-OP", "SOLO", "TEAMS", "SOLO", "1 LIFE", "1 v 1", "TEAMS", "1 v ALL"}};
 
     private final SetupScreen.Kind kind;
     private final Array<ModeCard> cards = new Array<>();
@@ -490,6 +490,7 @@ public class ModeSelectScreen extends BaseScreen {
             case BATTLE_ROYALE: return "br";
             case DUEL: return "duel";
             case HIDE_SEEK: return "hideseek";
+            case JUGGERNAUT: return "juggernaut";
             default: return "deathmatch";
         }
     }

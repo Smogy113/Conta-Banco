@@ -57,6 +57,8 @@ public abstract class GameMode {
                 return new DuelMode(w);
             case HIDE_SEEK:
                 return new HideSeekMode(w);
+            case JUGGERNAUT:
+                return new JuggernautMode(w);
             default:
                 return new DeathmatchMode(w);
         }
