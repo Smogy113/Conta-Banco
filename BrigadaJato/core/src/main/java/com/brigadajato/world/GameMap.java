@@ -172,15 +172,21 @@ public class GameMap {
                 float dx0 = (i % m.w) * C.TILE + C.TILE / 2f, dy0 = (i / m.w) * C.TILE;
                 int best = 0;
                 float bd = Float.MAX_VALUE;
+                boolean any = false;
                 for (int k = 0; k < m.levers.size; k++) {
                     float ddx = m.levers.get(k).x - dx0, ddy = m.levers.get(k).y - dy0;
                     float dd = ddx * ddx + ddy * ddy;
+                    // toda alavanca perto (ate 5 blocos) controla a porta: da para abrir dos dois lados
+                    if (dd < (5 * C.TILE) * (5 * C.TILE)) {
+                        m.leverDoors.get(k).add(i);
+                        any = true;
+                    }
                     if (dd < bd) {
                         bd = dd;
                         best = k;
                     }
                 }
-                m.leverDoors.get(best).add(i);
+                if (!any) m.leverDoors.get(best).add(i);
             }
         }
         for (int i = 0; i < m.barrels.size; i++) m.groundSpawn(m.barrels.get(i));
@@ -231,8 +237,8 @@ public class GameMap {
     }
 
     /** Ids dos mapas disponiveis (arquivos em assets/maps). */
-    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "treino"};
+    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado", "treino"};
 
     /** Mapas jogaveis nos modos normais (sem o campo de treino). */
-    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua"};
+    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado"};
 }

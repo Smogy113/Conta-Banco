@@ -438,9 +438,20 @@ public class BotBrain {
         }
     }
 
-    private static int leverFor(World w, int doorIdx) {
-        for (int i = 0; i < w.map.leverDoors.size; i++) if (w.map.leverDoors.get(i).contains(doorIdx)) return i;
-        return -1;
+    /** Alavanca mais perto do bot entre as que abrem essa porta. */
+    private int leverFor(World w, int doorIdx) {
+        int best = -1;
+        float bd = Float.MAX_VALUE;
+        for (int i = 0; i < w.map.leverDoors.size; i++) {
+            if (!w.map.leverDoors.get(i).contains(doorIdx)) continue;
+            com.badlogic.gdx.math.Vector2 l = w.map.levers.get(i);
+            float d = Math.abs(l.x - p.x) + Math.abs(l.y - p.y) * 1.5f;
+            if (d < bd) {
+                bd = d;
+                best = i;
+            }
+        }
+        return best;
     }
 
     /** Quanto o caminho ainda sobe nos proximos waypoints (para economizar combustivel). */

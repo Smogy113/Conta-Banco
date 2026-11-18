@@ -720,8 +720,9 @@ public class World {
 
     public void toggleLever(int i) {
         leverCd[i] = 0.8f;
-        boolean open = !leverOn[i];
         IntArray doors = map.leverDoors.get(i);
+        // abre se a porta esta fechada (vale para alavancas dos dois lados)
+        boolean open = doors.size > 0 ? map.tiles[doors.get(0)] == GameMap.DOOR : !leverOn[i];
         for (int k = 0; k < doors.size; k++) {
             int idx = doors.get(k);
             int tx = idx % map.w, ty = idx / map.w;
@@ -729,6 +730,13 @@ public class World {
             setTile(tx, ty, open ? GameMap.DOOR_OPEN : GameMap.DOOR);
         }
         leverOn[i] = open;
+        for (int k = 0; k < leverOn.length; k++) {
+            if (k == i || doors.size == 0) continue;
+            if (map.leverDoors.get(k).contains(doors.get(0))) {
+                leverOn[k] = open;
+                leverCd[k] = 0.8f;
+            }
+        }
         WorldEvent e = emit(WorldEvent.Type.LEVER);
         e.a = i;
         e.b = open ? 1 : 0;
