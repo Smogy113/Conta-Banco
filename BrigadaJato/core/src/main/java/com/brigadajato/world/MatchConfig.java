@@ -35,7 +35,9 @@ public class MatchConfig {
         scoreLimit = mode.defaultScore;
         timeLimit = mode.defaultTime;
         if (mode == ModeType.TRAINING) mapId = "treino";
-        else if ("treino".equals(mapId)) mapId = "fortaleza";
+        else if (mode == ModeType.BOMB) mapId = "poeira";
+        else if (mode == ModeType.BATTLE_ROYALE) mapId = "arena";
+        else if ("treino".equals(mapId) || "arena".equals(mapId)) mapId = "fortaleza";
     }
 
     public void write(DataOutput o) throws IOException {

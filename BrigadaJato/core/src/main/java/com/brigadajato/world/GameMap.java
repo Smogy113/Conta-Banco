@@ -237,8 +237,8 @@ public class GameMap {
     }
 
     /** Ids dos mapas disponiveis (arquivos em assets/maps). */
-    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado", "treino"};
+    public static final String[] IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado", "poeira", "estacao", "arena", "treino"};
 
     /** Mapas jogaveis nos modos normais (sem o campo de treino). */
-    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado"};
+    public static final String[] PLAY_IDS = {"fortaleza", "fabrica", "ilhas", "caverna", "selva", "lua", "navio", "cidade", "vulcao", "submarina", "escola", "mercado", "poeira", "estacao", "arena"};
 }

@@ -50,6 +50,7 @@ public class WorldRenderer implements Disposable {
     private TileArt art1, art2;
     private Backdrop bg1, bg2;
     public final Lighting lighting = new Lighting();
+    public final Debris debris = new Debris();
     /** 0 dia .. 1 noite; posicao do sol; cor do ambiente para a luz */
     public float night, sunPos;
     private float ambR = 1, ambG = 1, ambB = 1;
@@ -99,6 +100,7 @@ public class WorldRenderer implements Disposable {
         bolts.clear();
         texts.clear();
         lighting.clear();
+        debris.clear();
         applySettings();
         disposeArt();
         art1 = new TileArt(w.map.theme);
@@ -117,6 +119,15 @@ public class WorldRenderer implements Disposable {
         if (bg2 != null) bg2.dispose();
         art1 = art2 = null;
         bg1 = bg2 = null;
+    }
+
+    private boolean nearSolid(float x, float y, float r) {
+        GameMap m = world.map;
+        for (int k = 0; k < 8; k++) {
+            float a = k * MathUtils.PI2 / 8;
+            if (m.solidAt(x + MathUtils.cos(a) * r, y + MathUtils.sin(a) * r)) return true;
+        }
+        return m.solidAt(x, y - r);
     }
 
     private TileArt artAt(int ty) {
@@ -157,11 +168,10 @@ public class WorldRenderer implements Disposable {
                 if (wt.kind != Projectile.Kind.FLAME) {
                     Particles.P f = fx.spawn(Particles.SOFT, mx, my, 0, 0, 0.07f, wt.gunH * 1.6f, wt.gunH * 0.8f, 0xffe082, 0.95f);
                     f.additive = true;
-                    if (wt.kind == Projectile.Kind.BULLET && !fx.skip()) {
-                        Particles.P c = fx.spawn(Particles.RECT, e.x, e.y, -MathUtils.cos(ang) * 60 + MathUtils.random(-40, 40), 140 + MathUtils.random(80), 0.8f, 4, 4, 0xd4ac0d, 1);
-                        c.grav = 900;
-                        c.vrot = 720;
-                        c.a2 = 1;
+                    if (wt.kind == Projectile.Kind.BULLET && !wt.instant()) {
+                        float side = MathUtils.cos(ang) >= 0 ? -1 : 1;
+                        debris.casing(e.x, e.y, side * MathUtils.random(60, 140), MathUtils.random(160, 260),
+                                wt == WeaponType.SHOTGUN ? 0xc62828 : 0xd4ac0d);
                     }
                     for (int i = 0; i < 2 && !fx.skip(); i++) {
                         Particles.P s = fx.spawn(Particles.SOFT, mx, my, MathUtils.cos(ang) * 40 + MathUtils.random(-15, 15), 20 + MathUtils.random(20), 0.5f, 4, 12, 0xcfcfcf, 0.35f);
@@ -203,6 +213,7 @@ public class WorldRenderer implements Disposable {
             }
             case EXPLOSION:
                 explosion(e.x, e.y, e.f, local);
+                if (nearSolid(e.x, e.y, e.f * 0.45f)) debris.scorch(e.x, e.y, e.f * 0.75f);
                 lighting.flash(e.x, e.y, e.f * 3.2f, 0xffa040, 1.3f, 0.6f);
                 break;
             case HIT: {
@@ -266,6 +277,7 @@ public class WorldRenderer implements Disposable {
                     s.additive = true;
                     s.grav = 600;
                 }
+                debris.hole(e.x, e.y, e.x + MathUtils.cos(e.f) * 4, e.y + MathUtils.sin(e.f) * 4);
                 Particles.P dust = fx.spawn(Particles.SOFT, e.x, e.y, 0, 15, 0.45f, 4, 13, themeAtY(e.y).tile, 0.6f);
                 dust.drag = 1;
                 break;
@@ -549,6 +561,7 @@ public class WorldRenderer implements Disposable {
         shake = Math.max(0, shake - dt * 30);
         hitMarker = Math.max(0, hitMarker - dt * 5);
         lighting.update(dt);
+        if (world != null) debris.update(dt, world.map);
         updateDayNight();
         updateAmbient(dt);
         // efeitos continuos (jetpack, foguetes, chamas)
@@ -566,9 +579,16 @@ public class WorldRenderer implements Disposable {
                 Particles.P f = fx.spawn(Particles.SOFT, nx + off + MathUtils.random(-2, 2), ny, MathUtils.random(-20, 20) + p.vx * 0.2f, -260 + p.vy * 0.2f, 0.16f, jets == 2 ? 5 : 7, 2, flameCol, 1);
                 f.additive = true;
             }
-            if (MathUtils.randomBoolean(0.5f)) {
-                Particles.P s = fx.spawn(Particles.SOFT, nx, ny - 8, MathUtils.random(-30, 30), -80, 0.6f, 5, 16, 0xbdbdbd, 0.35f);
-                s.drag = 2;
+            if (MathUtils.randomBoolean(0.6f)) { // fumaca que enrola
+                float curl = MathUtils.sin(time * 9 + p.id * 1.7f) * 55;
+                Particles.P s = fx.spawn(Particles.SOFT, nx, ny - 8, curl + p.vx * 0.15f, -70 + MathUtils.random(-15, 15), 0.9f, 4, 20, 0xd7d7d7, 0.32f);
+                s.drag = 1.6f;
+                s.grav = -50;
+            }
+            if (MathUtils.randomBoolean(0.25f)) { // faiscas
+                Particles.P sp = fx.spawn(Particles.LINE, nx, ny - 4, MathUtils.random(-90, 90), MathUtils.random(-260, -120), 0.35f, 3.5f, 0.6f, boost ? 0x80d8ff : 0xffcc66, 1);
+                sp.additive = true;
+                sp.grav = 500;
             }
         }
         for (int i51_ = 0; i51_ < world.projectiles.size; i51_++) {
@@ -606,6 +626,7 @@ public class WorldRenderer implements Disposable {
         drawZones(d, w);
         drawLamps(d, w, minX, minY, maxX, maxY, true);
         drawTiles(d, w.map, minX, minY, maxX, maxY);
+        debris.drawMarks(d, w.map, minX, minY, maxX, maxY);
         drawLevers(d, w);
         drawProps(d, w, minX, minY, maxX, maxY);
         drawPickups(d, w, minX, minY, maxX, maxY);
@@ -619,6 +640,7 @@ public class WorldRenderer implements Disposable {
             if (p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80) continue;
             drawPlayer(d, p, w);
         }
+        debris.drawCasings(d, minX, minY, maxX, maxY);
         fx.draw(d, false, minX, minY, maxX, maxY);
         d.additive(true);
         drawProjectilesGlow(d, w, minX, minY, maxX, maxY);
@@ -698,9 +720,29 @@ public class WorldRenderer implements Disposable {
                     case GameMap.SOLID:
                         d.batch.draw(art.solid[hashTile(tx, ty)], x, y, T, T);
                         break;
-                    case GameMap.PLATFORM:
-                        d.batch.draw(art.plat, x, y + T - 11, T, 11);
+                    case GameMap.PLATFORM: {
+                        boolean lp = m.get(tx - 1, ty) == GameMap.PLATFORM, rp = m.get(tx + 1, ty) == GameMap.PLATFORM;
+                        // apoios em diagonal embaixo das pontas e a cada 3 blocos
+                        if ((!lp || !rp || ((tx + 64) % 3 == 0)) && !m.solid(tx, ty - 1)) {
+                            int sc = art.theme.platform;
+                            d.rgb(SoldierPainter.OUTLINE, 1);
+                            d.rect(x + T / 2 - 2.5f, y + T - 24, 5, 15);
+                            d.rgb(SoldierPainter.darker(sc, 0.7f), 1);
+                            d.rect(x + T / 2 - 1.5f, y + T - 23, 3, 13);
+                            d.rgb(SoldierPainter.OUTLINE, 1);
+                            d.rect(x + T / 2, y + T - 22, 14, 3, 0, 1.5f, 40);
+                            d.rect(x + T / 2, y + T - 22, 14, 3, 0, 1.5f, 140);
+                            d.color(1, 1, 1, 1);
+                        }
+                        d.batch.draw(art.plat, x - (lp ? 0 : 2), y + T - 12, T + (lp ? 0 : 2) + (rp ? 0 : 2), 12);
+                        if (!lp || !rp) {
+                            d.rgb(SoldierPainter.OUTLINE, 0.9f);
+                            if (!lp) d.rect(x - 3, y + T - 12, 2, 12);
+                            if (!rp) d.rect(x + T + 1, y + T - 12, 2, 12);
+                            d.color(1, 1, 1, 1);
+                        }
                         break;
+                    }
                     case GameMap.SPIKES:
                         if (art.lava) {
                             float bob = MathUtils.sin(time * 2 + tx * 0.7f) * 1.5f;
@@ -1237,59 +1279,73 @@ public class WorldRenderer implements Disposable {
             float bob = MathUtils.sin(pk.bob * 3) * 3;
             float cx = pk.x, cy = pk.y + 16 + bob;
             if (pk.dropped && pk.life < 4 && (time * 6) % 1 < 0.4f) continue;
+            // sombra no chao e anel
+            d.color(0, 0, 0, 0.2f);
+            d.ellipse(pk.x, pk.y + 2, 13 - bob, 3, 0);
+            ShadeKit.load();
             switch (pk.type) {
                 case WEAPON:
-                    if (pk.weapon != null) painter.drawGun(d, pk.weapon, cx, cy, -8 + MathUtils.sin(pk.bob * 2) * 6, 1.05f, 1);
+                    if (pk.weapon != null) painter.drawGun(d, pk.weapon, cx, cy, -8 + MathUtils.sin(pk.bob * 2) * 6, 1.15f, 1);
                     break;
-                case HEALTH:
+                case HEALTH: { // maleta de primeiros socorros
                     d.rgb(SoldierPainter.OUTLINE, 1);
-                    d.rect(cx - 11, cy - 9, 22, 18);
-                    d.rgb(0xffffff, 1);
-                    d.rect(cx - 9.5f, cy - 7.5f, 19, 15);
+                    d.batch.draw(ShadeKit.box, cx - 12.5f, cy - 10, 25, 20);
+                    d.rgb(0xf5f5f5, 1);
+                    d.batch.draw(ShadeKit.box, cx - 11, cy - 8.5f, 22, 17);
+                    d.rgb(SoldierPainter.OUTLINE, 1);
+                    d.rect(cx - 5, cy + 8, 10, 3.5f);
                     d.rgb(0xe53935, 1);
-                    d.rect(cx - 2.5f, cy - 6, 5, 12);
-                    d.rect(cx - 6, cy - 2.5f, 12, 5);
+                    d.rect(cx - 2.2f, cy - 5.5f, 4.4f, 11);
+                    d.rect(cx - 5.5f, cy - 2.2f, 11, 4.4f);
+                    d.color(1, 1, 1, 0.5f);
+                    d.batch.draw(ShadeKit.gloss, cx - 9, cy + 3, 9, 4);
                     break;
+                }
                 case GRENADES:
                     for (int i = 0; i < 2; i++) {
-                        float gx = cx - 6 + i * 12;
+                        float gx = cx - 6 + i * 12, gy = cy - 2 + i * 1.5f;
                         d.rgb(SoldierPainter.OUTLINE, 1);
-                        d.circle(gx, cy - 2, 7);
-                        d.rgb(0x33691e, 1);
-                        d.circle(gx, cy - 2, 5.5f);
+                        d.batch.draw(ShadeKit.ball, gx - 7.5f, gy - 7.5f, 15, 15);
+                        d.rgb(0x556b2f, 1);
+                        d.batch.draw(ShadeKit.ball, gx - 6, gy - 6, 12, 12);
                         d.rgb(0x9e9e9e, 1);
-                        d.rect(gx - 2, cy + 3, 4, 4);
+                        d.rect(gx - 2, gy + 4.5f, 4, 3.5f);
+                        d.rgb(0xffd54f, 1);
+                        d.ring(gx + 3, gy + 7, 2);
                     }
                     break;
-                case ARMOR:
+                case ARMOR: { // colete
                     d.rgb(SoldierPainter.OUTLINE, 1);
-                    d.batch.draw(a.half, cx - 12, cy - 2, 24, 13);
-                    d.batch.draw(a.half, cx - 12, cy - 2, 12, 6.5f, 24, 13, 1, 1, 180);
+                    d.batch.draw(ShadeKit.box, cx - 11.5f, cy - 11, 23, 21);
                     d.rgb(0x1e88e5, 1);
-                    d.rect(cx - 9, cy - 2, 18, 12);
-                    d.rgb(0x90caf9, 1);
-                    d.rect(cx - 2, cy - 1, 4, 10);
-                    break;
-                case DAMAGE:
+                    d.batch.draw(ShadeKit.box, cx - 10, cy - 9.5f, 20, 18);
+                    d.rgb(0x0d47a1, 1);
+                    d.rect(cx - 2, cy - 9, 4, 17);
+                    d.rect(cx - 8, cy - 6, 5, 5);
+                    d.rect(cx + 3, cy - 6, 5, 5);
                     d.rgb(SoldierPainter.OUTLINE, 1);
-                    d.region(a.star, cx, cy, 34, 34, pk.bob * 40);
-                    d.rgb(0xff1744, 1);
-                    d.region(a.star, cx, cy, 28, 28, pk.bob * 40);
+                    d.batch.draw(a.half, cx - 6, cy + 6, 12, 5);
                     break;
-                case JETPACK:
+                }
+                default: { // power-ups: esfera brilhante com icone
+                    int col = pickupGlow(pk);
+                    float spin = pk.bob * 120;
+                    d.rgb(col, 0.8f);
+                    d.region(a.ring, cx, cy, 30, 30 * Math.abs(MathUtils.cos(pk.bob * 2)), spin * 0.2f);
                     d.rgb(SoldierPainter.OUTLINE, 1);
-                    d.rect(cx - 8, cy - 9, 16, 20);
-                    d.rgb(0x607d8b, 1);
-                    d.rect(cx - 6.5f, cy - 7.5f, 13, 17);
-                    d.rgb(0x40c4ff, 1);
-                    d.region(a.tri, cx, cy - 14, 10, 10, 180);
+                    d.batch.draw(ShadeKit.ball, cx - 12, cy - 12, 24, 24);
+                    d.rgb(col, 1);
+                    d.batch.draw(ShadeKit.ball, cx - 10.5f, cy - 10.5f, 21, 21);
+                    d.color(1, 1, 1, 0.6f);
+                    d.batch.draw(ShadeKit.gloss, cx - 7, cy + 2, 8, 5);
+                    d.rgb(0x15151c, 0.85f);
+                    if (pk.type == Pickup.Type.DAMAGE) d.region(a.star, cx, cy - 1, 13, 13, spin);
+                    else if (pk.type == Pickup.Type.JETPACK) {
+                        d.rect(cx - 3.5f, cy - 4, 7, 9);
+                        d.region(a.tri, cx, cy - 7, 6, 5, 180);
+                    } else d.region(a.arrow, cx, cy - 1, 14, 11, 0);
                     break;
-                case SPEED:
-                    d.rgb(SoldierPainter.OUTLINE, 1);
-                    d.region(a.arrow, cx, cy, 30, 26, 0);
-                    d.rgb(0xffea00, 1);
-                    d.region(a.arrow, cx, cy, 24, 20, 0);
-                    break;
+                }
             }
         }
     }

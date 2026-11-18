@@ -148,13 +148,36 @@ public class TileArt implements Disposable {
     }
 
     private void platform(Pixmap pm, Theme t) {
+        Theme.Tiles st = t.tiles;
+        boolean metal = st == Theme.Tiles.METAL || st == Theme.Tiles.CONCRETE || st == Theme.Tiles.TILE_FLOOR;
+        boolean rock = st == Theme.Tiles.ROCK || st == Theme.Tiles.ICE;
+        Random r = new Random(t.ordinal() * 13L + 5);
+        int base = t.platform;
         for (int y = 0; y < 22; y++)
             for (int x = 0; x < 64; x++) {
-                int c = t.platform;
-                if (y < 3 || y > 18) c = mix(c, 0x000000, 0.45f);
-                else if (x % 32 == 0) c = mix(c, 0x000000, 0.35f);
-                else if (y % 7 == 0) c = mix(c, 0x000000, 0.12f);
-                c = mix(c, 0xffffff, y >= 3 && y < 6 ? 0.2f : 0);
+                float vy = y / 21f; // 0 = topo
+                int c;
+                if (metal) {
+                    c = mix(base, 0x90a4ae, 0.35f);
+                    if (y < 3) c = mix(c, 0xffffff, 0.35f);
+                    else if (y > 16) c = mix(c, 0x000000, 0.45f);
+                    else if ((x + y) % 8 < 2 && y > 5 && y < 15) c = mix(c, 0x000000, 0.4f); // grade
+                    int rx = x % 16 - 8, ry = y - 4;
+                    if (rx * rx + ry * ry < 3) c = mix(c, 0xffffff, 0.5f); // rebite
+                } else if (rock) {
+                    c = mix(base, t.tile, 0.4f);
+                    c = mix(c, 0x000000, vy * 0.35f + r.nextFloat() * 0.06f);
+                    if (y < 3) c = mix(c, 0xffffff, 0.3f);
+                    if ((x * 7 + y * 3) % 29 == 0) c = mix(c, 0x000000, 0.4f);
+                } else { // tabuas de madeira
+                    int plank = y < 11 ? 0 : 1;
+                    float grain = (float) Math.sin((x + plank * 23) * 0.35f + Math.sin(y * 0.8f + plank * 3) * 1.4f);
+                    c = mix(base, 0x000000, 0.08f + 0.06f * grain + plank * 0.1f);
+                    if (y == 0 || y == 1) c = mix(c, 0xffffff, 0.28f);
+                    if (y == 10 || y == 11 || y > 19) c = mix(c, 0x000000, 0.45f);
+                    if (x % 32 == 0) c = mix(c, 0x000000, 0.4f);
+                    if ((x % 32 == 3 || x % 32 == 28) && (y == 5 || y == 15)) c = 0x3a3a3a; // pregos
+                }
                 pm.drawPixel(64 + x, 64 + y, rgba(c, 1));
             }
     }

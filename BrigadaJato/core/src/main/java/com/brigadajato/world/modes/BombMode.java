@@ -80,8 +80,8 @@ public class BombMode extends GameMode {
 
     @Override
     protected Array<Vector2> spawnList(Player p) {
-        // cada time nasce sempre do seu lado do mapa; os papeis (ataque/defesa) e que trocam
-        return p.team == C.TEAM_RED ? w.map.spawnsRed : w.map.spawnsBlue;
+        // como no CS: atacantes sempre na base de ataque (r), defensores perto dos bombsites (b)
+        return p.team == attackTeam ? w.map.spawnsRed : w.map.spawnsBlue;
     }
 
     private void startRound(boolean resetGuns) {
