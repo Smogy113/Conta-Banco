@@ -122,15 +122,62 @@ public class GameMap {
             m.spawnsFree.addAll(m.spawnsBlue);
         }
         if (m.spawnsRed.size == 0) {
-            for (Vector2 v : m.spawnsFree) if (v.x < m.worldW() / 2) m.spawnsRed.add(v);
+            for (int i1_ = 0; i1_ < m.spawnsFree.size; i1_++) {
+                Vector2 v = m.spawnsFree.get(i1_); if (v.x < m.worldW() / 2) m.spawnsRed.add(v);
+            }
         }
         if (m.spawnsBlue.size == 0) {
-            for (Vector2 v : m.spawnsFree) if (v.x >= m.worldW() / 2) m.spawnsBlue.add(v);
+            for (int i2_ = 0; i2_ < m.spawnsFree.size; i2_++) {
+                Vector2 v = m.spawnsFree.get(i2_); if (v.x >= m.worldW() / 2) m.spawnsBlue.add(v);
+            }
         }
         if (m.spawnsFree.size == 0) m.spawnsFree.add(new Vector2(m.worldW() / 2, m.worldH() / 2));
         if (m.spawnsRed.size == 0) m.spawnsRed.addAll(m.spawnsFree);
         if (m.spawnsBlue.size == 0) m.spawnsBlue.addAll(m.spawnsFree);
+        // ninguem nasce no ar nem em cima de espinhos
+        for (int i3_ = 0; i3_ < m.spawnsFree.size; i3_++) {
+            Vector2 v = m.spawnsFree.get(i3_); m.groundSpawn(v);
+        }
+        for (int i4_ = 0; i4_ < m.spawnsRed.size; i4_++) {
+            Vector2 v = m.spawnsRed.get(i4_); m.groundSpawn(v);
+        }
+        for (int i5_ = 0; i5_ < m.spawnsBlue.size; i5_++) {
+            Vector2 v = m.spawnsBlue.get(i5_); m.groundSpawn(v);
+        }
+        for (int i6_ = 0; i6_ < m.dummySpawns.size; i6_++) {
+            Vector2 v = m.dummySpawns.get(i6_); m.groundSpawn(v);
+        }
         return m;
+    }
+
+    /**
+     * Desce o ponto de nascimento ate o chao. Se embaixo houver espinhos (ou nada), procura a
+     * coluna segura mais proxima.
+     */
+    public void groundSpawn(Vector2 v) {
+        int tx0 = (int) Math.floor(v.x / C.TILE), ty0 = (int) Math.floor(v.y / C.TILE);
+        for (int d = 0; d <= 12; d++) {
+            for (int sgn = 1; sgn >= -1; sgn -= 2) {
+                if (d == 0 && sgn == -1) continue;
+                int tx = tx0 + d * sgn;
+                if (solid(tx, ty0) || solid(tx, ty0 + 1)) continue;
+                int ty = ty0;
+                while (ty > 0 && get(tx, ty - 1) == EMPTY) ty--;
+                int below = get(tx, ty - 1);
+                if ((below == SOLID || below == PLATFORM) && !solid(tx, ty + 1)) {
+                    v.set(tx * C.TILE + C.TILE / 2f, ty * C.TILE);
+                    return;
+                }
+            }
+        }
+    }
+
+    /** O ponto esta apoiado em chao firme (nao espinho)? */
+    public boolean safeGround(Vector2 v) {
+        int tx = (int) Math.floor(v.x / C.TILE), ty = (int) Math.floor(v.y / C.TILE);
+        int below = get(tx, ty - 1);
+        return (below == SOLID || below == PLATFORM) && !solid(tx, ty) && !solid(tx, ty + 1)
+                && Math.abs(v.y - ty * C.TILE) < 0.5f;
     }
 
     /** Ids dos mapas disponiveis (arquivos em assets/maps). */

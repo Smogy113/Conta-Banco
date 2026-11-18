@@ -36,7 +36,8 @@ public class SurvivalMode extends GameMode {
 
     @Override
     public void init() {
-        for (Player p : w.players) {
+        for (int i32_ = 0; i32_ < w.players.size; i32_++) {
+            Player p = w.players.get(i32_);
             p.team = C.TEAM_RED;
             p.lives = 3;
         }
@@ -81,9 +82,11 @@ public class SurvivalMode extends GameMode {
             // humanos nascem perto dos aliados vivos
             Vector2 best = w.map.spawnsFree.first();
             float bd = 1e9f;
-            for (Vector2 s : w.map.spawnsFree) {
+            for (int i33_ = 0; i33_ < w.map.spawnsFree.size; i33_++) {
+                Vector2 s = w.map.spawnsFree.get(i33_);
                 float md = 1e9f;
-                for (Player q : w.players) {
+                for (int i34_ = 0; i34_ < w.players.size; i34_++) {
+                    Player q = w.players.get(i34_);
                     if (!q.alive || q == p) continue;
                     float dx = q.x - s.x, dy = q.y - s.y;
                     float d = (float) Math.sqrt(dx * dx + dy * dy);
@@ -104,9 +107,11 @@ public class SurvivalMode extends GameMode {
         all.addAll(w.map.spawnsBlue);
         Vector2 best = all.first();
         float bs = -1;
-        for (Vector2 s : all) {
+        for (int i35_ = 0; i35_ < all.size; i35_++) {
+            Vector2 s = all.get(i35_);
             float md = 5000;
-            for (Player q : w.players) {
+            for (int i36_ = 0; i36_ < w.players.size; i36_++) {
+                Player q = w.players.get(i36_);
                 if (!q.alive || isEnemy(q)) continue;
                 float dx = q.x - s.x, dy = q.y - s.y;
                 md = Math.min(md, (float) Math.sqrt(dx * dx + dy * dy));
@@ -161,9 +166,13 @@ public class SurvivalMode extends GameMode {
             }
         }
         enemiesAlive = 0;
-        for (Player p : w.players) if (isEnemy(p) && p.alive) enemiesAlive++;
+        for (int i37_ = 0; i37_ < w.players.size; i37_++) {
+            Player p = w.players.get(i37_); if (isEnemy(p) && p.alive) enemiesAlive++;
+        }
         boolean humansLeft = false;
-        for (Player p : w.players) if (!isEnemy(p) && (p.alive || p.lives > 0)) humansLeft = true;
+        for (int i38_ = 0; i38_ < w.players.size; i38_++) {
+            Player p = w.players.get(i38_); if (!isEnemy(p) && (p.alive || p.lives > 0)) humansLeft = true;
+        }
         if (!humansLeft) {
             over = true;
             winnerTeam = C.TEAM_BLUE;
@@ -183,7 +192,8 @@ public class SurvivalMode extends GameMode {
             if (toSpawn == 0 && enemiesAlive == 0) {
                 state = BREAK;
                 timer = 7f;
-                for (Player p : w.players) {
+                for (int i39_ = 0; i39_ < w.players.size; i39_++) {
+                    Player p = w.players.get(i39_);
                     if (isEnemy(p)) continue;
                     if (p.alive) {
                         p.health = C.HEALTH_MAX;
@@ -225,7 +235,8 @@ public class SurvivalMode extends GameMode {
         // inimigos cacam o humano mais proximo
         Player best = null;
         float bd = 1e9f;
-        for (Player q : w.players) {
+        for (int i40_ = 0; i40_ < w.players.size; i40_++) {
+            Player q = w.players.get(i40_);
             if (!q.alive || isEnemy(q)) continue;
             float d = bot.distTo(q);
             if (d < bd) {

@@ -79,9 +79,19 @@ public final class Discovery {
                     socket.setSoTimeout(400);
                     byte[] ping = Net.DISCOVER.getBytes(StandardCharsets.UTF_8);
                     byte[] buf = new byte[512];
-                    long lastPing = 0;
+                    long lastPing = 0, lastSweep = 0;
                     while (running) {
                         long now = System.currentTimeMillis();
+                        // varredura da sub-rede (alguns roteadores e hotspots bloqueiam broadcast)
+                        if (now - lastSweep > 3500) {
+                            lastSweep = now;
+                            for (InetAddress target : Net.sweepTargets()) {
+                                try {
+                                    socket.send(new DatagramPacket(ping, ping.length, target, Net.UDP_PORT));
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
                         if (now - lastPing > 1200) {
                             lastPing = now;
                             for (InetAddress b : Net.broadcastAddresses()) {

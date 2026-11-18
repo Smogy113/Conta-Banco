@@ -36,13 +36,30 @@ public class Audio {
         play(name, x, y, 1f, 1f);
     }
 
+    /** volume extra (replays tocam mais baixo) */
+    public float volumeScale = 1f;
+    /** tom (camera lenta deixa o som mais grave) */
+    public float pitchScale = 1f;
+    private final float[] recent = new float[10];
+    private int recentIdx;
+
     public void play(String name, float x, float y, float vol, float pitch) {
         if (muted || settings.sfxVolume <= 0) return;
         Sound s = assets.sound(name);
         if (s == null) return;
         float last = lastPlay.get(name, -1f);
-        if (time - last < 0.03f) return;
+        if (time - last < 0.035f) return;
+        // limite global: muitos sons no mesmo instante engasgam o Android
+        int busy = 0;
+        for (float r : recent) if (time - r < 0.1f) busy++;
+        if (busy >= recent.length && !Float.isNaN(x)) {
+            float dx = x - listenerX, dy = y - listenerY;
+            if (dx * dx + dy * dy > 300 * 300) return;
+        }
+        recent[recentIdx] = time;
+        recentIdx = (recentIdx + 1) % recent.length;
         lastPlay.put(name, time);
+        vol *= volumeScale;
         float v = settings.sfxVolume * vol, pan = 0;
         if (!Float.isNaN(x)) {
             float dx = x - listenerX, dy = y - listenerY;
@@ -52,7 +69,7 @@ public class Audio {
             v *= 0.25f + 0.75f * att * att;
             pan = MathUtils.clamp(dx / 800f, -0.8f, 0.8f);
         }
-        s.play(MathUtils.clamp(v, 0, 1), pitch * MathUtils.random(0.94f, 1.06f), pan);
+        s.play(MathUtils.clamp(v, 0, 1), MathUtils.clamp(pitch * pitchScale * MathUtils.random(0.94f, 1.06f), 0.5f, 2f), pan);
     }
 
     /** Loop do jetpack do jogador local. */
@@ -81,7 +98,7 @@ public class Audio {
     }
 
     public void vibrate(int ms) {
-        if (settings.vibration && !muted) {
+        if (settings.vibration && !muted && volumeScale >= 1f) {
             try {
                 Gdx.input.vibrate(ms);
             } catch (Exception ignored) {

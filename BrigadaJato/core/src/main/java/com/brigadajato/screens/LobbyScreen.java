@@ -57,10 +57,17 @@ public class LobbyScreen extends BaseScreen {
         panel.add(info).row();
         if (host != null) {
             List<String> ips = Net.localIps();
-            panel.add(label(I18n.f("local_ip", ips.isEmpty() ? "?" : joinIps(ips)), "gray")).row();
+            Table ipChip = new Table(skin);
+            ipChip.setBackground("chip");
+            ipChip.pad(6, 18, 6, 18);
+            ipChip.add(label(I18n.t("room_ip"), "small")).padRight(10);
+            ipChip.add(label(ips.isEmpty() ? "?" : ips.get(0), "big"));
+            panel.add(ipChip).row();
+            if (ips.size() > 1) panel.add(label(I18n.t("other_ips") + " " + joinIps(ips.subList(1, ips.size())), "gray")).row();
+            if (!Net.onLocalNetwork()) panel.add(label(I18n.t("no_wifi"), "yellow-small")).row();
         }
         players.top();
-        panel.add(players).width(640).height(300).row();
+        panel.add(players).width(640).height(260).row();
         status = label(error != null ? error : (host != null ? "" : I18n.t("connecting")), "small");
         panel.add(status).row();
         Table buttons = new Table();
@@ -116,7 +123,7 @@ public class LobbyScreen extends BaseScreen {
         lastSig = sig.toString();
         String map = BrigadaJatoGame.loadMap(cfg.mapId).name;
         if (!I18n.pt) map = BrigadaJatoGame.loadMap(cfg.mapId).nameEn;
-        info.setText((I18n.pt ? cfg.mode.pt : cfg.mode.en) + "  •  " + map + "  •  " + I18n.t("bots") + ": " + cfg.bots + "  •  " + I18n.t("diff" + cfg.difficulty));
+        info.setText((I18n.pt ? cfg.mode.pt : cfg.mode.en) + "  ·  " + map + "  ·  " + I18n.t("bots") + ": " + cfg.bots + "  ·  " + I18n.t("diff" + cfg.difficulty));
         players.clearChildren();
         boolean teams = cfg.mode.teams && cfg.mode != ModeType.SURVIVAL && cfg.mode != ModeType.TRAINING;
         for (HostSession.Entry e : list) {
@@ -157,7 +164,8 @@ public class LobbyScreen extends BaseScreen {
             }
             if (client.kicked != null) {
                 client.close();
-                go(new MultiplayerScreen(game, I18n.t("conn_failed") + " (" + client.kicked + ")"));
+                String why = "ingame".equals(client.kicked) ? I18n.t("room_in_game") : ("version".equals(client.kicked) ? I18n.t("room_version") : client.kicked);
+                go(new MultiplayerScreen(game, I18n.t("conn_failed") + " " + why));
                 return;
             }
             if (client.startedWorld != null) {

@@ -47,6 +47,8 @@ public class WorldRenderer implements Disposable {
 
     public float shake;
     public float time;
+    /** desenhando um replay (nao cria balas visuais a partir dos tiros) */
+    public boolean replayMode;
 
     private static class Beam {
         float x1, y1, x2, y2, life;
@@ -76,7 +78,7 @@ public class WorldRenderer implements Disposable {
         fx.clear();
         beams.clear();
         texts.clear();
-        fx.quality = settings.highQuality ? 1f : 0.45f;
+        applySettings();
         if (tileTex != null) tileTex.dispose();
         if (skyTex != null) skyTex.dispose();
         Theme t = w.map.theme;
@@ -217,6 +219,20 @@ public class WorldRenderer implements Disposable {
             for (int i = 0; i < 140; i++) stars.add(new float[]{r.nextFloat(), r.nextFloat(), 0.6f + r.nextFloat() * 1.6f, r.nextFloat() * 6});
     }
 
+    /** Reaplica as opcoes visuais (qualidade, particulas, contorno). */
+    public void applySettings() {
+        float q = settings.quality == 0 ? 0.35f : (settings.quality == 1 ? 0.65f : (settings.quality == 2 ? 1f : 1.25f));
+        fx.quality = Math.min(1f, q * settings.particles);
+        SoldierPainter.outlineWidth = settings.outline == 0 ? 0.6f : (settings.outline == 1 ? 1.2f : (settings.outline == 2 ? 1.7f : 2.4f));
+    }
+
+    private int bloodColor() {
+        return settings.blood == 1 ? 0x76c442 : 0xb71c1c;
+    }
+
+    /** Marcador de acerto na mira (0..1). */
+    public float hitMarker;
+
     // ------------------------------------------------------------------ eventos -> efeitos
 
     public void handle(WorldEvent e, Player local) {
@@ -250,7 +266,7 @@ public class WorldRenderer implements Disposable {
                         s.drag = 3;
                     }
                 }
-                if (!w.authority) w.spawnVisualShot(e);
+                if (!w.authority && !replayMode) w.spawnVisualShot(e);
                 float vol = e.a == localId ? 0.75f : 1f;
                 audio.play(wt.sound, e.x, e.y, vol, 1f);
                 if (e.a == localId) {
@@ -280,9 +296,14 @@ public class WorldRenderer implements Disposable {
                 explosion(e.x, e.y, e.f, local);
                 break;
             case HIT: {
-                int n = settings.highQuality ? 6 : 3;
+                int n = settings.blood == 2 ? 0 : (settings.highQuality ? 6 : 3);
+                if (e.b == localId) hitMarker = 1f;
+                if (settings.blood == 2 && !fx.skip()) {
+                    Particles.P sp = fx.spawn(Particles.LINE, e.x, e.y, MathUtils.random(-200, 200), MathUtils.random(-50, 200), 0.18f, 2.5f, 0.5f, 0xffffff, 1);
+                    sp.additive = true;
+                }
                 for (int i = 0; i < n; i++) {
-                    Particles.P b = fx.spawn(Particles.CIRCLE, e.x, e.y, MathUtils.random(-160, 160), MathUtils.random(-30, 220), 0.6f, MathUtils.random(1.8f, 3.6f), 0.8f, 0xb71c1c, 1);
+                    Particles.P b = fx.spawn(Particles.CIRCLE, e.x, e.y, MathUtils.random(-160, 160), MathUtils.random(-30, 220), 0.6f, MathUtils.random(1.8f, 3.6f), 0.8f, bloodColor(), 1);
                     b.grav = 900;
                     b.a2 = 0.8f;
                 }
@@ -313,8 +334,8 @@ public class WorldRenderer implements Disposable {
                     Particles.P h = fx.spawn(Particles.CIRCLE, e.x, e.y + 14, MathUtils.random(-140, 140), 420, 1.4f, 8, 8, v.look.skin, 1);
                     h.grav = 1100;
                 }
-                for (int i = 0; i < 12; i++) {
-                    Particles.P b = fx.spawn(Particles.CIRCLE, e.x, e.y, MathUtils.random(-260, 260), MathUtils.random(-50, 320), 0.8f, MathUtils.random(2, 4.5f), 1, 0xb71c1c, 1);
+                for (int i = 0; i < (settings.blood == 2 ? 0 : 12); i++) {
+                    Particles.P b = fx.spawn(Particles.CIRCLE, e.x, e.y, MathUtils.random(-260, 260), MathUtils.random(-50, 320), 0.8f, MathUtils.random(2, 4.5f), 1, bloodColor(), 1);
                     b.grav = 900;
                 }
                 audio.at("death", e.x, e.y);
@@ -407,7 +428,7 @@ public class WorldRenderer implements Disposable {
         flash.additive = true;
         Particles.P ring = fx.spawn(Particles.RING, x, y, 0, 0, 0.35f, radius * 0.25f, radius * 1.05f, 0xffffff, 0.8f);
         ring.a2 = 0;
-        int fire = (int) (14 * k * (settings.highQuality ? 1 : 0.5f));
+        int fire = (int) (12 * k * fx.quality) + 2;
         for (int i = 0; i < fire; i++) {
             float ang = MathUtils.random(MathUtils.PI2), sp = MathUtils.random(40, 260) * k;
             Particles.P f = fx.spawn(Particles.SOFT, x, y, MathUtils.cos(ang) * sp, MathUtils.sin(ang) * sp + 60, MathUtils.random(0.35f, 0.7f), MathUtils.random(18, 34) * k, 6, i % 2 == 0 ? 0xffb300 : 0xff6d00, 1);
@@ -420,13 +441,13 @@ public class WorldRenderer implements Disposable {
             s.drag = 2;
             s.grav = -40;
         }
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < (int) (8 * fx.quality) + 2; i++) {
             Particles.P d = fx.spawn(Particles.RECT, x, y, MathUtils.random(-380, 380), MathUtils.random(80, 520), 1.2f, MathUtils.random(4, 9), 4, world.map.theme.tileDark, 1);
             d.grav = 1200;
             d.vrot = MathUtils.random(-900, 900);
             d.a2 = 1;
         }
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < (int) (10 * fx.quality) + 2; i++) {
             float ang = MathUtils.random(MathUtils.PI2);
             Particles.P s = fx.spawn(Particles.LINE, x, y, MathUtils.cos(ang) * 600, MathUtils.sin(ang) * 600, 0.3f, 4, 1, 0xffe082, 1);
             s.additive = true;
@@ -471,21 +492,30 @@ public class WorldRenderer implements Disposable {
             if (t.life <= 0) texts.removeIndex(i);
         }
         shake = Math.max(0, shake - dt * 30);
+        hitMarker = Math.max(0, hitMarker - dt * 5);
+        updateAmbient(dt);
         // efeitos continuos (jetpack, foguetes, chamas)
         if (world == null) return;
-        for (Player p : world.players) {
+        for (int i50_ = 0; i50_ < world.players.size; i50_++) {
+            Player p = world.players.get(i50_);
             if (!p.alive || !p.jetting) continue;
             if (fx.skip()) continue;
             float nx = p.x - p.facing * 10, ny = p.y + (p.crouching ? 4 : 9);
             boolean boost = p.jetBoost > 0;
-            Particles.P f = fx.spawn(Particles.SOFT, nx + MathUtils.random(-2, 2), ny, MathUtils.random(-20, 20) + p.vx * 0.2f, -260 + p.vy * 0.2f, 0.16f, 7, 2, boost ? 0x40c4ff : 0xffab00, 1);
-            f.additive = true;
+            int flameCol = boost ? 0x40c4ff : p.look.flameColor(time + p.id);
+            int jets = p.look.jetpack == 1 ? 2 : 1;
+            for (int k = 0; k < jets; k++) {
+                float off = jets == 2 ? (k == 0 ? -2.7f : 2.7f) : 0;
+                Particles.P f = fx.spawn(Particles.SOFT, nx + off + MathUtils.random(-2, 2), ny, MathUtils.random(-20, 20) + p.vx * 0.2f, -260 + p.vy * 0.2f, 0.16f, jets == 2 ? 5 : 7, 2, flameCol, 1);
+                f.additive = true;
+            }
             if (MathUtils.randomBoolean(0.5f)) {
                 Particles.P s = fx.spawn(Particles.SOFT, nx, ny - 8, MathUtils.random(-30, 30), -80, 0.6f, 5, 16, 0xbdbdbd, 0.35f);
                 s.drag = 2;
             }
         }
-        for (Projectile pr : world.projectiles) {
+        for (int i51_ = 0; i51_ < world.projectiles.size; i51_++) {
+            Projectile pr = world.projectiles.get(i51_);
             if (pr.kind == Projectile.Kind.ROCKET && !fx.skip()) {
                 Particles.P s = fx.spawn(Particles.SOFT, pr.x, pr.y, MathUtils.random(-20, 20), MathUtils.random(-20, 20), 0.7f, 5, 16, 0xcfcfcf, 0.5f);
                 s.drag = 2;
@@ -501,13 +531,19 @@ public class WorldRenderer implements Disposable {
         float vw = cam.viewportWidth * cam.zoom, vh = cam.viewportHeight * cam.zoom;
         float minX = cam.position.x - vw / 2, minY = cam.position.y - vh / 2;
         float maxX = minX + vw, maxY = minY + vh;
+        viewMinX = minX;
+        viewMinY = minY;
+        viewW = vw;
+        viewH = vh;
+        cam_zoom = cam.zoom;
         drawBackground(d, cam, minX, minY, vw, vh);
         drawZones(d, w);
         drawTiles(d, w.map, minX, minY, maxX, maxY);
         drawPickups(d, w, minX, minY, maxX, maxY);
         drawModeObjects(d, w);
         drawProjectilesSolid(d, w, minX, minY, maxX, maxY);
-        for (Player p : w.players) {
+        for (int i52_ = 0; i52_ < w.players.size; i52_++) {
+            Player p = w.players.get(i52_);
             if (!p.alive) continue;
             if (p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80) continue;
             drawPlayer(d, p, w);
@@ -516,7 +552,8 @@ public class WorldRenderer implements Disposable {
         d.additive(true);
         drawProjectilesGlow(d, w, minX, minY, maxX, maxY);
         fx.draw(d, true, minX, minY, maxX, maxY);
-        for (Beam b : beams) {
+        for (int i53_ = 0; i53_ < beams.size; i53_++) {
+            Beam b = beams.get(i53_);
             float t = b.life / 0.28f;
             d.color(0.2f, 1f, 0.85f, 0.6f * t);
             d.line(b.x1, b.y1, b.x2, b.y2, 9 * t + 2);
@@ -524,8 +561,9 @@ public class WorldRenderer implements Disposable {
             d.line(b.x1, b.y1, b.x2, b.y2, 3 * t + 1);
         }
         d.additive(false);
-        drawNames(d, w, local, minX, minY, maxX, maxY);
-        for (FloatText t : texts) {
+        if (settings.showNames) drawNames(d, w, local, minX, minY, maxX, maxY);
+        for (int i54_ = 0; i54_ < texts.size; i54_++) {
+            FloatText t = texts.get(i54_);
             BitmapFont f = a.normal;
             f.getData().setScale(t.scale / a.fontScale * 0.9f);
             f.setColor(t.r, t.g, t.b, MathUtils.clamp(t.life * 2, 0, 1));
@@ -543,7 +581,8 @@ public class WorldRenderer implements Disposable {
         float camX = cam.position.x, camY = cam.position.y;
         float period = 2400;
         // estrelas
-        for (float[] st : stars) {
+        for (int i55_ = 0; i55_ < stars.size; i55_++) {
+            float[] st = stars.get(i55_);
             float sx = minX + st[0] * vw, sy = minY + vh * 0.25f + st[1] * vh * 0.75f;
             d.color(1, 1, 1, 0.45f + 0.35f * MathUtils.sin(time * 2 + st[3]));
             d.circle(sx, sy, st[2]);
@@ -575,7 +614,8 @@ public class WorldRenderer implements Disposable {
         }
         // nuvens
         if (t != Theme.FACTORY && t != Theme.ICE && t != Theme.SPACE) {
-            for (float[] c : clouds) {
+            for (int i56_ = 0; i56_ < clouds.size; i56_++) {
+                float[] c = clouds.get(i56_);
                 float k = 0.1f;
                 float cx = wrap(c[0] + time * c[3] - camX * k, period) + camX - period / 2;
                 float cy = minY + vh * 0.55f + c[1] * 0.6f;
@@ -599,7 +639,8 @@ public class WorldRenderer implements Disposable {
     private void layer(Draw d, Array<float[]> shapes, float k, int color, float alpha, float camX, float camY, float period, int depth, Theme t) {
         float baseY = (camY - world.map.worldH() * 0.5f) * (1 - k * 0.7f) + world.map.worldH() * (0.18f - depth * 0.06f);
         float half = period / 2;
-        for (float[] s : shapes) {
+        for (int i57_ = 0; i57_ < shapes.size; i57_++) {
+            float[] s = shapes.get(i57_);
             float sx = wrap(s[0] - camX * k + half, period) - half;
             float x = camX + sx;
             float w = s[2], h = s[3];
@@ -784,27 +825,38 @@ public class WorldRenderer implements Disposable {
         }
     }
 
+    private int pickupGlow(Pickup pk) {
+        switch (pk.type) {
+            case HEALTH: return 0xff8a80;
+            case ARMOR: return 0x82b1ff;
+            case DAMAGE: return 0xff5252;
+            case JETPACK: return 0x40c4ff;
+            case SPEED: return 0xffff00;
+            default: return 0xfff59d;
+        }
+    }
+
     private void drawPickups(Draw d, World w, float minX, float minY, float maxX, float maxY) {
-        for (Pickup pk : w.pickups) {
+        // 1) todos os brilhos de uma vez (troca de modo de mistura so 2x por quadro)
+        d.additive(true);
+        for (int i = 0; i < w.pickups.size; i++) {
+            Pickup pk = w.pickups.get(i);
+            if (!pk.active) continue;
+            if (pk.x < minX - 40 || pk.x > maxX + 40 || pk.y < minY - 40 || pk.y > maxY + 40) continue;
+            if (pk.dropped && pk.life < 4 && (time * 6) % 1 < 0.4f) continue;
+            float cy = pk.y + 16 + MathUtils.sin(pk.bob * 3) * 3;
+            d.rgb(pickupGlow(pk), 0.35f + 0.1f * MathUtils.sin(pk.bob * 4));
+            d.soft(pk.x, cy, 26);
+        }
+        d.additive(false);
+        // 2) os itens
+        for (int i58_ = 0; i58_ < w.pickups.size; i58_++) {
+            Pickup pk = w.pickups.get(i58_);
             if (!pk.active) continue;
             if (pk.x < minX - 40 || pk.x > maxX + 40 || pk.y < minY - 40 || pk.y > maxY + 40) continue;
             float bob = MathUtils.sin(pk.bob * 3) * 3;
             float cx = pk.x, cy = pk.y + 16 + bob;
             if (pk.dropped && pk.life < 4 && (time * 6) % 1 < 0.4f) continue;
-            // brilho
-            d.additive(true);
-            int glow = 0xfff59d;
-            switch (pk.type) {
-                case HEALTH: glow = 0xff8a80; break;
-                case ARMOR: glow = 0x82b1ff; break;
-                case DAMAGE: glow = 0xff5252; break;
-                case JETPACK: glow = 0x40c4ff; break;
-                case SPEED: glow = 0xffff00; break;
-                default: break;
-            }
-            d.rgb(glow, 0.35f + 0.1f * MathUtils.sin(pk.bob * 4));
-            d.soft(cx, cy, 26);
-            d.additive(false);
             switch (pk.type) {
                 case WEAPON:
                     if (pk.weapon != null) painter.drawGun(d, pk.weapon, cx, cy, -8 + MathUtils.sin(pk.bob * 2) * 6, 1.05f, 1);
@@ -863,7 +915,8 @@ public class WorldRenderer implements Disposable {
     }
 
     private void drawProjectilesSolid(Draw d, World w, float minX, float minY, float maxX, float maxY) {
-        for (Projectile pr : w.projectiles) {
+        for (int i59_ = 0; i59_ < w.projectiles.size; i59_++) {
+            Projectile pr = w.projectiles.get(i59_);
             if (pr.x < minX - 60 || pr.x > maxX + 60 || pr.y < minY - 60 || pr.y > maxY + 60) continue;
             switch (pr.kind) {
                 case ROCKET: {
@@ -916,7 +969,8 @@ public class WorldRenderer implements Disposable {
     }
 
     private void drawProjectilesGlow(Draw d, World w, float minX, float minY, float maxX, float maxY) {
-        for (Projectile pr : w.projectiles) {
+        for (int i60_ = 0; i60_ < w.projectiles.size; i60_++) {
+            Projectile pr = w.projectiles.get(i60_);
             if (pr.x < minX - 60 || pr.x > maxX + 60 || pr.y < minY - 60 || pr.y > maxY + 60) continue;
             if (pr.kind == Projectile.Kind.BULLET) {
                 float sp = (float) Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) + 1;
@@ -967,6 +1021,8 @@ public class WorldRenderer implements Disposable {
         pose.hasBomb = p.hasBomb;
         pose.shield = p.spawnShield > 0;
         pose.alpha = 1;
+        pose.vx = p.vx;
+        pose.action = 0;
         if (p.dmgBoost > 0) {
             d.additive(true);
             d.color(1, 0.2f, 0.2f, 0.35f + 0.1f * MathUtils.sin(time * 12));
@@ -983,7 +1039,8 @@ public class WorldRenderer implements Disposable {
 
     private void drawNames(Draw d, World w, Player local, float minX, float minY, float maxX, float maxY) {
         BitmapFont f = a.small;
-        for (Player p : w.players) {
+        for (int i61_ = 0; i61_ < w.players.size; i61_++) {
+            Player p = w.players.get(i61_);
             if (!p.alive || p == local) continue;
             if (p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80) continue;
             boolean ally = local != null && w.config.mode.teams && p.team == local.team;
@@ -1005,17 +1062,60 @@ public class WorldRenderer implements Disposable {
     }
 
     private void drawCrosshair(Draw d, Player local, float cx, float cy) {
-        Projectile.Kind k = local.gun() != null ? local.gun().type.kind : Projectile.Kind.BULLET;
-        float r = 9;
-        d.rgb(0x000000, 0.5f);
-        d.ring(cx, cy, r + 1.5f);
-        d.rgb(0xffffff, 0.9f);
-        d.ring(cx, cy, r);
-        d.rect(cx - 1, cy + r - 2, 2, 7);
-        d.rect(cx - 1, cy - r - 5, 2, 7);
-        d.rect(cx + r - 2, cy - 1, 7, 2);
-        d.rect(cx - r - 5, cy - 1, 7, 2);
-        if (k == Projectile.Kind.FRAG) d.circle(cx, cy, 2);
+        float size = 18 * cam_zoom;
+        Icons.crosshair(d, cx, cy, size, settings.crosshairStyle, settings.crosshairRgb(), 0.95f);
+        if (hitMarker > 0) {
+            float o = size * 0.45f, l = size * 0.4f;
+            d.rgb(0xffffff, hitMarker);
+            d.line(cx - o, cy - o, cx - o - l, cy - o - l, 2.5f * cam_zoom);
+            d.line(cx + o, cy - o, cx + o + l, cy - o - l, 2.5f * cam_zoom);
+            d.line(cx - o, cy + o, cx - o - l, cy + o + l, 2.5f * cam_zoom);
+            d.line(cx + o, cy + o, cx + o + l, cy + o + l, 2.5f * cam_zoom);
+        }
+    }
+
+    private float cam_zoom = 1f;
+
+    // ------------------------------------------------------------------ particulas de ambiente
+
+    private float ambientTimer;
+    private float viewMinX, viewMinY, viewW = 1000, viewH = 600;
+
+    private void updateAmbient(float dt) {
+        if (!settings.ambient || world == null || settings.quality == 0) return;
+        ambientTimer -= dt;
+        if (ambientTimer > 0) return;
+        Theme t = world.map.theme;
+        ambientTimer = t == Theme.ICE ? 0.03f : 0.09f;
+        float x = viewMinX + MathUtils.random(viewW), y = viewMinY + viewH + 10;
+        switch (t) {
+            case ICE: { // neve
+                Particles.P p = fx.spawn(Particles.CIRCLE, x, y, MathUtils.random(-20, 20), -MathUtils.random(40, 80), 9f, MathUtils.random(1.2f, 2.8f), 1.5f, 0xffffff, 0.85f);
+                p.a2 = 0.6f;
+                break;
+            }
+            case JUNGLE: { // folhas
+                Particles.P p = fx.spawn(Particles.RECT, x, y, MathUtils.random(-40, 20), -MathUtils.random(30, 60), 9f, 6, 6, MathUtils.randomBoolean() ? 0x7cb342 : 0x558b2f, 0.9f);
+                p.vrot = MathUtils.random(-160, 160);
+                p.a2 = 0.8f;
+                break;
+            }
+            case DESERT: { // poeira levada pelo vento
+                Particles.P p = fx.spawn(Particles.SOFT, viewMinX - 10, viewMinY + MathUtils.random(viewH), MathUtils.random(80, 160), MathUtils.random(-10, 10), 7f, MathUtils.random(3, 8), 10, 0xe9c46a, 0.25f);
+                break;
+            }
+            case SPACE: { // poeira estelar
+                Particles.P p = fx.spawn(Particles.SOFT, x, viewMinY + MathUtils.random(viewH), 0, 6, 3f, 2, 0, 0xb3e5fc, 0.6f);
+                p.additive = true;
+                break;
+            }
+            case FACTORY: { // fuligem
+                Particles.P p = fx.spawn(Particles.CIRCLE, x, y, MathUtils.random(-10, 10), -MathUtils.random(25, 45), 10f, 1.4f, 1f, 0x424242, 0.6f);
+                break;
+            }
+            default:
+                break;
+        }
     }
 
     @Override

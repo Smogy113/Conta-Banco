@@ -3,12 +3,12 @@
 Jogo de tiro 2D com jetpack para celular (Android) e PC, feito em **Java + libGDX**.
 Soldadinhos cartoon, duplo joystick, bots com inteligência artificial e **multiplayer no Wi‑Fi local** (sem internet).
 
-Tudo é original: personagens, mapas, sons e música foram gerados por código (pasta `tools/`).
+Tudo é original: personagens, mapas, sons e música foram gerados por código (pasta `tools/`). Fontes: Lilita One (OFL) e Luckiest Guy (Apache 2.0), licenças em `assets/fonts/`.
 
 | | |
 |---|---|
-| ![Menu](docs/menu.jpg) | ![Caverna Gelada](docs/caverna.jpg) |
-| ![Base Lunar](docs/lua.jpg) | ![Plantar a Bomba](docs/bomba.jpg) |
+| ![Menu](docs/menu.jpg) | ![Templo da Selva](docs/selva.jpg) |
+| ![Visuais do soldado](docs/visuais.jpg) | ![Killcam](docs/killcam.jpg) |
 
 ## Como jogar no celular
 
@@ -60,7 +60,11 @@ Tudo é original: personagens, mapas, sons e música foram gerados por código (
 - **Itens**: vida, granadas, colete, dano em dobro, jetpack infinito e super velocidade.
 - **7 mapas**: Fortaleza do Deserto, Fábrica Abandonada, Ilhas do Céu, Caverna Gelada, Templo da Selva, Base Lunar (gravidade baixa!) e Campo de Treino.
 - **Bots** com 3 dificuldades: buscam caminho (algoritmo de Dijkstra), economizam o jetpack, pegam armas e itens, jogam granadas e seguem o objetivo de cada modo.
-- **Personalização**: nome, cores do uniforme, chapéu, óculos, pele e 7 estilos de chapéu.
+- **Personalização enorme**: 14 chapéus, 7 cabelos, 6 olhos, 6 bocas, 5 barbas, 7 óculos/máscaras, 7 estampas de uniforme, calça, 4 acessórios (cachecol, capa, colete, medalha), 5 jetpacks, 7 cores de chama (inclusive arco-íris), 7 skins de arma e dezenas de cores.
+- **Ver o personagem de vários jeitos**: 6 poses (parado, andando, voando, atirando, agachado, festa), virar, zoom, 7 cenários de fundo, vitrine com todas as armas e "testar em jogo".
+- **Killcam**: quando você morre, um replay rápido mostra a jogada do ponto de vista de quem te matou (com câmera lenta no final).
+- **Melhores jogadas**: no fim da partida, as 3 melhores jogadas (multi-abates, tiros na cabeça, bazucadas, bandeira, bomba) passam com câmera lenta, zoom e barras de cinema.
+- **Opções visuais**: qualidade, limite de FPS (30/60/sem limite), partículas, sangue (vermelho/verde/desligado), filtro de cor (vibrante, retrô, noir, sépia, noturno, quente), contorno, 5 miras e 6 cores, tremor da tela, distância da câmera, tamanho do HUD, minimapa, nomes, clima (neve, folhas, poeira) e modo desempenho.
 - **Estatísticas**: partidas, vitórias, abates, nível e recorde da sobrevivência.
 - **Português e inglês** (troca nas configurações).
 

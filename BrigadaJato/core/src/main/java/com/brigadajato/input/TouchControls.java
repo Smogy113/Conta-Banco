@@ -9,6 +9,7 @@ import com.badlogic.gdx.utils.Align;
 import com.brigadajato.I18n;
 import com.brigadajato.Settings;
 import com.brigadajato.render.Draw;
+import com.brigadajato.render.Icons;
 import com.brigadajato.render.SoldierPainter;
 import com.brigadajato.world.Gun;
 import com.brigadajato.world.Player;
@@ -377,29 +378,31 @@ public class TouchControls extends InputAdapter {
         // painel da arma (toque para trocar)
         if (visible[B_SWAP]) {
             float x = bx[B_SWAP], y = by[B_SWAP];
-            float w = 230 * settings.controlsScale, h = 76 * settings.controlsScale;
-            d.rgb(0x000000, op * 0.5f);
-            d.rrect(x - w / 2, y - h / 2, w, h);
+            float w = 236 * settings.controlsScale, h = 80 * settings.controlsScale;
+            d.color(1, 1, 1, Math.min(1, op + 0.25f));
+            Draw.patch(d, d.a.uiChip, x - w / 2, y - h / 2, w, h, 14);
             Gun g = p.gun();
             if (g != null) {
-                painter.drawGun(d, g.type, x - w * 0.2f, y + 4, 0, 1.25f * settings.controlsScale, Math.min(1, op + 0.3f));
-                normal.setColor(g.mag == 0 ? 1 : 1, g.mag == 0 ? 0.3f : 1, g.mag == 0 ? 0.3f : 1, 1);
-                normal.draw(d.batch, g.mag + "/" + g.reserve, x + w * 0.28f, y + 14, 0, Align.center, false);
-                small.setColor(1, 1, 1, 0.9f);
-                small.draw(d.batch, I18n.pt ? g.type.pt : g.type.en, x + w * 0.28f, y - 12, 0, Align.center, false);
+                painter.drawGun(d, g.type, p.look.gunSkin, x - w * 0.22f, y + 4, 0, 1.25f * settings.controlsScale, 1);
+                normal.setColor(1, g.mag == 0 ? 0.35f : 1, g.mag == 0 ? 0.35f : 1, 1);
+                normal.draw(d.batch, ammoText.of(g.mag, g.reserve), x + w * 0.27f, y + 16, 0, Align.center, false);
+                small.setColor(0.85f, 0.85f, 0.85f, 1);
+                small.draw(d.batch, I18n.pt ? g.type.pt : g.type.en, x + w * 0.27f, y - 10, 0, Align.center, false);
             }
             Gun o = p.otherGun();
             if (o != null) {
-                d.rgb(0xffffff, op * 0.3f);
-                d.rrect(x - w / 2 + 6, y + h / 2 + 4, w * 0.55f, 26 * settings.controlsScale);
-                painter.drawGun(d, o.type, x - w / 2 + 6 + w * 0.27f, y + h / 2 + 17 * settings.controlsScale, 0, 0.7f * settings.controlsScale, op + 0.2f);
-                small.setColor(1, 1, 1, 0.8f);
-                small.draw(d.batch, "⇄", x + w * 0.2f, y + h / 2 + 24, 0, Align.center, false);
+                float ow = w * 0.62f, oh = 30 * settings.controlsScale;
+                d.color(1, 1, 1, Math.min(1, op + 0.1f));
+                Draw.patch(d, d.a.uiChip, x - w / 2, y + h / 2 + 6, ow, oh, 12);
+                painter.drawGun(d, o.type, p.look.gunSkin, x - w / 2 + ow * 0.4f, y + h / 2 + 6 + oh / 2, 0, 0.75f * settings.controlsScale, 0.95f);
+                Icons.swap(d, x - w / 2 + ow - 16, y + h / 2 + 6 + oh / 2, 22, 0.9f);
             }
             normal.setColor(1, 1, 1, 1);
         }
         small.setColor(1, 1, 1, 1);
     }
+
+    private final com.brigadajato.render.Num.Pair ammoText = new com.brigadajato.render.Num.Pair("/");
 
     private void stick(Draw d, float bx, float by, float kx, float ky, float op, int knobCol) {
         float dx = kx - bx, dy = ky - by;
@@ -425,31 +428,24 @@ public class TouchControls extends InputAdapter {
         switch (b) {
             case B_GRENADE: {
                 boolean mine = p.grenadeType == 1;
-                if (mine) {
-                    d.batch.draw(d.a.half, x - 14, y - 6, 28, 14);
-                } else {
-                    d.circle(x, y - 3, 12);
-                    d.rect(x - 4, y + 8, 8, 6);
-                }
+                if (mine) Icons.mine(d, x - 4, y, r * 0.9f, true);
+                else Icons.grenade(d, x - 4, y, r * 0.85f);
                 normal.setColor(1, 1, 1, 1);
-                normal.draw(d.batch, "" + (mine ? p.mines : p.frags), x + r * 0.55f, y - r * 0.25f, 0, Align.center, false);
+                normal.draw(d.batch, com.brigadajato.render.Num.of(mine ? p.mines : p.frags), x + r * 0.55f, y - r * 0.2f, 0, Align.center, false);
                 break;
             }
             case B_GTYPE:
-                small.setColor(1, 1, 1, 1);
-                small.draw(d.batch, p.grenadeType == 0 ? "M" : "G", x, y + 8, 0, Align.center, false);
+                if (p.grenadeType == 0) Icons.mine(d, x, y, r * 1.1f, false);
+                else Icons.grenade(d, x, y, r * 1.1f);
                 break;
             case B_RELOAD:
-                d.ring(x, y, r * 0.5f);
-                d.region(d.a.tri, x + r * 0.45f, y + 2, 10, 10, 180);
+                Icons.reload(d, x, y, r * 1.2f, Math.min(1, op + 0.3f));
                 break;
             case B_MELEE:
-                d.circle(x, y, r * 0.38f);
-                d.rect(x - r * 0.38f, y - r * 0.15f, r * 0.76f, r * 0.3f);
+                Icons.fist(d, x, y, r * 1.05f, p.look.skin);
                 break;
             case B_ZOOM:
-                d.ring(x - 3, y + 3, r * 0.42f);
-                d.line(x + r * 0.15f, y - r * 0.15f, x + r * 0.5f, y - r * 0.5f, 4);
+                Icons.magnifier(d, x, y, r * 1.1f, zoomToggled ? 0x0277bd : 0x1a1a1a, Math.min(1, op + 0.3f));
                 break;
             case B_PICKUP:
                 small.setColor(1, 1, 1, 1);

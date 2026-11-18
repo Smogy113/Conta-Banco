@@ -98,7 +98,8 @@ public class CtfMode extends GameMode {
                     continue;
                 }
             }
-            for (Player p : w.players) {
+            for (int i28_ = 0; i28_ < w.players.size; i28_++) {
+                Player p = w.players.get(i28_);
                 if (!p.alive || p.dummy) continue;
                 if (!near(p, fx[t], fy[t], 34)) continue;
                 if (p.team == enemy && p.carryingFlag == 0) {
@@ -185,7 +186,9 @@ public class CtfMode extends GameMode {
 
     private int countTeam(int team) {
         int n = 0;
-        for (Player p : w.players) if (p.team == team) n++;
+        for (int i29_ = 0; i29_ < w.players.size; i29_++) {
+            Player p = w.players.get(i29_); if (p.team == team) n++;
+        }
         return n;
     }
 

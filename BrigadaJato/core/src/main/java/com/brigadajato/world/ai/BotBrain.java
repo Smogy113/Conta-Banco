@@ -212,7 +212,8 @@ public class BotBrain {
         Player best = null;
         float bestD = vision;
         float ex = p.x, ey = p.shoulderY();
-        for (Player q : w.players) {
+        for (int i44_ = 0; i44_ < w.players.size; i44_++) {
+            Player q = w.players.get(i44_);
             if (!q.alive || !w.enemies(p, q)) continue;
             if (q.dummy && !p.dummy && w.config.mode != com.brigadajato.world.ModeType.TRAINING) continue;
             float d = p.distTo(q);
@@ -389,7 +390,8 @@ public class BotBrain {
     private Pickup nearestItem(World w, Pickup.Type type, float maxDist) {
         Pickup best = null;
         float bd = maxDist;
-        for (Pickup pk : w.pickups) {
+        for (int i45_ = 0; i45_ < w.pickups.size; i45_++) {
+            Pickup pk = w.pickups.get(i45_);
             if (!pk.active || pk.type != type) continue;
             if (type == Pickup.Type.WEAPON && p.has(pk.weapon)) continue;
             float d = dist(pk.x, pk.y);
@@ -418,7 +420,8 @@ public class BotBrain {
         }
         Player near = null;
         float bd = 800;
-        for (Player q : w.players) {
+        for (int i46_ = 0; i46_ < w.players.size; i46_++) {
+            Player q = w.players.get(i46_);
             if (!q.alive || q.dummy) continue;
             float d = p.distTo(q);
             if (d < bd) {

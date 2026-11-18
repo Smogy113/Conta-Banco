@@ -87,7 +87,8 @@ public class World {
     public int balancedTeam() {
         if (!config.mode.teams) return C.TEAM_NONE;
         int r = 0, b = 0;
-        for (Player p : players) {
+        for (int i7_ = 0; i7_ < players.size; i7_++) {
+            Player p = players.get(i7_);
             if (p.team == C.TEAM_RED) r++;
             else if (p.team == C.TEAM_BLUE) b++;
         }
@@ -120,7 +121,8 @@ public class World {
 
     private void spawnMapPickups() {
         int i = 0;
-        for (Vector2 v : map.weaponSpawns) {
+        for (int i8_ = 0; i8_ < map.weaponSpawns.size; i8_++) {
+            Vector2 v = map.weaponSpawns.get(i8_);
             Pickup pk = newPickup(Pickup.Type.WEAPON, v.x, v.y);
             pk.respawnTime = 16;
             if (config.mode == ModeType.TRAINING) {
@@ -133,9 +135,14 @@ public class World {
             }
             i++;
         }
-        for (Vector2 v : map.healthSpawns) newPickup(Pickup.Type.HEALTH, v.x, v.y).respawnTime = 20;
-        for (Vector2 v : map.grenadeSpawns) newPickup(Pickup.Type.GRENADES, v.x, v.y).respawnTime = 22;
-        for (Vector2 v : map.powerSpawns) {
+        for (int i9_ = 0; i9_ < map.healthSpawns.size; i9_++) {
+            Vector2 v = map.healthSpawns.get(i9_); newPickup(Pickup.Type.HEALTH, v.x, v.y).respawnTime = 20;
+        }
+        for (int i10_ = 0; i10_ < map.grenadeSpawns.size; i10_++) {
+            Vector2 v = map.grenadeSpawns.get(i10_); newPickup(Pickup.Type.GRENADES, v.x, v.y).respawnTime = 22;
+        }
+        for (int i11_ = 0; i11_ < map.powerSpawns.size; i11_++) {
+            Vector2 v = map.powerSpawns.get(i11_);
             Pickup pk = newPickup(randomPower(), v.x, v.y);
             pk.randomPower = true;
             pk.respawnTime = 32;
@@ -437,14 +444,32 @@ public class World {
         }
     }
 
-    /** Fracao (0..1) do segmento ate o primeiro bloco solido; 2 se livre. */
+    /**
+     * Fracao (0..1) do segmento ate o primeiro bloco solido; 2 se livre. Percorre a grade bloco a
+     * bloco (DDA), bem mais rapido que amostrar o segmento.
+     */
     public float rayTile(float x0, float y0, float x1, float y1) {
         float dx = x1 - x0, dy = y1 - y0;
-        float len = (float) Math.sqrt(dx * dx + dy * dy);
-        int n = Math.max(1, (int) Math.ceil(len / 5f));
-        for (int i = 1; i <= n; i++) {
-            float t = i / (float) n;
-            if (map.solidAt(x0 + dx * t, y0 + dy * t)) return t;
+        int tx = (int) Math.floor(x0 / C.TILE), ty = (int) Math.floor(y0 / C.TILE);
+        if (map.solid(tx, ty)) return 0f;
+        int stepX = dx > 0 ? 1 : (dx < 0 ? -1 : 0), stepY = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+        float tDeltaX = stepX != 0 ? C.TILE / Math.abs(dx) : Float.MAX_VALUE;
+        float tDeltaY = stepY != 0 ? C.TILE / Math.abs(dy) : Float.MAX_VALUE;
+        float tMaxX = stepX > 0 ? ((tx + 1) * C.TILE - x0) / dx : (stepX < 0 ? (tx * C.TILE - x0) / dx : Float.MAX_VALUE);
+        float tMaxY = stepY > 0 ? ((ty + 1) * C.TILE - y0) / dy : (stepY < 0 ? (ty * C.TILE - y0) / dy : Float.MAX_VALUE);
+        for (int guard = 0; guard < 4096; guard++) {
+            float t;
+            if (tMaxX < tMaxY) {
+                t = tMaxX;
+                tx += stepX;
+                tMaxX += tDeltaX;
+            } else {
+                t = tMaxY;
+                ty += stepY;
+                tMaxY += tDeltaY;
+            }
+            if (t > 1f) return 2f;
+            if (map.solid(tx, ty)) return Math.max(0f, t);
         }
         return 2f;
     }
@@ -622,7 +647,8 @@ public class World {
         e.y = p.centerY();
         Player best = null;
         float bestD = 1e9f;
-        for (Player q : players) {
+        for (int i12_ = 0; i12_ < players.size; i12_++) {
+            Player q = players.get(i12_);
             if (!q.alive || !canHurt(p.id, p.team, q)) continue;
             float dx = q.x - p.x, dy = q.centerY() - p.centerY();
             if (Math.abs(dy) > 40) continue;
@@ -832,7 +858,8 @@ public class World {
             e.y = pr.y;
         }
         if (explodeOnPlayer) {
-            for (Player q : players) {
+            for (int i13_ = 0; i13_ < players.size; i13_++) {
+                Player q = players.get(i13_);
                 if (!q.alive || !canHurt(pr.owner, pr.team, q)) continue;
                 if (Math.abs(q.x - pr.x) < C.PLAYER_HW + 4 && pr.y > q.y - 4 && pr.y < q.y + q.height() + 4) {
                     explodeProjectile(pr);
@@ -887,7 +914,8 @@ public class World {
             explodeProjectile(pr);
             return;
         }
-        for (Player q : players) {
+        for (int i14_ = 0; i14_ < players.size; i14_++) {
+            Player q = players.get(i14_);
             if (!q.alive || !canHurt(pr.owner, pr.team, q)) continue;
             float dx = q.x - pr.x, dy = q.centerY() - pr.y;
             if (dx * dx + dy * dy < 48 * 48) {
@@ -1184,7 +1212,8 @@ public class World {
     public Pickup nearestWeaponPickup(Player p) {
         Pickup best = null;
         float bd = C.PICKUP_RADIUS * C.PICKUP_RADIUS * 1.6f;
-        for (Pickup pk : pickups) {
+        for (int i15_ = 0; i15_ < pickups.size; i15_++) {
+            Pickup pk = pickups.get(i15_);
             if (!pk.active || pk.type != Pickup.Type.WEAPON) continue;
             if (p.has(pk.weapon)) continue;
             float dx = p.x - pk.x, dy = p.centerY() - (pk.y + 12);
@@ -1265,7 +1294,9 @@ public class World {
             }
             if (pr.dead) projectiles.removeIndex(i);
         }
-        for (Pickup pk : pickups) pk.bob += dt;
+        for (int i16_ = 0; i16_ < pickups.size; i16_++) {
+            Pickup pk = pickups.get(i16_); pk.bob += dt;
+        }
     }
 
     /** Em clientes: cria balas visuais a partir de um evento de tiro. */

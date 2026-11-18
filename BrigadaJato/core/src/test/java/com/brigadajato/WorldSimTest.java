@@ -78,6 +78,9 @@ public class WorldSimTest {
             System.out.println(id + ": " + m.w + "x" + m.h + " spawns=" + m.spawnsFree.size + "/" + m.spawnsRed.size + "/" + m.spawnsBlue.size
                     + " armas=" + m.weaponSpawns.size + " flags=" + m.hasFlags + " sites=" + m.hasSites);
             assertTrue(m.spawnsFree.size > 0);
+            for (com.badlogic.gdx.math.Vector2 v : m.spawnsFree) assertTrue(id + " spawn livre inseguro " + v, m.safeGround(v));
+            for (com.badlogic.gdx.math.Vector2 v : m.spawnsRed) assertTrue(id + " spawn vermelho inseguro " + v, m.safeGround(v));
+            for (com.badlogic.gdx.math.Vector2 v : m.spawnsBlue) assertTrue(id + " spawn azul inseguro " + v, m.safeGround(v));
         }
     }
 

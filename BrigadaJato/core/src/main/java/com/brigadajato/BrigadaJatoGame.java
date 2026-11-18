@@ -64,9 +64,12 @@ public class BrigadaJatoGame extends Game {
                 cfg.applyModeDefaults();
                 if (p.length > 2 && cfg.mode != com.brigadajato.world.ModeType.TRAINING) cfg.mapId = p[2];
                 cfg.bots = p.length > 3 ? Integer.parseInt(p[3]) : 5;
+                if (p.length > 4) cfg.scoreLimit = Integer.parseInt(p[4]);
+                if (p.length > 5) cfg.timeLimit = Integer.parseInt(p[5]);
                 return com.brigadajato.screens.GameScreen.offline(this, cfg);
             }
-            case "settings": return new com.brigadajato.screens.SettingsScreen(this);
+            case "settings": return new com.brigadajato.screens.SettingsScreen(this, p.length > 1 ? Integer.parseInt(p[1]) : 0);
+            case "looks": return new com.brigadajato.screens.LooksDebugScreen(this);
             case "soldier": return new com.brigadajato.screens.CustomizeScreen(this);
             case "setup": return new com.brigadajato.screens.SetupScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE);
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);
@@ -77,6 +80,11 @@ public class BrigadaJatoGame extends Game {
             case "join": return com.brigadajato.screens.LobbyScreen.client(this, p.length > 1 ? p[1] : "127.0.0.1");
             default: return new MenuScreen(this);
         }
+    }
+
+    /** Teste: tira a screenshot agora (se --shot foi passado). */
+    public void shotNow() {
+        if (shotPath != null) elapsed = Math.max(elapsed, shotTime);
     }
 
     private void checkAutoShot(float dt) {

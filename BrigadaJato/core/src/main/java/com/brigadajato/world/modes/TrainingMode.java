@@ -32,14 +32,17 @@ public class TrainingMode extends GameMode {
     @Override
     public void init() {
         int i = 0;
-        for (Vector2 v : w.map.dummySpawns) {
+        for (int i41_ = 0; i41_ < w.map.dummySpawns.size; i41_++) {
+            Vector2 v = w.map.dummySpawns.get(i41_);
             Player d = w.addPlayer(I18n.t("dummy") + " " + (i + 1), C.TEAM_BLUE,
                     new Look(0xd7ccc8, 0xa1887f, 0xff5252, 0xffe0b2, 6), true);
             d.dummy = true;
             d.spawnIndex = i;
             i++;
         }
-        for (Player p : w.players) if (!p.dummy) p.team = C.TEAM_RED;
+        for (int i42_ = 0; i42_ < w.players.size; i42_++) {
+            Player p = w.players.get(i42_); if (!p.dummy) p.team = C.TEAM_RED;
+        }
         base = 0;
     }
 
@@ -104,7 +107,9 @@ public class TrainingMode extends GameMode {
 
     private int humanKills() {
         int k = 0;
-        for (Player p : w.players) if (!p.isBot) k += p.kills;
+        for (int i43_ = 0; i43_ < w.players.size; i43_++) {
+            Player p = w.players.get(i43_); if (!p.isBot) k += p.kills;
+        }
         return k;
     }
 

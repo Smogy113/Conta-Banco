@@ -26,8 +26,10 @@ public final class Ui {
     public static Skin build(Assets a) {
         Skin s = new Skin();
         NinePatch panel = new NinePatch(a.uiPanel, 16, 16, 16, 16);
-        NinePatch btn = new NinePatch(a.uiButton, 16, 16, 14, 18);
+        NinePatch btn = new NinePatch(a.uiButton, 16, 16, 12, 22);
         NinePatch btnDown = new NinePatch(a.uiButtonDown, 16, 16, 18, 14);
+        s.add("chip", new NinePatchDrawable(new NinePatch(a.uiChip, 16, 16, 16, 16)), Drawable.class);
+        s.add("stripes", new TextureRegionDrawable(a.uiStripes), Drawable.class);
         NinePatch field = new NinePatch(a.uiField, 12, 12, 12, 12);
         s.add("panel", new NinePatchDrawable(panel), Drawable.class);
         s.add("field", new NinePatchDrawable(field), Drawable.class);
@@ -39,7 +41,7 @@ public final class Ui {
         s.add("huge", a.huge);
 
         String[] names = {"default", "green", "blue", "red", "gray", "purple"};
-        int[] cols = {0xffb300, 0x66bb6a, 0x42a5f5, 0xef5350, 0x90a4ae, 0xab47bc};
+        int[] cols = {0xffb000, 0x5dbb46, 0x3d9be9, 0xe8453c, 0x7d8f99, 0xa24bc4};
         for (int i = 0; i < names.length; i++) {
             TextButton.TextButtonStyle st = new TextButton.TextButtonStyle();
             st.up = new NinePatchDrawable(btn).tint(c(cols[i]));
@@ -69,8 +71,10 @@ public final class Ui {
         s.add("default", def);
         s.add("small", new Label.LabelStyle(a.small, Color.WHITE));
         s.add("big", new Label.LabelStyle(a.big, Color.WHITE));
-        s.add("title", new Label.LabelStyle(a.huge, c(0xffca28)));
+        s.add("title", new Label.LabelStyle(a.huge, c(0xffc61a)));
+        s.add("heading", new Label.LabelStyle(a.big, c(0xffc61a)));
         s.add("yellow", new Label.LabelStyle(a.normal, c(0xffd54f)));
+        s.add("yellow-small", new Label.LabelStyle(a.small, c(0xffd54f)));
         s.add("gray", new Label.LabelStyle(a.small, c(0xb0bec5)));
 
         TextField.TextFieldStyle tf = new TextField.TextFieldStyle();

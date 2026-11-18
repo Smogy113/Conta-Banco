@@ -72,7 +72,9 @@ public class BombMode extends GameMode {
 
     @Override
     public void init() {
-        for (Player p : w.players) p.money = 800;
+        for (int i17_ = 0; i17_ < w.players.size; i17_++) {
+            Player p = w.players.get(i17_); p.money = 800;
+        }
         startRound(true);
     }
 
@@ -89,22 +91,29 @@ public class BombMode extends GameMode {
         bombTimer = 0;
         site = -1;
         botSite = w.rng.nextInt(2);
-        for (Player p : w.players) {
+        for (int i18_ = 0; i18_ < w.players.size; i18_++) {
+            Player p = w.players.get(i18_);
             if (resetGuns || diedThisRound.contains(p.id) || !p.alive) {
                 p.guns[0] = null;
                 p.guns[1] = null;
             }
         }
         diedThisRound.clear();
-        for (Player p : w.players) w.respawn(p);
+        for (int i19_ = 0; i19_ < w.players.size; i19_++) {
+            Player p = w.players.get(i19_); w.respawn(p);
+        }
         // entrega a bomba para um atacante
         Array<Player> att = new Array<>();
-        for (Player p : w.players) if (p.team == attackTeam) att.add(p);
+        for (int i20_ = 0; i20_ < w.players.size; i20_++) {
+            Player p = w.players.get(i20_); if (p.team == attackTeam) att.add(p);
+        }
         bombCarrier = -1;
         if (att.size > 0) {
             Player c = att.get(w.rng.nextInt(att.size));
             // prefere humanos para carregar a bomba
-            for (Player p : att) if (!p.isBot) c = p;
+            for (int i21_ = 0; i21_ < att.size; i21_++) {
+                Player p = att.get(i21_); if (!p.isBot) c = p;
+            }
             c.hasBomb = true;
             bombCarrier = c.id;
             bombX = c.x;
@@ -224,13 +233,17 @@ public class BombMode extends GameMode {
 
     private int alive(int team) {
         int n = 0;
-        for (Player p : w.players) if (p.team == team && p.alive) n++;
+        for (int i22_ = 0; i22_ < w.players.size; i22_++) {
+            Player p = w.players.get(i22_); if (p.team == team && p.alive) n++;
+        }
         return n;
     }
 
     private int count(int team) {
         int n = 0;
-        for (Player p : w.players) if (p.team == team) n++;
+        for (int i23_ = 0; i23_ < w.players.size; i23_++) {
+            Player p = w.players.get(i23_); if (p.team == team) n++;
+        }
         return n;
     }
 
@@ -280,7 +293,8 @@ public class BombMode extends GameMode {
     private void updateCarrier(float dt) {
         if (bombState == B_DROPPED) {
             if (!w.map.solidAt(bombX, bombY - 2)) bombY = Math.max(0, bombY - 400 * dt);
-            for (Player p : w.players) {
+            for (int i24_ = 0; i24_ < w.players.size; i24_++) {
+                Player p = w.players.get(i24_);
                 if (!p.alive || p.team != attackTeam) continue;
                 float dx = p.x - bombX, dy = p.y - bombY;
                 if (dx * dx + dy * dy < 36 * 36) {
@@ -318,7 +332,8 @@ public class BombMode extends GameMode {
 
     private void updateDefuse(float dt) {
         Player best = null;
-        for (Player p : w.players) {
+        for (int i25_ = 0; i25_ < w.players.size; i25_++) {
+            Player p = w.players.get(i25_);
             if (!p.alive || p.team != defendTeam()) {
                 if (p.team == attackTeam) p.actionProgress = 0;
                 continue;
@@ -355,7 +370,8 @@ public class BombMode extends GameMode {
         teamScore[winner]++;
         lastRoundWinner = winner;
         lastRoundReason = reason;
-        for (Player p : w.players) {
+        for (int i26_ = 0; i26_ < w.players.size; i26_++) {
+            Player p = w.players.get(i26_);
             p.money = Math.min(9000, p.money + (p.team == winner ? 2500 : 1400));
             p.actionProgress = 0;
         }
@@ -376,7 +392,9 @@ public class BombMode extends GameMode {
         round++;
         if (swap) {
             attackTeam = defendTeam();
-            for (Player p : w.players) p.money = 800;
+            for (int i27_ = 0; i27_ < w.players.size; i27_++) {
+                Player p = w.players.get(i27_); p.money = 800;
+            }
             w.message("bomb_swap", -1, -1, 0);
         }
         startRound(swap);

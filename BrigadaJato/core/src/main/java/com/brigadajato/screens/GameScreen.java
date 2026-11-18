@@ -60,6 +60,9 @@ public class GameScreen extends ScreenAdapter {
     private final Vector3 tmp = new Vector3();
     private final Array<WorldEvent> netEvents = new Array<>();
     private final PlayerInput clientInput = new PlayerInput();
+    private final com.brigadajato.replay.ReplayDirector director;
+    private final com.brigadajato.render.ColorFilter filter = new com.brigadajato.render.ColorFilter();
+    private final OrthographicCamera hudScaled = new OrthographicCamera();
 
     private float acc, sendTimer;
     private boolean paused;
@@ -73,6 +76,9 @@ public class GameScreen extends ScreenAdapter {
     private float crossX, crossY;
     private boolean mobile;
     private float lifeTime;
+    private float shotWait;
+    private static final String SHOT_WHEN = System.getProperty("brigadajato.shotWhen");
+    private static final float SHOT_DELAY = Float.parseFloat(System.getProperty("brigadajato.shotDelay", "1.3"));
     /** teste no PC: a IA controla o jogador local (--autoplay) */
     public static final boolean AUTOPLAY = "true".equals(System.getProperty("brigadajato.autoplay"));
 
@@ -123,6 +129,8 @@ public class GameScreen extends ScreenAdapter {
         stage = new Stage(new ExtendViewport(1280, 720), game.batch);
         overlay.setFillParent(true);
         stage.addActor(overlay);
+        director = new com.brigadajato.replay.ReplayDirector(world, game.assets, game.settings);
+        game.settings.applyFps();
         Player p = local;
         camX = p != null ? p.x : world.map.worldW() / 2;
         camY = p != null ? p.y : world.map.worldH() / 2;
@@ -152,13 +160,20 @@ public class GameScreen extends ScreenAdapter {
     @Override
     public void resize(int width, int height) {
         float aspect = width / (float) Math.max(1, height);
-        cam.viewportHeight = 600;
-        cam.viewportWidth = 600 * aspect;
+        float viewH = 600 * game.settings.cameraZoom;
+        cam.viewportHeight = viewH;
+        cam.viewportWidth = viewH * aspect;
+        director.resize(600 * aspect, 600);
         hudCam.viewportHeight = 720;
         hudCam.viewportWidth = 720 * aspect;
         hudCam.position.set(hudCam.viewportWidth / 2, 360, 0);
         hudCam.update();
-        hud.resize(hudCam.viewportWidth, 720);
+        float hs = game.settings.hudScale;
+        hudScaled.viewportHeight = 720 / hs;
+        hudScaled.viewportWidth = 720 * aspect / hs;
+        hudScaled.position.set(hudScaled.viewportWidth / 2, hudScaled.viewportHeight / 2, 0);
+        hudScaled.update();
+        hud.resize(hudScaled.viewportWidth, hudScaled.viewportHeight);
         controls.resize(hudCam.viewportWidth, 720);
         stage.getViewport().update(width, height, true);
     }
@@ -202,7 +217,9 @@ public class GameScreen extends ScreenAdapter {
         // ---- simulacao
         if (client != null) {
             client.receive(world, netEvents, localId);
-            for (WorldEvent e : netEvents) dispatch(e);
+            for (int i62_ = 0; i62_ < netEvents.size; i62_++) {
+                WorldEvent e = netEvents.get(i62_); dispatch(e);
+            }
             netEvents.clear();
             world.update(dt);
             sendTimer -= dt;
@@ -228,7 +245,9 @@ public class GameScreen extends ScreenAdapter {
                     host.applyInputs(world);
                 }
                 world.update(C.STEP);
-                for (WorldEvent e : world.events) dispatch(e);
+                for (int i63_ = 0; i63_ < world.events.size; i63_++) {
+                    WorldEvent e = world.events.get(i63_); dispatch(e);
+                }
                 if (host != null) host.afterStep(world, world.events);
                 world.events.clear();
                 acc -= C.STEP;
@@ -239,23 +258,54 @@ public class GameScreen extends ScreenAdapter {
 
         renderer.update(dt);
         hud.update(dt);
+        director.update(dt, local);
+        if (director.active() && Gdx.input.justTouched() && !paused) director.skip();
+        if (SHOT_WHEN != null && director.active() && director.mode.name().equalsIgnoreCase(SHOT_WHEN)) {
+            shotWait += dt;
+            if (shotWait > SHOT_DELAY) game.shotNow();
+        }
+        if (world.mode.over && !director.reelDone && overTimer > 1.2f) {
+            if (game.settings.highlights) director.startReel();
+            else director.reelDone = true;
+        }
         updateCamera(dt);
         updateBuyMenu();
         game.audio.jetpack(local != null && local.alive && local.jetting && !paused);
 
         // ---- desenho
         ScreenUtils.clear(0, 0, 0, 1);
+        int fmode = game.settings.colorFilter;
+        if (director.active()) {
+            director.renderWorld(game.draw, filter, fmode);
+            game.batch.setProjectionMatrix(hudCam.combined);
+            game.batch.begin();
+            director.drawOverlay(game.draw, hudCam.viewportWidth, 720);
+            game.batch.end();
+            game.batch.setColor(1, 1, 1, 1);
+            stage.getViewport().apply();
+            stage.act(dt);
+            stage.draw();
+            if (world.mode.over) {
+                overTimer += dt;
+                if (!statsSaved) saveStats();
+            }
+            return;
+        }
+        boolean filtered = filter.begin(game.batch, fmode);
         game.batch.setProjectionMatrix(cam.combined);
         game.batch.begin();
+        if (filtered) filter.uniforms(fmode);
         renderer.render(game.draw, cam, world, local, true, crossX, crossY);
         game.batch.end();
+        if (filtered) filter.end(game.batch);
 
-        game.batch.setProjectionMatrix(hudCam.combined);
+        game.batch.setProjectionMatrix(hudScaled.combined);
         game.batch.begin();
         boolean nearWeapon = local != null && local.alive && world.nearestWeaponPickup(local) != null;
         boolean useAvail = local != null && local.alive && useAvailable(local);
         controls.updateVisibility(local, nearWeapon, useAvail);
         hud.draw(game.draw, world, local, fpsSmooth, controls.scoreboardVisible() || (world.mode.over && !resultsShown && overTimer > 0.5f), mobile);
+        game.batch.setProjectionMatrix(hudCam.combined);
         if (!paused && !resultsShown) controls.draw(game.draw, game.assets.small, game.assets.normal, local, painter);
         if (!mobile && local != null && local.alive && nearWeapon) {
             game.assets.small.draw(game.batch, "[E] " + I18n.t("pickup"), hudCam.viewportWidth / 2, 160, 0, com.badlogic.gdx.utils.Align.center, false);
@@ -274,7 +324,7 @@ public class GameScreen extends ScreenAdapter {
         if (world.mode.over) {
             overTimer += dt;
             if (!statsSaved) saveStats();
-            if (overTimer > 2.5f && !resultsShown) showResults();
+            if (overTimer > 2.5f && !resultsShown && director.reelDone && !director.active()) showResults();
         }
     }
 
@@ -283,6 +333,7 @@ public class GameScreen extends ScreenAdapter {
     private void dispatch(WorldEvent e) {
         renderer.handle(e, local);
         hud.handle(e, local);
+        director.onEvent(e, local);
         if (e.type == WorldEvent.Type.KILL && e.b == localId) killerId = e.a;
     }
 
@@ -310,7 +361,8 @@ public class GameScreen extends ScreenAdapter {
     private float aimAssist(Player me, float aim) {
         Player best = null;
         float bestDiff = 0.22f;
-        for (Player q : world.players) {
+        for (int i64_ = 0; i64_ < world.players.size; i64_++) {
+            Player q = world.players.get(i64_);
             if (!q.alive || !world.enemies(me, q) || q.dummy && world.config.mode != ModeType.TRAINING) continue;
             float d = me.distTo(q);
             if (d > 950) continue;
@@ -354,10 +406,12 @@ public class GameScreen extends ScreenAdapter {
         if (focus == null || !focus.alive) {
             // espectador: segue um aliado vivo (modo bomba) ou fica parado
             if (world.mode instanceof BombMode || world.mode instanceof SurvivalMode) {
-                for (Player p : world.players) if (p.alive && (local == null || p.team == local.team)) {
+                for (int i65_ = 0; i65_ < world.players.size; i65_++) {
+                    Player p = world.players.get(i65_); if (p.alive && (local == null || p.team == local.team)) {
                     focus = p;
                     break;
                 }
+}
             }
         }
         float wantZoom = 1f;
@@ -381,7 +435,7 @@ public class GameScreen extends ScreenAdapter {
         float margin = 140; // deixa ver um pouco alem da borda para o HUD nao cobrir o jogador
         float cx = hw * 2 >= mw + margin * 2 ? mw / 2 : MathUtils.clamp(camX, hw - margin, mw - hw + margin);
         float cy = hh * 2 >= mh + margin * 2 ? mh / 2 : MathUtils.clamp(camY, hh - margin, mh - hh + margin);
-        float s = renderer.shake;
+        float s = renderer.shake * game.settings.shake;
         cam.position.set(cx + MathUtils.random(-s, s), cy + MathUtils.random(-s, s), 0);
         cam.update();
         // mira
@@ -599,6 +653,8 @@ public class GameScreen extends ScreenAdapter {
 
     @Override
     public void dispose() {
+        director.dispose();
+        filter.dispose();
         stage.dispose();
         renderer.dispose();
         hud.dispose();

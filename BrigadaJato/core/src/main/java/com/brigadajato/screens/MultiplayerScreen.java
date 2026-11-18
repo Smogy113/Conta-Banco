@@ -38,6 +38,11 @@ public class MultiplayerScreen extends BaseScreen {
         left.add(button(I18n.t("create_room"), "green", () -> go(new SetupScreen(game, SetupScreen.Kind.HOST)))).width(340).height(70).row();
         List<String> ips = Net.localIps();
         left.add(label(I18n.f("local_ip", ips.isEmpty() ? "?" : ips.get(0)), "gray")).width(340).padTop(10).row();
+        if (!Net.onLocalNetwork()) {
+            Label warn = label(I18n.t("no_wifi"), "yellow-small");
+            warn.setWrap(true);
+            left.add(warn).width(340).padTop(6).row();
+        }
         Label tip = label(I18n.pt ? "Dica: ative o roteador do celular (hotspot) e\npeça para os amigos conectarem nele." : "Tip: turn on your phone hotspot\nand ask friends to join it.", "small");
         left.add(tip).padTop(10).row();
 
@@ -83,7 +88,7 @@ public class MultiplayerScreen extends BaseScreen {
             return;
         }
         for (final Discovery.Room r : rooms) {
-            String text = I18n.f("room_of", r.name) + "  •  " + r.mode + "  •  " + r.players + "/" + r.max;
+            String text = I18n.f("room_of", r.name) + "  ·  " + r.mode + "  ·  " + r.players + "/" + r.max;
             roomList.add(button(text, "blue-small", () -> connect(r.ip))).width(500).height(52).pad(4).row();
         }
     }

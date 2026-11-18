@@ -28,7 +28,7 @@ public final class Net {
 
     public static final int TCP_PORT = 47130;
     public static final int UDP_PORT = 47131;
-    public static final int PROTOCOL = 3;
+    public static final int PROTOCOL = 4;
     public static final String DISCOVER = "BRIGADAJATO?";
     public static final String ANSWER = "BRIGADAJATO!";
     public static final int MAX_PLAYERS = 8;
@@ -94,6 +94,21 @@ public final class Net {
         o.writeInt(l.visor);
         o.writeInt(l.skin);
         o.writeByte(l.hat);
+        o.writeByte(l.hair);
+        o.writeInt(l.hairColor);
+        o.writeByte(l.eyes);
+        o.writeByte(l.mouth);
+        o.writeByte(l.beard);
+        o.writeByte(l.eyewear);
+        o.writeByte(l.pattern);
+        o.writeInt(l.patternColor);
+        o.writeInt(l.pants);
+        o.writeByte(l.jetpack);
+        o.writeInt(l.jetColor);
+        o.writeByte(l.flame);
+        o.writeByte(l.gunSkin);
+        o.writeByte(l.accessory);
+        o.writeInt(l.accessoryColor);
     }
 
     public static Look readLook(DataInputStream in) throws IOException {
@@ -103,6 +118,21 @@ public final class Net {
         l.visor = in.readInt();
         l.skin = in.readInt();
         l.hat = in.readByte();
+        l.hair = in.readByte();
+        l.hairColor = in.readInt();
+        l.eyes = in.readByte();
+        l.mouth = in.readByte();
+        l.beard = in.readByte();
+        l.eyewear = in.readByte();
+        l.pattern = in.readByte();
+        l.patternColor = in.readInt();
+        l.pants = in.readInt();
+        l.jetpack = in.readByte();
+        l.jetColor = in.readInt();
+        l.flame = in.readByte();
+        l.gunSkin = in.readByte();
+        l.accessory = in.readByte();
+        l.accessoryColor = in.readInt();
         return l;
     }
 
@@ -110,7 +140,8 @@ public final class Net {
 
     public static void writeRoster(DataOutputStream o, World w) throws IOException {
         o.writeShort(w.players.size);
-        for (Player p : w.players) {
+        for (int i67_ = 0; i67_ < w.players.size; i67_++) {
+            Player p = w.players.get(i67_);
             o.writeShort(p.id);
             o.writeUTF(p.name);
             writeLook(o, p.look);
@@ -151,7 +182,9 @@ public final class Net {
     /** Assinatura simples do elenco para saber quando reenviar. */
     public static int rosterHash(World w) {
         int h = w.players.size;
-        for (Player p : w.players) h = h * 31 + p.id * 7 + p.team + (p.isBot ? 1 : 0);
+        for (int i68_ = 0; i68_ < w.players.size; i68_++) {
+            Player p = w.players.get(i68_); h = h * 31 + p.id * 7 + p.team + (p.isBot ? 1 : 0);
+        }
         return h;
     }
 
@@ -160,7 +193,8 @@ public final class Net {
     public static void writeSnapshot(DataOutputStream o, World w) throws IOException {
         o.writeFloat(w.time);
         o.writeShort(w.players.size);
-        for (Player p : w.players) {
+        for (int i69_ = 0; i69_ < w.players.size; i69_++) {
+            Player p = w.players.get(i69_);
             o.writeShort(p.id);
             o.writeFloat(p.x);
             o.writeFloat(p.y);
@@ -198,9 +232,12 @@ public final class Net {
             o.writeByte((int) Math.ceil(p.speedBoost));
         }
         int synced = 0;
-        for (Projectile pr : w.projectiles) if (pr.synced() && !pr.dead) synced++;
+        for (int i70_ = 0; i70_ < w.projectiles.size; i70_++) {
+            Projectile pr = w.projectiles.get(i70_); if (pr.synced() && !pr.dead) synced++;
+        }
         o.writeShort(synced);
-        for (Projectile pr : w.projectiles) {
+        for (int i71_ = 0; i71_ < w.projectiles.size; i71_++) {
+            Projectile pr = w.projectiles.get(i71_);
             if (!pr.synced() || pr.dead) continue;
             o.writeInt(pr.id);
             o.writeByte(pr.kind.ordinal());
@@ -215,7 +252,8 @@ public final class Net {
             o.writeFloat(pr.fuse);
         }
         o.writeShort(w.pickups.size);
-        for (Pickup pk : w.pickups) {
+        for (int i72_ = 0; i72_ < w.pickups.size; i72_++) {
+            Pickup pk = w.pickups.get(i72_);
             o.writeInt(pk.id);
             o.writeByte(pk.type.ordinal());
             o.writeByte(pk.weapon == null ? -1 : pk.weapon.ordinal());
@@ -306,10 +344,12 @@ public final class Net {
             float rot = in.readFloat(), fuse = in.readFloat();
             seen.add(id);
             Projectile pr = null;
-            for (Projectile q : w.projectiles) if (!q.visual && q.id == id) {
+            for (int i73_ = 0; i73_ < w.projectiles.size; i73_++) {
+                Projectile q = w.projectiles.get(i73_); if (!q.visual && q.id == id) {
                 pr = q;
                 break;
             }
+}
             if (pr == null) {
                 pr = new Projectile();
                 pr.id = id;
@@ -335,7 +375,8 @@ public final class Net {
             if (kind == Projectile.Kind.MINE) pr.rot = rot;
             pr.fuse = fuse;
         }
-        for (Projectile q : w.projectiles) {
+        for (int i74_ = 0; i74_ < w.projectiles.size; i74_++) {
+            Projectile q = w.projectiles.get(i74_);
             if (q.visual) continue;
             if (!seen.contains(q.id)) q.dead = true;
         }
@@ -346,10 +387,12 @@ public final class Net {
         for (int i = 0; i < nk; i++) {
             int id = in.readInt();
             Pickup pk = null;
-            for (Pickup q : old) if (q.id == id) {
+            for (int i75_ = 0; i75_ < old.size; i75_++) {
+                Pickup q = old.get(i75_); if (q.id == id) {
                 pk = q;
                 break;
             }
+}
             if (pk == null) {
                 pk = new Pickup();
                 pk.id = id;
@@ -371,7 +414,8 @@ public final class Net {
 
     public static void writeEvents(DataOutputStream o, Array<WorldEvent> events) throws IOException {
         o.writeShort(events.size);
-        for (WorldEvent e : events) {
+        for (int i76_ = 0; i76_ < events.size; i76_++) {
+            WorldEvent e = events.get(i76_);
             o.writeByte(e.type.ordinal());
             o.writeInt(e.a);
             o.writeInt(e.b);
@@ -414,7 +458,7 @@ public final class Net {
 
     // ------------------------------------------------------------------ rede local
 
-    /** IPs IPv4 locais (Wi-Fi / hotspot). */
+    /** IPs IPv4 locais, os de rede local (Wi-Fi / hotspot) primeiro. */
     public static List<String> localIps() {
         List<String> ips = new ArrayList<>();
         try {
@@ -430,7 +474,56 @@ public final class Net {
             }
         } catch (Exception ignored) {
         }
+        java.util.Collections.sort(ips, (x, y) -> ipRank(x) - ipRank(y));
         return ips;
+    }
+
+    /** 0 = 192.168 (hotspot/Wi-Fi), 1 = 172.16-31, 2 = 10.x, 3 = outros, 9 = dados moveis (100.64/10). */
+    public static int ipRank(String ip) {
+        if (ip.startsWith("192.168.")) return 0;
+        if (ip.startsWith("172.")) {
+            try {
+                int b = Integer.parseInt(ip.split("\\.")[1]);
+                if (b >= 16 && b <= 31) return 1;
+            } catch (Exception ignored) {
+            }
+        }
+        if (ip.startsWith("10.")) return 2;
+        if (ip.startsWith("100.")) {
+            try {
+                int b = Integer.parseInt(ip.split("\\.")[1]);
+                if (b >= 64 && b <= 127) return 9;
+            } catch (Exception ignored) {
+            }
+        }
+        return 3;
+    }
+
+    /** O aparelho esta numa rede local (Wi-Fi ou hotspot)? */
+    public static boolean onLocalNetwork() {
+        for (String ip : localIps()) if (ipRank(ip) <= 2) return true;
+        return false;
+    }
+
+    /** Todos os enderecos da sub-rede /24 de cada IP local (varredura quando o broadcast e bloqueado). */
+    public static List<InetAddress> sweepTargets() {
+        List<InetAddress> out = new ArrayList<>();
+        for (String ip : localIps()) {
+            if (ipRank(ip) > 2) continue;
+            String[] p = ip.split("\\.");
+            if (p.length != 4) continue;
+            String base = p[0] + "." + p[1] + "." + p[2] + ".";
+            for (int i = 1; i < 255; i++) {
+                String t = base + i;
+                if (t.equals(ip)) continue;
+                try {
+                    out.add(InetAddress.getByName(t));
+                } catch (Exception ignored) {
+                }
+            }
+            if (out.size() > 1000) break;
+        }
+        return out;
     }
 
     /** Enderecos de broadcast de todas as redes ativas (+ 255.255.255.255). */

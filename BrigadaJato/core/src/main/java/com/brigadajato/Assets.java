@@ -144,61 +144,105 @@ public class Assets implements Disposable {
             }
     }
 
-    /** Texturas da interface (9-patch com borda escura estilo cartoon). */
+    /** Texturas da interface: placas militares com rebites, botoes com relevo, faixa de alerta. */
+    public TextureRegion uiStripes;
+
     private void buildUi() {
-        Pixmap pm = new Pixmap(256, 64, Pixmap.Format.RGBA8888);
+        Pixmap pm = new Pixmap(512, 64, Pixmap.Format.RGBA8888);
         pm.setBlending(Pixmap.Blending.None);
         pm.setColor(0, 0, 0, 0);
         pm.fill();
-        // painel: fundo escuro translucido
-        roundRect(pm, 0, 0, 64, 64, 14, 0.08f, 0.09f, 0.12f, 1f);
-        roundRect(pm, 3, 3, 58, 58, 11, 0.16f, 0.18f, 0.24f, 0.92f);
-        // botao: contorno + corpo branco (tingido depois) + sombra inferior
-        roundRect(pm, 64, 0, 64, 64, 14, 0.05f, 0.05f, 0.07f, 1f);
-        roundRect(pm, 67, 3, 58, 54, 11, 1f, 1f, 1f, 1f);
-        roundRect(pm, 67, 3, 58, 30, 11, 1f, 1f, 1f, 1f);
-        for (int y = 40; y < 57; y++)
-            for (int x = 67; x < 125; x++) {
+        java.util.Random r = new java.util.Random(7);
+        // painel: placa de metal escura com rebites nos cantos
+        roundRect(pm, 0, 0, 64, 64, 10, 0.06f, 0.07f, 0.09f, 1f);
+        roundRect(pm, 3, 3, 58, 58, 8, 0.17f, 0.21f, 0.23f, 0.95f);
+        for (int y = 6; y < 58; y++)
+            for (int x = 6; x < 58; x++) {
                 int c = pm.getPixel(x, y);
-                if ((c & 0xff) > 0) pm.drawPixel(x, y, Color.rgba8888(0.82f, 0.82f, 0.82f, (c & 0xff) / 255f));
+                float a = (c & 0xff) / 255f;
+                float n = r.nextFloat() * 0.03f;
+                float top = y < 9 ? 0.06f : 0;
+                pm.drawPixel(x, y, rgba(0.17f + n + top, 0.21f + n + top, 0.23f + n + top, a));
             }
-        // botao pressionado (sem sombra, deslocado)
-        roundRect(pm, 128, 0, 64, 64, 14, 0.05f, 0.05f, 0.07f, 1f);
-        roundRect(pm, 131, 7, 58, 54, 11, 0.85f, 0.85f, 0.85f, 1f);
+        int[][] rivets = {{9, 9}, {54, 9}, {9, 54}, {54, 54}};
+        for (int[] rv : rivets) {
+            for (int y = -3; y <= 3; y++)
+                for (int x = -3; x <= 3; x++) {
+                    float dd = (float) Math.sqrt(x * x + y * y);
+                    if (dd > 3.2f) continue;
+                    float light = y < 0 ? 0.62f : 0.42f;
+                    pm.drawPixel(rv[0] + x, rv[1] + y, rgba(light, light, light + 0.03f, 1));
+                }
+        }
+        // botao: contorno grosso + corpo claro com brilho em cima e sombra embaixo
+        roundRect(pm, 64, 0, 64, 64, 12, 0.06f, 0.06f, 0.08f, 1f);
+        roundRect(pm, 68, 4, 56, 52, 9, 1f, 1f, 1f, 1f);
+        for (int y = 4; y < 56; y++)
+            for (int x = 68; x < 124; x++) {
+                int c = pm.getPixel(x, y);
+                float a = (c & 0xff) / 255f;
+                if (a <= 0) continue;
+                float k;
+                if (y < 10) k = 1f;            // brilho
+                else if (y < 30) k = 0.93f;
+                else if (y < 44) k = 0.86f;
+                else k = 0.66f;                // sombra de baixo
+                pm.drawPixel(x, y, rgba(k, k, k, a));
+            }
+        // botao pressionado
+        roundRect(pm, 128, 0, 64, 64, 12, 0.06f, 0.06f, 0.08f, 1f);
+        roundRect(pm, 132, 8, 56, 52, 9, 0.8f, 0.8f, 0.8f, 1f);
         // campo de texto
-        roundRect(pm, 192, 0, 64, 64, 10, 0.05f, 0.05f, 0.07f, 1f);
-        roundRect(pm, 195, 3, 58, 58, 8, 0.95f, 0.95f, 0.92f, 1f);
+        roundRect(pm, 192, 0, 64, 64, 10, 0.06f, 0.06f, 0.08f, 1f);
+        roundRect(pm, 195, 3, 58, 58, 8, 0.95f, 0.95f, 0.9f, 1f);
+        // faixa de alerta (amarelo/preto diagonal)
+        for (int y = 0; y < 32; y++)
+            for (int x = 0; x < 64; x++) {
+                boolean yellow = ((x + y) / 8) % 2 == 0;
+                pm.drawPixel(256 + x, y, yellow ? rgba(1f, 0.76f, 0.03f, 1) : rgba(0.08f, 0.08f, 0.1f, 1));
+            }
+        // aba / chip arredondado escuro (para HUD e listas)
+        roundRect(pm, 320, 0, 64, 64, 14, 0.04f, 0.05f, 0.07f, 0.78f);
         uiTex = new Texture(pm);
         uiTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        uiTex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.ClampToEdge);
         pm.dispose();
         uiPanel = new TextureRegion(uiTex, 0, 0, 64, 64);
         uiButton = new TextureRegion(uiTex, 64, 0, 64, 64);
         uiButtonDown = new TextureRegion(uiTex, 128, 0, 64, 64);
         uiField = new TextureRegion(uiTex, 192, 0, 64, 64);
+        uiStripes = new TextureRegion(uiTex, 256, 0, 64, 32);
+        uiChip = new TextureRegion(uiTex, 320, 0, 64, 64);
         uiKnob = circle;
     }
+
+    public TextureRegion uiChip;
 
     // ------------------------------------------------------------------ fontes
 
     private void loadFonts() {
         fontScale = MathUtils.clamp(Gdx.graphics.getHeight() / 720f, 0.5f, 3f);
-        FileHandle fh = Gdx.files.internal("fonts/game.ttf");
-        FreeTypeFontGenerator gen = new FreeTypeFontGenerator(fh);
-        small = font(gen, 18, 1.5f);
-        normal = font(gen, 25, 2f);
-        big = font(gen, 38, 2.5f);
-        huge = font(gen, 70, 4f);
-        gen.dispose();
+        FreeTypeFontGenerator ui = new FreeTypeFontGenerator(Gdx.files.internal("fonts/ui.ttf"));
+        FreeTypeFontGenerator title = new FreeTypeFontGenerator(Gdx.files.internal("fonts/title.ttf"));
+        small = font(ui, 20, 1.8f, 1.5f);
+        normal = font(ui, 27, 2.2f, 2f);
+        big = font(title, 40, 2.8f, 3f);
+        huge = font(title, 78, 4.5f, 5f);
+        ui.dispose();
+        title.dispose();
     }
 
-    private BitmapFont font(FreeTypeFontGenerator gen, int size, float border) {
+    private BitmapFont font(FreeTypeFontGenerator gen, int size, float border, float shadow) {
         FreeTypeFontGenerator.FreeTypeFontParameter p = new FreeTypeFontGenerator.FreeTypeFontParameter();
         p.size = Math.max(8, Math.round(size * fontScale));
         p.borderWidth = border * fontScale;
-        p.borderColor = new Color(0.05f, 0.05f, 0.08f, 1f);
+        p.borderColor = new Color(0.06f, 0.06f, 0.09f, 1f);
+        p.shadowOffsetX = 0;
+        p.shadowOffsetY = Math.round(shadow * fontScale);
+        p.shadowColor = new Color(0, 0, 0, 0.45f);
         p.minFilter = Texture.TextureFilter.Linear;
         p.magFilter = Texture.TextureFilter.Linear;
-        p.characters = FreeTypeFontGenerator.DEFAULT_CHARS + "•→←↑↓★☠⇄∞»✝✚♥";
+        p.characters = FreeTypeFontGenerator.DEFAULT_CHARS;
         p.incremental = false;
         BitmapFont f = gen.generateFont(p);
         f.getData().setScale(1f / fontScale);

@@ -66,7 +66,9 @@ public class MenuBackground implements Disposable {
         acc += Math.min(dt, 0.1f);
         while (acc >= C.STEP) {
             world.update(C.STEP);
-            for (WorldEvent e : world.events) renderer.handle(e, null);
+            for (int i66_ = 0; i66_ < world.events.size; i66_++) {
+                WorldEvent e = world.events.get(i66_); renderer.handle(e, null);
+            }
             world.events.clear();
             acc -= C.STEP;
         }

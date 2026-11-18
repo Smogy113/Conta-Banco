@@ -104,9 +104,11 @@ public abstract class GameMode {
         Array<Vector2> list = spawnList(p);
         Vector2 best = list.first();
         float bestScore = -1;
-        for (Vector2 s : list) {
+        for (int i30_ = 0; i30_ < list.size; i30_++) {
+            Vector2 s = list.get(i30_);
             float md = 4000;
-            for (Player q : w.players) {
+            for (int i31_ = 0; i31_ < w.players.size; i31_++) {
+                Player q = w.players.get(i31_);
                 if (!q.alive || q == p || !w.enemies(p, q)) continue;
                 float dx = q.x - s.x, dy = q.y - s.y;
                 md = Math.min(md, (float) Math.sqrt(dx * dx + dy * dy));

@@ -82,6 +82,11 @@ public final class I18n {
         d("player_left", "%s saiu", "%s left");
         d("room_of", "Sala de %s", "%s's room");
         d("refresh", "Atualizar", "Refresh");
+        d("room_ip", "IP DA SALA:", "ROOM IP:");
+        d("other_ips", "Outros IPs:", "Other IPs:");
+        d("no_wifi", "Você não está num Wi-Fi. Ligue o roteador (hotspot) do celular ou conecte no mesmo Wi-Fi.", "You are not on Wi-Fi. Turn on your phone hotspot or join the same Wi-Fi.");
+        d("room_in_game", "(a partida já começou, espere acabar)", "(match already started, wait for it to end)");
+        d("room_version", "(versões diferentes do jogo, atualizem os dois)", "(different game versions, update both)");
         d("change_team", "Trocar time", "Switch team");
         d("add_bot", "+ Bot", "+ Bot");
         d("remove_bot", "- Bot", "- Bot");
@@ -147,6 +152,7 @@ public final class I18n {
         d("play_again", "Jogar de Novo", "Play Again");
         d("menu", "Menu", "Menu");
         d("respawn_in", "Renascendo em %d...", "Respawning in %d...");
+        d("respawning", "RENASCENDO EM", "RESPAWNING IN");
         d("spectating", "Aguardando a próxima rodada...", "Waiting for next round...");
         d("killed_by", "Abatido por %s", "Killed by %s");
         d("you_killed", "Você abateu %s", "You killed %s");
@@ -243,6 +249,27 @@ public final class I18n {
         d("surv_lives", "%s perdeu uma vida (%d restantes)", "%s lost a life (%d left)");
         d("surv_over", "Fim de jogo! Você chegou à onda %d", "Game over! You reached wave %d");
         d("new_record", "NOVO RECORDE!", "NEW RECORD!");
+
+        // ---- replays
+        d("killcam", "KILLCAM", "KILLCAM");
+        d("replay", "REPLAY", "REPLAY");
+        d("slowmo", "CÂMERA LENTA", "SLOW MOTION");
+        d("killcam_by", "%s te pegou", "%s got you");
+        d("hp_left", "%d de vida", "%d HP left");
+        d("tap_skip", "Toque para pular", "Tap to skip");
+        d("best_plays", "MELHORES JOGADAS", "BEST PLAYS");
+        d("hl_flag", "BANDEIRA CAPTURADA", "FLAG CAPTURED");
+        d("hl_plant", "BOMBA PLANTADA", "BOMB PLANTED");
+        d("hl_defuse", "DESARME NA HORA H", "CLUTCH DEFUSE");
+        d("hl_massacre", "MASSACRE", "RAMPAGE");
+        d("hl_triple", "ABATE TRIPLO", "TRIPLE KILL");
+        d("hl_double", "ABATE DUPLO", "DOUBLE KILL");
+        d("hl_double_boom", "EXPLOSÃO DUPLA", "DOUBLE BOOM");
+        d("hl_melee", "NA PORRADA", "BEATDOWN");
+        d("hl_snipe", "TIRO DE LONGE", "LONG SHOT");
+        d("hl_air", "ABATE NO AR", "AIR KILL");
+        d("hl_boom", "KABUM", "KABOOM");
+        d("hl_kill", "BELO ABATE", "NICE KILL");
 
         // ---- treino
         d("dummy", "Boneco", "Dummy");

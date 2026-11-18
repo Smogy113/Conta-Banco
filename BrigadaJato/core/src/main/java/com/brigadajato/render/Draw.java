@@ -1,6 +1,8 @@
 package com.brigadajato.render;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.NinePatch;
+import com.badlogic.gdx.utils.ObjectMap;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.MathUtils;
@@ -85,5 +87,66 @@ public class Draw {
         rect(x, y, w * MathUtils.clamp(frac, 0, 1), h);
         color(1, 1, 1, 0.25f);
         rect(x, y + h * 0.55f, w * MathUtils.clamp(frac, 0, 1), h * 0.3f);
+    }
+
+    // ------------------------------------------------------------------ pecas de interface
+
+    private static final ObjectMap<TextureRegion, NinePatch> PATCHES = new ObjectMap<>();
+
+    /** Desenha uma regiao como 9-patch (bordas nao esticam). */
+    public static void patch(Draw d, TextureRegion r, float x, float y, float w, float h, int border) {
+        NinePatch np = PATCHES.get(r);
+        if (np == null) {
+            np = new NinePatch(r, border, border, border, border);
+            PATCHES.put(r, np);
+        }
+        float scale = Math.min(1f, Math.min(w, h) / (border * 2f));
+        if (scale < 1f) {
+            np.scale(scale, scale);
+            np.draw(d.batch, x, y, w, h);
+            np.scale(1 / scale, 1 / scale);
+        } else np.draw(d.batch, x, y, w, h);
+    }
+
+    /** Repete uma textura (faixa de alerta) na horizontal. */
+    public static void tiled(Draw d, TextureRegion r, float x, float y, float w, float h) {
+        float tileW = h * r.getRegionWidth() / (float) r.getRegionHeight();
+        float u = r.getU(), v = r.getV(), u2 = r.getU2(), v2 = r.getV2();
+        for (float px = 0; px < w; px += tileW) {
+            float pw = Math.min(tileW, w - px);
+            float uu = u + (u2 - u) * (pw / tileW);
+            d.batch.draw(r.getTexture(), x + px, y, pw, h, u, v2, uu, v);
+        }
+    }
+
+    /** Barra com contorno e divisoes (segs = 0 sem divisoes). */
+    public static void segBar(Draw d, float x, float y, float w, float h, float frac, int col, int segs) {
+        frac = MathUtils.clamp(frac, 0, 1);
+        d.rgb(0x0e0e14, 0.95f);
+        d.rect(x - 2.5f, y - 2.5f, w + 5, h + 5);
+        d.rgb(0x2a2f36, 1);
+        d.rect(x, y, w, h);
+        d.rgb(col, 1);
+        d.rect(x, y, w * frac, h);
+        d.color(1, 1, 1, 0.28f);
+        d.rect(x, y + h * 0.6f, w * frac, h * 0.25f);
+        d.color(0, 0, 0, 0.2f);
+        d.rect(x, y, w * frac, h * 0.25f);
+        if (segs > 1) {
+            d.rgb(0x0e0e14, 0.9f);
+            for (int i = 1; i < segs; i++) d.rect(x + w * i / segs - 1, y, 2, h);
+        }
+    }
+
+    /** Caixa colorida com contorno (placar dos times). */
+    public static void box(Draw d, float x, float y, float w, float h, int col, boolean highlight) {
+        d.rgb(highlight ? 0xffd54f : 0x0e0e14, 1);
+        d.rect(x - 3, y - 3, w + 6, h + 6);
+        d.rgb(col, 1);
+        d.rect(x, y, w, h);
+        d.color(1, 1, 1, 0.22f);
+        d.rect(x, y + h * 0.62f, w, h * 0.38f);
+        d.color(0, 0, 0, 0.18f);
+        d.rect(x, y, w, h * 0.2f);
     }
 }
