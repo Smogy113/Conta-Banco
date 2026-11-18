@@ -46,6 +46,7 @@ public class ReplayDirector implements Disposable {
     private float killcamAt = -1, deathTime;
     private int killerId = -1, killerWeapon = -1;
     private float killerHp;
+    private int victimId = -1;
 
     // melhores jogadas
     private static class Pending {
@@ -78,6 +79,11 @@ public class ReplayDirector implements Disposable {
         cam.viewportHeight = vh;
     }
 
+    /** Killcam ainda passando (segura o renascimento do jogador local). */
+    public boolean holdRespawn() {
+        return mode == Mode.KILLCAM || killcamAt > 0;
+    }
+
     public boolean active() {
         return mode != Mode.NONE;
     }
@@ -92,9 +98,10 @@ public class ReplayDirector implements Disposable {
             case KILL: {
                 Player k = live.player(e.a);
                 if (e.b == lid && k != null && e.a != lid && settings.killcam && !live.mode.over) {
-                    killcamAt = now + 0.45f;
+                    killcamAt = now + 0.8f;
                     deathTime = now;
                     killerId = e.a;
+                    victimId = e.b;
                     killerWeapon = e.c;
                     killerHp = k.health;
                 }
@@ -203,7 +210,7 @@ public class ReplayDirector implements Disposable {
         }
         if (mode == Mode.NONE && killcamAt > 0 && now >= killcamAt) {
             killcamAt = -1;
-            Clip c = recorder.extract(deathTime - 3.0f, now);
+            Clip c = recorder.extract(deathTime - 2.2f, now);
             if (c.frames.size > 10 && local != null && !local.alive) {
                 c.focusId = killerId;
                 c.keyTimes.add(deathTime);
@@ -233,10 +240,11 @@ public class ReplayDirector implements Disposable {
         for (int i = 0; i < c.keyTimes.size; i++) {
             float dtKey = c.keyTimes.get(i) - player.t;
             if (mode == Mode.KILLCAM) {
-                if (dtKey < 0.8f && dtKey > -0.6f) {
-                    targetSpeed = 0.35f;
+                if (dtKey < 0.45f && dtKey > -0.5f) {
+                    targetSpeed = 0.4f;
                     targetZoom = 0.68f;
-                }
+                    if (dtKey < 0.03f && dtKey > -0.03f) flash = 0.8f;
+                } else if (dtKey >= 0.45f) targetSpeed = 1.6f; // inicio mais rapido para chegar no abate
             } else if (dtKey < 0.55f && dtKey > -0.45f) {
                 targetSpeed = 0.22f;
                 targetZoom = 0.6f;
@@ -255,6 +263,7 @@ public class ReplayDirector implements Disposable {
         speed = 1;
         zoom = m == Mode.KILLCAM ? 0.9f : 1f;
         player.start(c);
+        player.victimId = m == Mode.KILLCAM ? victimId : -1;
         Player f = player.focus();
         if (f != null) {
             camX = f.x;
@@ -317,8 +326,14 @@ public class ReplayDirector implements Disposable {
         Player f = player.focus();
         if (f != null && f.alive) {
             float k = Math.min(1, 0.08f + speed * 0.12f);
-            camX += (f.x + MathUtils.cos(f.aim) * 60 - camX) * k;
-            camY += (f.centerY() + 20 - camY) * k;
+            float tx = f.x + MathUtils.cos(f.aim) * 60, ty = f.centerY() + 20;
+            Player v = mode == Mode.KILLCAM ? player.victim() : null;
+            if (v != null && Math.abs(v.x - f.x) < 1000 && Math.abs(v.y - f.y) < 560) { // enquadra os dois
+                tx = (f.x + v.x) / 2;
+                ty = (f.centerY() + v.centerY()) / 2 + 20;
+            }
+            camX += (tx - camX) * k;
+            camY += (ty - camY) * k;
         }
         cam.zoom = zoom;
         float hw = cam.viewportWidth * zoom / 2, hh = cam.viewportHeight * zoom / 2;

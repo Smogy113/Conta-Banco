@@ -245,23 +245,6 @@ public class KillBanner {
                 }
             }
 
-            // contadores acendendo em sequencia
-            for (int i = 0; i < 5; i++) {
-                float pxp = cx + (i - 2) * 22, pyp = cy - 46 * 0.95f - 16;
-                float lit = sinceImpact - 0.1f - i * 0.05f;
-                boolean on = i < lv && lit > 0;
-                float pop = on ? 1 + 0.8f * (float) Math.exp(-lit * 12) : 1;
-                float s = 7 * pop;
-                diamond(d, pxp, pyp, s * 2.1f, s * 2.1f, 45, INK, alpha);
-                diamond(d, pxp, pyp, s * 1.5f, s * 1.5f, 45, on ? (i == lv - 1 ? 0xffffff : c) : 0x37474f, alpha);
-                if (on && lit < 0.2f) {
-                    d.additive(true);
-                    d.rgb(c, (1 - lit / 0.2f) * alpha);
-                    d.soft(pxp, pyp, 18);
-                    d.additive(false);
-                }
-            }
-
             // texto com tranco (e glitch nos niveis altos)
             String text = label(level);
             float tt = sinceImpact - 0.12f;
@@ -269,7 +252,7 @@ public class KillBanner {
                 BitmapFont f = a.big;
                 float s = 1 + 1.4f * (1 - easeOutBack(tt / 0.25f)) + (1 - fade) * 0.3f;
                 float shake = tt < 0.18f ? MathUtils.random(-3f, 3f) : 0;
-                float ty = cy - 46 * 0.95f - 40;
+                float ty = cy - 46 * 0.95f - 22;
                 f.getData().setScale(Math.max(0.6f, s) / a.fontScale);
                 if (lv >= 4 && tt < 0.6f) {
                     float j = MathUtils.random(2f, 5f);

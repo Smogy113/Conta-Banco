@@ -220,8 +220,31 @@ public class ReplayPlayer implements Disposable {
         }
     }
 
+    /** quem morreu (killcam): ganha uma seta e o nome em cima */
+    public int victimId = -1;
+
+    public Player victim() {
+        return victimId >= 0 ? view.player(victimId) : null;
+    }
+
     public void render(Draw d, OrthographicCamera cam) {
         renderer.render(d, cam, view, focus(), false, 0, 0);
+        Player v = victimId >= 0 ? view.player(victimId) : null;
+        Player k = focus();
+        float t = renderer.time;
+        if (v != null) marker(d, v, 0xff5252, com.brigadajato.I18n.t("you"), t);
+        if (k != null && k.alive) marker(d, k, 0xffd740, k.name, t);
+    }
+
+    private void marker(Draw d, Player p, int col, String text, float t) {
+        float y = p.y + p.height() + 34 + com.badlogic.gdx.math.MathUtils.sin(t * 6) * 3;
+        d.rgb(0x15151c, 1);
+        d.region(d.a.tri, p.x, y, 20, 15, 180);
+        d.rgb(col, 1);
+        d.region(d.a.tri, p.x, y + 1, 15, 11, 180);
+        d.a.small.setColor(((col >> 16) & 0xff) / 255f, ((col >> 8) & 0xff) / 255f, (col & 0xff) / 255f, 1);
+        d.a.small.draw(d.batch, text, p.x, y + 28, 0, com.badlogic.gdx.utils.Align.center, false);
+        d.a.small.setColor(1, 1, 1, 1);
     }
 
     @Override

@@ -78,6 +78,7 @@ public class GameScreen extends ScreenAdapter {
     private float lifeTime;
     private float zoomPunch;
     private float shotWait;
+    private float holdTime;
     private static final String SHOT_WHEN = System.getProperty("brigadajato.shotWhen");
     private static final float SHOT_DELAY = Float.parseFloat(System.getProperty("brigadajato.shotDelay", "1.3"));
     /** teste no PC: a IA controla o jogador local (--autoplay) */
@@ -239,6 +240,10 @@ public class GameScreen extends ScreenAdapter {
                 return;
             }
         } else if (!paused || host != null) {
+            if (local != null && !local.alive && director.holdRespawn() && holdTime < 2.5f) {
+                holdTime += dt;
+                local.respawnTimer = Math.max(local.respawnTimer, 0.15f);
+            } else if (local != null && local.alive) holdTime = 0;
             acc += dt;
             int steps = 0;
             while (acc >= C.STEP && steps < 6) {
