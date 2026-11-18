@@ -44,7 +44,9 @@ jobs:
           unzip -l BrigadaJato.apk | grep -E "lib/arm64-v8a/libgdx-freetype.so"
           unzip -l BrigadaJato.apk | grep -E "assets/maps/fortaleza.txt"
           unzip -l BrigadaJato.apk | grep -E "assets/sfx/explosion.wav"
-          unzip -l BrigadaJato.apk | grep -E "assets/fonts/game.ttf"
+          unzip -l BrigadaJato.apk | grep -E "assets/fonts/ui.ttf"
+          unzip -l BrigadaJato.apk | grep -E "assets/fonts/title.ttf"
+          unzip -l BrigadaJato.apk | grep -E "assets/sfx/kill5.wav"
 
       - name: Enviar APK
         uses: actions/upload-artifact@v4
