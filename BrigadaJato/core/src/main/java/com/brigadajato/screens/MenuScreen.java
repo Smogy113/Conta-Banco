@@ -47,7 +47,7 @@ public class MenuScreen extends BaseScreen {
         Table left = new Table();
         left.add(new TitleActor()).size(640, 190).left().padBottom(8).row();
         float bw = 440, bh = 64;
-        left.add(button(I18n.t("play"), "default", () -> go(new SetupScreen(game, SetupScreen.Kind.OFFLINE)))).width(bw).height(bh).padBottom(10).row();
+        left.add(button(I18n.t("play"), "default", () -> go(new ModeSelectScreen(game, SetupScreen.Kind.OFFLINE)))).width(bw).height(bh).padBottom(10).row();
         left.add(button(I18n.t("multiplayer"), "blue", () -> go(new MultiplayerScreen(game)))).width(bw).height(bh).padBottom(10).row();
         left.add(button(I18n.t("training"), "green", () -> {
             MatchConfig cfg = new MatchConfig();

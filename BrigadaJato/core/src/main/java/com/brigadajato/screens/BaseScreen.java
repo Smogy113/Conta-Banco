@@ -46,6 +46,12 @@ public abstract class BaseScreen extends ScreenAdapter {
             }
         });
         Gdx.input.setInputProcessor(mux);
+        // entrada da tela: sobe um pouco e aparece
+        root.getColor().a = 0;
+        root.setY(-26);
+        root.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.parallel(
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeIn(0.22f, com.badlogic.gdx.math.Interpolation.pow2Out),
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.moveTo(0, 0, 0.32f, com.badlogic.gdx.math.Interpolation.swingOut)));
     }
 
     protected void onBack() {
@@ -78,6 +84,7 @@ public abstract class BaseScreen extends ScreenAdapter {
 
     protected TextButton button(String text, String style, final Runnable action) {
         TextButton b = new TextButton(text, skin, style);
+        juice(b);
         b.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -86,6 +93,45 @@ public abstract class BaseScreen extends ScreenAdapter {
             }
         });
         return b;
+    }
+
+    /** Botao que afunda ao tocar, volta com mola e cresce um pouco com o mouse em cima. */
+    public static void juice(final Actor b) {
+        if (b instanceof com.badlogic.gdx.scenes.scene2d.Group) ((com.badlogic.gdx.scenes.scene2d.Group) b).setTransform(true);
+        b.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+            private boolean over;
+
+            private void to(float s, float t, com.badlogic.gdx.math.Interpolation in) {
+                b.setOrigin(com.badlogic.gdx.utils.Align.center);
+                b.clearActions();
+                b.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.scaleTo(s, s, t, in));
+            }
+
+            @Override
+            public boolean touchDown(com.badlogic.gdx.scenes.scene2d.InputEvent e, float x, float y, int p, int btn) {
+                to(0.92f, 0.06f, com.badlogic.gdx.math.Interpolation.pow2Out);
+                return true;
+            }
+
+            @Override
+            public void touchUp(com.badlogic.gdx.scenes.scene2d.InputEvent e, float x, float y, int p, int btn) {
+                to(over ? 1.04f : 1f, 0.28f, com.badlogic.gdx.math.Interpolation.swingOut);
+            }
+
+            @Override
+            public void enter(com.badlogic.gdx.scenes.scene2d.InputEvent e, float x, float y, int p, Actor from) {
+                if (p != -1) return;
+                over = true;
+                to(1.04f, 0.12f, com.badlogic.gdx.math.Interpolation.pow2Out);
+            }
+
+            @Override
+            public void exit(com.badlogic.gdx.scenes.scene2d.InputEvent e, float x, float y, int p, Actor to) {
+                if (p != -1) return;
+                over = false;
+                to(1f, 0.15f, com.badlogic.gdx.math.Interpolation.pow2Out);
+            }
+        });
     }
 
     protected Label label(String text, String style) {

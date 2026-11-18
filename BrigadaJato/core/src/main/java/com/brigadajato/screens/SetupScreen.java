@@ -34,6 +34,19 @@ public class SetupScreen extends BaseScreen {
         this(game, kind, game.settings.lastMatch.copy(), null);
     }
 
+    /** Depois da tela de modos: ja vem com o modo escolhido. */
+    public SetupScreen(BrigadaJatoGame game, Kind kind, ModeType mode) {
+        this(game, kind, withMode(game.settings.lastMatch.copy(), mode), null);
+    }
+
+    private static MatchConfig withMode(MatchConfig cfg, ModeType mode) {
+        if (cfg.mode != mode) {
+            cfg.mode = mode;
+            cfg.applyModeDefaults();
+        }
+        return cfg;
+    }
+
     public SetupScreen(BrigadaJatoGame game, Kind kind, MatchConfig cfg, Runnable onDone) {
         super(game);
         this.kind = kind;
@@ -49,31 +62,53 @@ public class SetupScreen extends BaseScreen {
     private void build() {
         Table panel = new Table(skin);
         panel.setBackground("panel");
-        panel.pad(14, 24, 14, 24);
+        panel.pad(14, 26, 14, 26);
         panel.defaults().pad(3);
-        panel.add(label(kind == Kind.OFFLINE ? I18n.t("match_setup") : I18n.t("create_room"), "big")).colspan(4).padBottom(10).row();
+        final int[] row = {0};
 
-        // modo
+        // cabecalho: modo escolhido (ou seletor de modo, ao editar a sala)
         modeLabel = label("", "yellow");
         modeDesc = label("", "small");
         modeDesc.setWrap(true);
-        modeDesc.setAlignment(Align.center);
-        panel.add(label(I18n.t("mode"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleMode(-1))).size(56, 40);
-        panel.add(modeLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleMode(1))).size(56, 40).row();
-        panel.add(modeDesc).colspan(4).width(700).padBottom(6).row();
+        Table head = new Table();
+        if (kind == Kind.LOBBY_EDIT) {
+            head.add(label(I18n.t("mode"), "default")).left().padRight(12);
+            head.add(button("<", "gray", () -> cycleMode(-1))).size(56, 40);
+            head.add(new ModeBadge()).size(64, 64).padLeft(10).padRight(10);
+            Table txt = new Table();
+            txt.add(modeLabel).left().row();
+            txt.add(modeDesc).width(560).left();
+            head.add(txt).width(570).left();
+            head.add(button(">", "gray", () -> cycleMode(1))).size(56, 40);
+        } else {
+            head.add(new ModeBadge()).size(78, 78).padRight(14);
+            Table txt = new Table();
+            String step = (I18n.pt ? "2/2  " : "2/2  ") + (kind == Kind.OFFLINE ? I18n.t("match_setup") : I18n.t("create_room")).toUpperCase();
+            txt.add(label(step, "gray")).left().row();
+            txt.add(modeLabel).left().row();
+            txt.add(modeDesc).width(640).left();
+            head.add(txt).width(650).left();
+            head.add(button(I18n.pt ? "TROCAR MODO" : "CHANGE MODE", "gray-small", () -> go(new ModeSelectScreen(game, kind))))
+                    .width(190).height(48).padLeft(12);
+        }
+        fadeRow(panel.add(head).colspan(2).padBottom(6).growX(), row);
+        panel.row();
 
         // mapa
         mapLabel = label("", "yellow");
-        panel.add(label(I18n.t("map"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleMap(-1))).size(56, 40);
-        panel.add(mapLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleMap(1))).size(56, 40).row();
+        Table mapRow = new Table();
+        mapRow.add(label(I18n.t("map"), "default")).width(110).left();
+        mapRow.add(button("<", "gray", () -> cycleMap(-1))).size(56, 40);
+        mapLabel.setAlignment(Align.center);
+        mapRow.add(mapLabel).width(560);
+        mapRow.add(button(">", "gray", () -> cycleMap(1))).size(56, 40);
+        fadeRow(panel.add(mapRow).colspan(2), row);
+        panel.row();
         mapCard = new MapCard(game.draw, game.assets);
-        panel.add(mapCard).colspan(4).size(720, 118).row();
+        fadeRow(panel.add(mapCard).colspan(2).size(760, 112), row);
+        panel.row();
 
-        // bots
+        // bots + fogo amigo
         botsLabel = label("", "yellow");
         botsSlider = new Slider(0, 11, 1, false, skin);
         botsSlider.setValue(cfg.bots);
@@ -84,49 +119,6 @@ public class SetupScreen extends BaseScreen {
                 refresh();
             }
         });
-        panel.add(botsLabel).left();
-        panel.add(botsSlider).colspan(3).width(480).row();
-
-        // dificuldade
-        diffLabel = label("", "yellow");
-        panel.add(label(I18n.t("difficulty"), "default")).left();
-        panel.add(button("<", "gray", () -> {
-            cfg.difficulty = (cfg.difficulty + 2) % 3;
-            refresh();
-        })).size(56, 40);
-        panel.add(diffLabel).width(360);
-        panel.add(button(">", "gray", () -> {
-            cfg.difficulty = (cfg.difficulty + 1) % 3;
-            refresh();
-        })).size(56, 40).row();
-
-        // tempo
-        timeLabel = label("", "yellow");
-        panel.add(label(I18n.t("time_limit"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleTime(-1))).size(56, 40);
-        panel.add(timeLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleTime(1))).size(56, 40).row();
-
-        // placar
-        scoreLabel = label("", "yellow");
-        panel.add(label(I18n.t("score_limit"), "default")).left();
-        panel.add(button("<", "gray", () -> cycleScore(-1))).size(56, 40);
-        panel.add(scoreLabel).width(360);
-        panel.add(button(">", "gray", () -> cycleScore(1))).size(56, 40).row();
-
-        // time do jogador
-        teamLabel = label("", "yellow");
-        panel.add(label(I18n.t("your_team"), "default")).left();
-        panel.add(button("<", "gray", () -> {
-            cfg.playerTeam = (cfg.playerTeam + 2) % 3;
-            refresh();
-        })).size(56, 40);
-        panel.add(teamLabel).width(360);
-        panel.add(button(">", "gray", () -> {
-            cfg.playerTeam = (cfg.playerTeam + 1) % 3;
-            refresh();
-        })).size(56, 40).row();
-
         final CheckBox ff = new CheckBox(" " + I18n.t("friendly_fire"), skin);
         ff.setChecked(cfg.friendlyFire);
         ff.addListener(new ChangeListener() {
@@ -135,16 +127,67 @@ public class SetupScreen extends BaseScreen {
                 cfg.friendlyFire = ff.isChecked();
             }
         });
-        panel.add(ff).colspan(4).row();
+        Table botsRow = new Table();
+        botsRow.add(botsLabel).width(170).left();
+        botsRow.add(botsSlider).width(400).padRight(30);
+        botsRow.add(ff);
+        fadeRow(panel.add(botsRow).colspan(2).padTop(4), row);
+        panel.row();
+
+        // grade 2x2 de opcoes
+        diffLabel = label("", "yellow");
+        timeLabel = label("", "yellow");
+        scoreLabel = label("", "yellow");
+        teamLabel = label("", "yellow");
+        fadeRow(panel.add(option(I18n.t("difficulty"), diffLabel, () -> {
+            cfg.difficulty = (cfg.difficulty + 2) % 3;
+            refresh();
+        }, () -> {
+            cfg.difficulty = (cfg.difficulty + 1) % 3;
+            refresh();
+        })), row);
+        fadeRow(panel.add(option(I18n.t("time_limit"), timeLabel, () -> cycleTime(-1), () -> cycleTime(1))), row);
+        panel.row();
+        fadeRow(panel.add(option(I18n.t("score_limit"), scoreLabel, () -> cycleScore(-1), () -> cycleScore(1))), row);
+        fadeRow(panel.add(option(I18n.t("your_team"), teamLabel, () -> {
+            cfg.playerTeam = (cfg.playerTeam + 2) % 3;
+            refresh();
+        }, () -> {
+            cfg.playerTeam = (cfg.playerTeam + 1) % 3;
+            refresh();
+        })), row);
+        panel.row();
 
         Table buttons = new Table();
         buttons.add(button(I18n.t("back"), "gray", this::onBack)).width(220).height(60).padRight(20);
         String startText = kind == Kind.OFFLINE ? I18n.t("start") : (kind == Kind.HOST ? I18n.t("create_room") : "OK");
         TextButton start = button(startText, "green", this::start);
-        buttons.add(start).width(300).height(64);
-        panel.add(buttons).colspan(4).padTop(14);
+        buttons.add(start).width(320).height(64);
+        fadeRow(panel.add(buttons).colspan(2).padTop(10), row);
         root.add(panel);
         refresh();
+    }
+
+    /** Cada linha aparece um pouco depois da anterior. */
+    private static void fadeRow(com.badlogic.gdx.scenes.scene2d.ui.Cell<?> c, int[] row) {
+        Actor a = c.getActor();
+        a.getColor().a = 0;
+        a.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.sequence(
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.delay(0.06f + row[0]++ * 0.05f),
+                com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeIn(0.25f, com.badlogic.gdx.math.Interpolation.pow2Out)));
+    }
+
+    /** Bloco de opcao: titulo pequeno em cima e "<  valor  >" embaixo. */
+    private Table option(String title, Label value, Runnable prev, Runnable next) {
+        Table t = new Table(skin);
+        t.setBackground(skin.newDrawable("field", new com.badlogic.gdx.graphics.Color(0.11f, 0.13f, 0.17f, 0.95f)));
+        t.pad(6, 10, 8, 10);
+        t.add(label(title, "gray")).colspan(3).left().padBottom(2).row();
+        t.add(button("<", "gray", prev)).size(50, 38);
+        value.setAlignment(Align.center);
+        t.add(value).width(300);
+        t.add(button(">", "gray", next)).size(50, 38);
+        return t;
     }
 
     private void cycleMode(int d) {
@@ -252,9 +295,35 @@ public class SetupScreen extends BaseScreen {
 
     @Override
     protected void onBack() {
-        if (kind == Kind.OFFLINE) go(new MenuScreen(game));
-        else if (kind == Kind.HOST) go(new MultiplayerScreen(game));
+        if (kind == Kind.OFFLINE || kind == Kind.HOST) go(new ModeSelectScreen(game, kind));
         else if (onDone != null) onDone.run();
+    }
+
+    /** Icone animado do modo escolhido. */
+    private class ModeBadge extends Actor {
+        private final com.brigadajato.render.SoldierPainter painter = new com.brigadajato.render.SoldierPainter();
+        private float time;
+
+        @Override
+        public void act(float delta) {
+            super.act(delta);
+            time += delta;
+        }
+
+        @Override
+        public void draw(com.badlogic.gdx.graphics.g2d.Batch batch, float parentAlpha) {
+            com.brigadajato.render.Draw d = game.draw;
+            float cx = getX() + getWidth() / 2, cy = getY() + getHeight() / 2, s = getWidth();
+            int col = ModeSelectScreen.colorOf(cfg.mode);
+            d.rgb(com.brigadajato.render.SoldierPainter.OUTLINE, parentAlpha);
+            d.region(game.assets.rrect, cx, cy, s + 4, s + 4, 0);
+            d.rgb(com.brigadajato.render.SoldierPainter.mix(col, 0x0b0e14, 0.55f), parentAlpha);
+            d.region(game.assets.rrect, cx, cy, s, s, 0);
+            d.rgb(col, 0.7f * parentAlpha);
+            d.region(game.assets.rrect, cx, cy + s * 0.18f, s - 6, s * 0.6f, 0);
+            ModeSelectScreen.drawModeIcon(d, game.assets, painter, cfg.mode, cx, cy + 2, s * 0.62f, time);
+            batch.setColor(1, 1, 1, 1);
+        }
     }
 
     @Override

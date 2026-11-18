@@ -1006,6 +1006,11 @@ public class SoldierPainter {
     }
 
     public void drawGun(Draw d, WeaponType w, int skin, float cx, float cy, float deg, float scale, float alpha) {
+        drawGun(d, w, skin, cx, cy, deg, scale, alpha, 1);
+    }
+
+    /** f = -1 desenha a arma virada (apontando para a esquerda, sem ficar de cabeca para baixo). */
+    public void drawGun(Draw d, WeaponType w, int skin, float cx, float cy, float deg, float scale, float alpha, int f) {
         n = 0;
         float len = w.gunLen;
         if (w.isShield()) {
@@ -1014,8 +1019,9 @@ public class SoldierPainter {
             alphaLast(0.75f);
             dRect(cx - 5, cy - 10, 10, 2.5f, 5, 10, deg + 8, 0xffeb3b);
         } else {
-            if (w.dual) gun(w, skin, cx - len / 2 * MathUtils.cosDeg(deg) - 4, cy - len / 2 * MathUtils.sinDeg(deg) + 6, deg, 1);
-            gun(w, skin, cx - len / 2 * MathUtils.cosDeg(deg), cy - len / 2 * MathUtils.sinDeg(deg), deg, 1);
+            float gd = f < 0 ? 180 - deg : deg;
+            if (w.dual) gun(w, skin, cx - len / 2 * MathUtils.cosDeg(gd) - 4 * f, cy - len / 2 * MathUtils.sinDeg(gd) + 6, gd, f);
+            gun(w, skin, cx - len / 2 * MathUtils.cosDeg(gd), cy - len / 2 * MathUtils.sinDeg(gd), gd, f);
         }
         if (scale != 1f) {
             for (int i = 0; i < n; i++) {

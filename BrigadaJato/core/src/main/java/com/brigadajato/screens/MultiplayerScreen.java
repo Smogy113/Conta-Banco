@@ -35,7 +35,7 @@ public class MultiplayerScreen extends BaseScreen {
         panel.add(label(I18n.t("mp_hint"), "gray")).colspan(2).padBottom(10).row();
 
         Table left = new Table();
-        left.add(button(I18n.t("create_room"), "green", () -> go(new SetupScreen(game, SetupScreen.Kind.HOST)))).width(340).height(70).row();
+        left.add(button(I18n.t("create_room"), "green", () -> go(new ModeSelectScreen(game, SetupScreen.Kind.HOST)))).width(340).height(70).row();
         List<String> ips = Net.localIps();
         left.add(label(I18n.f("local_ip", ips.isEmpty() ? "?" : ips.get(0)), "gray")).width(340).padTop(10).row();
         if (!Net.onLocalNetwork()) {
