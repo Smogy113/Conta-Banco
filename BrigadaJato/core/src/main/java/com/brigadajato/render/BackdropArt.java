@@ -28,6 +28,8 @@ public class BackdropArt implements Disposable {
         /** a textura tambem tem teto (caverna) */
         public boolean ceiling;
         public int top;
+        /** fracao da altura (a partir de baixo) totalmente opaca, e onde comeca o conteudo (acima e transparente) */
+        public float solidFrac = 0, topFrac = 1;
     }
 
     public final Layer[] layers;
@@ -104,6 +106,37 @@ public class BackdropArt implements Disposable {
         int oc = old >>> 8;
         float na = Math.min(1, oa / 255f + alpha * (1 - oa / 255f));
         px[i] = (mix(oc, rgb, alpha) << 8) | (int) (na * 255);
+    }
+
+    /** Mede a parte opaca e a parte vazia da textura (para desenhar so o necessario). */
+    private void measure(Layer l) {
+        final int margin = 16; // folga por causa do mipmap e do filtro linear
+        int topRow = TH;
+        for (int y = 0; y < TH && topRow == TH; y++)
+            for (int x = 0; x < TW; x++)
+                if ((px[y * TW + x] & 0xff) != 0) {
+                    topRow = y;
+                    break;
+                }
+        int solidRow = TH;
+        for (int y = TH - 1; y >= 0; y--) {
+            boolean full = true;
+            for (int x = 0; x < TW; x++)
+                if ((px[y * TW + x] & 0xff) != 0xff) {
+                    full = false;
+                    break;
+                }
+            if (!full) break;
+            solidRow = y;
+        }
+        l.topFrac = Math.min(1f, (TH - Math.max(0, topRow - margin)) / (float) TH);
+        l.solidFrac = Math.max(0f, (TH - Math.min(TH, solidRow + margin)) / (float) TH);
+        if (l.solidFrac > l.topFrac) l.solidFrac = l.topFrac;
+    }
+
+    private Texture build(Layer l) {
+        measure(l);
+        return build();
     }
 
     private Texture build() {
@@ -375,7 +408,7 @@ public class BackdropArt implements Disposable {
             }
         }
         if (bg != Theme.Bg.INDOOR_WOOD && bg != Theme.Bg.INDOOR_LAB && bg != Theme.Bg.INDOOR_SCHOOL) {
-            far.tex = build();
+            far.tex = build(far);
             far.bottom = mix(t.far, haze, 0.4f);
         }
 
@@ -420,7 +453,7 @@ public class BackdropArt implements Disposable {
             }
         }
         if (bg != Theme.Bg.OCEAN && bg != Theme.Bg.INDOOR_WOOD && bg != Theme.Bg.INDOOR_LAB && bg != Theme.Bg.INDOOR_SCHOOL) {
-            mid.tex = build();
+            mid.tex = build(mid);
             mid.bottom = mix(t.mid, haze, 0.18f);
         }
 
@@ -463,7 +496,7 @@ public class BackdropArt implements Disposable {
                 break;
         }
         if (nearTex) {
-            near.tex = build();
+            near.tex = build(near);
             near.bottom = t.near;
         }
         px = null;

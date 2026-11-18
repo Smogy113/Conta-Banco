@@ -55,11 +55,29 @@ public class Backdrop implements Disposable {
      */
     public void draw(Draw d, float camX, float camY, float minX, float minY, float vw, float vh, float time, float night, float sunPos) {
         Theme t = theme;
+        // ate onde cada camada pintada e totalmente opaca: o que fica atras dela nao precisa ser desenhado
+        float coverAll = minY;
+        for (int i = 2; i >= 0; i--) {
+            coverAbove[i] = coverAll;
+            if (!drawsLayer(i)) continue;
+            BackdropArt.Layer l = art.layers[i];
+            if (l.tex == null || l.solidFrac <= 0) continue;
+            float baseY = (camY - worldH * 0.5f) * (1 - KS[i] * 0.7f) + worldH * (0.18f - i * 0.06f);
+            float y0 = baseY - l.h * 0.12f;
+            coverAll = Math.max(coverAll, y0 + l.h * l.solidFrac);
+        }
+        coverAll = Math.min(coverAll, minY + vh);
         d.color(1, 1, 1, 1);
-        d.batch.draw(sky, minX, minY, vw, vh);
+        if (coverAll < minY + vh) {
+            float f = (coverAll - minY) / vh;
+            d.batch.disableBlending();
+            d.batch.draw(sky, minX, coverAll, vw, vh * (1 - f), 0, 1 - f, 1, 0);
+            d.batch.enableBlending();
+        }
+        com.brigadajato.Perf.mark(d.batch, "b.sky");
         if (!indoor && night > 0.01f && t.bg != Theme.Bg.MOON && t.bg != Theme.Bg.CITY_NIGHT) {
             d.color(0.03f, 0.05f, 0.14f, night * 0.82f);
-            d.rect(minX, minY, vw, vh);
+            if (coverAll < minY + vh) d.rect(minX, coverAll, vw, minY + vh - coverAll);
         }
         // estrelas
         float starA = t.bg == Theme.Bg.MOON || t.bg == Theme.Bg.CITY_NIGHT ? 1 : (indoor ? 0 : night);
@@ -68,32 +86,47 @@ public class Backdrop implements Disposable {
             for (int i = 0; i < stars.size; i++) {
                 float[] st = stars.get(i);
                 float sx = minX + st[0] * vw, sy = minY + vh * 0.25f + st[1] * vh * 0.75f;
+                if (sy + st[2] < coverAll) continue;
                 d.color(1, 1, 1, (0.45f + 0.35f * MathUtils.sin(time * 2 + st[3])) * starA);
                 d.circle(sx, sy, st[2]);
             }
         }
+        com.brigadajato.Perf.mark(d.batch, "b.stars");
         if (!indoor) drawSky(d, t, minX, minY, vw, vh, time, night, sunPos, camX);
         else drawIndoorWall(d, t, camX, camY, minX, minY, vw, vh, time);
-        float[] ks = {0.18f, 0.38f, 0.6f};
-        Array<float[]>[] lists = new Array[]{far, mid, near};
-        int[] cols = {t.far, t.mid, t.near};
+        com.brigadajato.Perf.mark(d.batch, "b.sun");
+        lists[0] = far;
+        lists[1] = mid;
+        lists[2] = near;
+        cols[0] = t.far;
+        cols[1] = t.mid;
+        cols[2] = t.near;
         for (int i = 0; i < 3; i++) {
-            if (quality == 0 && i != 1) continue; // celular fraco: so a camada do meio
-            if (quality == 1 && i == 2) continue;
+            if (!drawsLayer(i)) continue;
             BackdropArt.Layer l = art.layers[i];
             tex = l.tex != null;
-            if (tex) texLayer(d, l, ks[i], i, camX, camY, minX, minY, vw, vh, night);
+            if (tex) texLayer(d, l, KS[i], i, camX, camY, minX, minY, vw, vh, night, coverAbove[i]);
+            if (com.brigadajato.Perf.ON) com.brigadajato.Perf.mark(d.batch, "b.tex" + i);
             if (tex && i < 2 && !indoor) { // neblina entre as camadas: da profundidade
-                float k2 = ks[i];
+                float k2 = KS[i];
                 float baseY = (camY - worldH * 0.5f) * (1 - k2 * 0.7f) + worldH * (0.18f - i * 0.06f);
                 int hz = t.skyBottom;
                 float fade = 1 - night * 0.6f;
+                float clip = coverAbove[i];
                 for (int j = 0; j < 4; j++) {
+                    float hy = baseY - 40 + j * 22, hh = 60 - j * 12;
+                    if (hy + hh <= clip) continue;
+                    if (hy < clip) {
+                        hh -= clip - hy;
+                        hy = clip;
+                    }
                     d.color(((hz >> 16) & 0xff) / 255f * fade, ((hz >> 8) & 0xff) / 255f * fade, (hz & 0xff) / 255f * fade, 0.1f);
-                    d.rect(minX, baseY - 40 + j * 22, vw, 60 - j * 12);
+                    d.rect(minX, hy, vw, hh);
                 }
             }
-            layer(d, lists[i], ks[i], cols[i], i == 0 ? 0.9f : (i == 1 ? 0.95f : 1f), camX, camY, i, time, night);
+            if (com.brigadajato.Perf.ON) com.brigadajato.Perf.mark(d.batch, "b.haze" + i);
+            layer(d, lists[i], KS[i], cols[i], i == 0 ? 0.9f : (i == 1 ? 0.95f : 1f), camX, camY, i, time, night);
+            if (com.brigadajato.Perf.ON) com.brigadajato.Perf.mark(d.batch, "b.shapes" + i);
         }
         if (t.bg == Theme.Bg.UNDERWATER) {
             // raios de luz vindos da superficie
@@ -107,8 +140,27 @@ public class Backdrop implements Disposable {
         }
     }
 
+    private static final float[] KS = {0.18f, 0.38f, 0.6f};
+    private final float[] coverAbove = new float[3];
+    @SuppressWarnings("unchecked")
+    private final Array<float[]>[] lists = new Array[3];
+    private final int[] cols = new int[3];
+
+    private boolean drawsLayer(int i) {
+        if (quality == 0 && i != 1) return false; // celular fraco: so a camada do meio
+        return !(quality == 1 && i == 2);
+    }
+
+    /** Pedaco da textura entre as alturas ya e yb (mundo), repetido na horizontal. */
+    private void texPart(Draw d, BackdropArt.Layer l, float start, float minX, float vw, float y0, float ya, float yb) {
+        if (yb <= ya) return;
+        float fa = (ya - y0) / l.h, fb = (yb - y0) / l.h;
+        for (float x = start; x < minX + vw; x += l.w) d.batch.draw(l.tex, x, ya, l.w, yb - ya, 0, 1 - fa, 1, 1 - fb);
+    }
+
     /** Desenha uma camada pintada repetindo na horizontal, com paralaxe. */
-    private void texLayer(Draw d, BackdropArt.Layer l, float k, int depth, float camX, float camY, float minX, float minY, float vw, float vh, float night) {
+    private void texLayer(Draw d, BackdropArt.Layer l, float k, int depth, float camX, float camY, float minX, float minY, float vw, float vh, float night,
+                          float clipY) {
         float baseY = (camY - worldH * 0.5f) * (1 - k * 0.7f) + worldH * (0.18f - depth * 0.06f);
         float y0 = baseY - l.h * 0.12f;
         float dim = indoor ? 1 : 1 - night * 0.55f;
@@ -116,19 +168,34 @@ public class Backdrop implements Disposable {
         float xs = camX * (1 - k);
         float start = xs + (float) Math.floor((minX - xs) / l.w) * l.w;
         d.color(br, br, bb, 1);
-        for (float x = start; x < minX + vw; x += l.w) d.batch.draw(l.tex, x, y0, l.w, l.h);
+        // so a parte visivel: a de baixo (opaca) sem mistura, a de cima com transparencia; o topo vazio nem desenha
+        float bottom = Math.max(y0, clipY), solidTop = y0 + l.h * l.solidFrac, top = Math.min(y0 + l.h * l.topFrac, minY + vh);
+        if (solidTop > bottom) {
+            d.batch.disableBlending();
+            texPart(d, l, start, minX, vw, y0, bottom, Math.min(solidTop, top));
+            d.batch.enableBlending();
+        }
+        texPart(d, l, start, minX, vw, y0, Math.max(bottom, solidTop), top);
         int c = l.bottom;
         d.color(((c >> 16) & 0xff) / 255f * br, ((c >> 8) & 0xff) / 255f * br, (c & 0xff) / 255f * bb, 1);
-        if (y0 > minY) { // preenchimento em degrade (escurece para baixo) em vez de cor chapada
+        if (y0 > minY && y0 > clipY) { // preenchimento em degrade (escurece para baixo) em vez de cor chapada
             float hgt = y0 - minY + 1;
             float cr = ((c >> 16) & 0xff) / 255f * br, cg = ((c >> 8) & 0xff) / 255f * br, cb = (c & 0xff) / 255f * bb;
             int steps = 6;
+            d.batch.disableBlending();
             for (int i = 0; i < steps; i++) {
                 float kk = 1 - 0.32f * (i + 1) / steps;
+                float yA = y0 + 1 - hgt * (i + 1) / steps, hA = hgt / steps + 1;
+                if (yA + hA <= clipY) continue;
+                if (yA < clipY) {
+                    hA -= clipY - yA;
+                    yA = clipY;
+                }
                 d.color(cr * kk, cg * kk, cb * kk, 1);
-                float yA = y0 + 1 - hgt * (i + 1) / steps;
-                d.rect(minX, yA, vw, hgt / steps + 1);
+                d.rect(minX, yA, vw, hA);
             }
+            d.batch.enableBlending();
+            d.color(cr, cg, cb, 1);
         }
         if (l.ceiling && y0 + l.h < minY + vh) d.rect(minX, y0 + l.h - 1, vw, minY + vh - (y0 + l.h) + 2);
     }

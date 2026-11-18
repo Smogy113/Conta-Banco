@@ -21,6 +21,9 @@ public class Pathfinder {
     private float[] heapKey;
     private int heapSize;
     private int mark = 1;
+    /** buscas recentes sem caminho (inicio, fim): repetir daria o mesmo resultado enquanto o mapa nao mudar */
+    private final long[] failed = new long[32];
+    private int failCount, failNext;
 
     public Pathfinder(GameMap map) {
         this.map = map;
@@ -49,6 +52,7 @@ public class Pathfinder {
 
     private void computeCell(int x, int y) {
         int i = x + y * map.w;
+        failCount = 0; // o mapa mudou: as buscas que falharam podem dar certo agora
         // caixas e portas fechadas contam como "passaveis caras": o bot quebra a caixa ou abre a porta
         passable[i] = !hard(x, y) && !hard(x, y + 1);
         int below = map.get(x, y - 1);
@@ -136,6 +140,8 @@ public class Pathfinder {
         int s = nearestPassable((int) (sx / C.TILE), (int) ((sy + 2) / C.TILE));
         int g = nearestPassable((int) (gx / C.TILE), (int) ((gy + 2) / C.TILE));
         if (s < 0 || g < 0) return false;
+        long key = ((long) s << 32) | (g & 0xffffffffL);
+        for (int i = 0; i < failCount; i++) if (failed[i] == key) return false;
         mark++;
         heapSize = 0;
         int w = map.w;
@@ -171,7 +177,12 @@ public class Pathfinder {
                 }
             }
         }
-        if (!found) return false;
+        if (!found) {
+            failed[failNext] = key;
+            failNext = (failNext + 1) % failed.length;
+            failCount = Math.min(failCount + 1, failed.length);
+            return false;
+        }
         for (int c = g; c != -1; c = cameFrom[c]) out.add(c);
         out.reverse();
         return true;

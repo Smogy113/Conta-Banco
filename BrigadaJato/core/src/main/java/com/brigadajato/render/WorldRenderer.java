@@ -725,10 +725,13 @@ public class WorldRenderer implements Disposable {
         viewW = vw;
         viewH = vh;
         cam_zoom = cam.zoom;
+        com.brigadajato.Perf.mark(d.batch, "pre");
         drawBackground(d, cam, minX, minY, vw, vh);
+        com.brigadajato.Perf.mark(d.batch, "bg");
         drawZones(d, w);
         drawLamps(d, w, minX, minY, maxX, maxY, true);
         drawTiles(d, w.map, minX, minY, maxX, maxY);
+        com.brigadajato.Perf.mark(d.batch, "tiles");
         debris.drawMarks(d, w.map, minX, minY, maxX, maxY);
         drawLevers(d, w);
         drawProps(d, w, minX, minY, maxX, maxY);
@@ -736,6 +739,7 @@ public class WorldRenderer implements Disposable {
         drawModeObjects(d, w);
         drawProjectilesSolid(d, w, minX, minY, maxX, maxY);
         drawHooks(d, w);
+        com.brigadajato.Perf.mark(d.batch, "objs");
         for (int i = 0; i < w.bosses.size; i++) drawBoss(d, w.bosses.get(i));
         for (int i52_ = 0; i52_ < w.players.size; i52_++) {
             Player p = w.players.get(i52_);
@@ -743,9 +747,11 @@ public class WorldRenderer implements Disposable {
             if (p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80) continue;
             drawPlayer(d, p, w);
         }
+        com.brigadajato.Perf.mark(d.batch, "players");
         debris.drawCasings(d, minX, minY, maxX, maxY);
         drawSmoke(d, w, minX, minY, maxX, maxY);
         drawFlood(d, w, minX, minY, maxX, maxY);
+        com.brigadajato.Perf.mark(d.batch, "smoke");
         fx.draw(d, false, minX, minY, maxX, maxY);
         d.additive(true);
         drawProjectilesGlow(d, w, minX, minY, maxX, maxY);
@@ -761,6 +767,7 @@ public class WorldRenderer implements Disposable {
         drawBolts(d);
         drawLamps(d, w, minX, minY, maxX, maxY, false);
         d.additive(false);
+        com.brigadajato.Perf.mark(d.batch, "fx");
         drawBossBars(d, w);
         if (settings.showNames) drawNames(d, w, local, minX, minY, maxX, maxY);
         drawEmotes(d, w, minX, minY, maxX, maxY);
@@ -774,6 +781,7 @@ public class WorldRenderer implements Disposable {
         }
         a.normal.setColor(Color.WHITE);
         if (showCrosshair && local != null && local.alive) drawCrosshair(d, local, crossX, crossY);
+        com.brigadajato.Perf.mark(d.batch, "names");
     }
 
     private void drawBackground(Draw d, OrthographicCamera cam, float minX, float minY, float vw, float vh) {
@@ -793,11 +801,16 @@ public class WorldRenderer implements Disposable {
             bg2.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
             return;
         }
-        bg1.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+        // cada fundo so na sua parte da tela (antes o de cima era pintado inteiro e coberto embaixo)
+        int bh = targetH > 0 ? targetH : Gdx.graphics.getBackBufferHeight();
+        int bw = targetW > 0 ? targetW : Gdx.graphics.getBackBufferWidth();
+        int split = Math.max(0, (int) (f * bh));
         d.batch.flush();
         Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-        int bh = targetH > 0 ? targetH : Gdx.graphics.getBackBufferHeight();
-        Gdx.gl.glScissor(0, 0, targetW > 0 ? targetW : Gdx.graphics.getBackBufferWidth(), Math.max(0, (int) (f * bh)));
+        Gdx.gl.glScissor(0, split, bw, Math.max(0, bh - split));
+        bg1.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
+        d.batch.flush();
+        Gdx.gl.glScissor(0, 0, bw, split);
         bg2.draw(d, camX, camY, minX, minY, vw, vh, time, night, sunPos);
         d.batch.flush();
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);

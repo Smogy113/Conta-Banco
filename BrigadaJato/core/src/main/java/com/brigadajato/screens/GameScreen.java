@@ -91,7 +91,7 @@ public class GameScreen extends ScreenAdapter {
     public String hookButton;
     // medicao de desempenho (--perf=true no PC)
     private static final boolean PERF = "true".equals(System.getProperty("brigadajato.perf"));
-    private long pSim, pRender, pLights, pHud, pFrames;
+    private long pSim, pRender, pLights, pHud, pFrames, pCpu, pCpuLast;
     private float pTimer;
     private static final String SHOT_WHEN = System.getProperty("brigadajato.shotWhen");
     private static final float SHOT_DELAY = Float.parseFloat(System.getProperty("brigadajato.shotDelay", "1.3"));
@@ -357,6 +357,7 @@ public class GameScreen extends ScreenAdapter {
             }
             return;
         }
+        com.brigadajato.Perf.start(game.batch);
         boolean filtered = filter.begin(game.batch, fmode);
         long r0 = System.nanoTime();
         // qualidade baixa/media: desenha o mundo numa resolucao menor e amplia (bem mais leve para a GPU)
@@ -368,9 +369,12 @@ public class GameScreen extends ScreenAdapter {
         renderer.render(game.draw, cam, world, local, true, crossX, crossY);
         game.batch.end();
         if (filtered) filter.end(game.batch);
+        com.brigadajato.Perf.mark(game.batch, "filter");
         long r1 = System.nanoTime();
         renderer.renderLights(game.batch, cam, local);
+        com.brigadajato.Perf.mark(game.batch, "lights");
         if (scaled) endWorldFbo();
+        com.brigadajato.Perf.mark(game.batch, "fboBlit");
         renderer.targetW = renderer.targetH = 0;
         long r2 = System.nanoTime();
         pRender += r1 - r0;
@@ -381,6 +385,7 @@ public class GameScreen extends ScreenAdapter {
         boolean nearWeapon = local != null && local.alive && world.nearestWeaponPickup(local) != null;
         boolean useAvail = local != null && local.alive && useAvailable(local);
         controls.updateVisibility(local, nearWeapon, useAvail);
+        com.brigadajato.Perf.mark(game.batch, "hudPrep");
         hud.draw(game.draw, world, local, fpsSmooth, controls.scoreboardVisible() || (world.mode.over && !resultsShown && overTimer > 0.5f), mobile);
         game.batch.setProjectionMatrix(hudCam.combined);
         if (finalSlow > 0) drawFinalKill();
@@ -399,16 +404,21 @@ public class GameScreen extends ScreenAdapter {
             game.assets.small.draw(game.batch, "[E] " + I18n.t("use"), hudCam.viewportWidth / 2, 135, 0, com.badlogic.gdx.utils.Align.center, false);
         }
         game.batch.end();
+        com.brigadajato.Perf.mark(game.batch, "hud+ctl");
         game.batch.setColor(1, 1, 1, 1);
         pHud += System.nanoTime() - r2;
         if (PERF) {
+            long cpu = java.lang.management.ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+            if (pCpuLast != 0) pCpu += cpu - pCpuLast;
+            pCpuLast = cpu;
             pFrames++;
             pTimer += dt;
             if (pTimer > 5) {
-                Gdx.app.log("perf", String.format("fps=%.0f sim=%.2fms render=%.2fms luz=%.2fms hud=%.2fms render_calls=%d particulas=%d",
+                Gdx.app.log("perf", String.format("cpu=%.2fms ", pCpu / 1e6 / pFrames) + String.format("fps=%.0f sim=%.2fms render=%.2fms luz=%.2fms hud=%.2fms render_calls=%d particulas=%d",
                         fpsSmooth, pSim / 1e6 / pFrames, pRender / 1e6 / pFrames, pLights / 1e6 / pFrames, pHud / 1e6 / pFrames,
-                        game.batch.renderCalls, renderer.fx.activeCount()));
+                        game.batch.renderCalls, renderer.fx.activeCount()) + "  " + com.brigadajato.Perf.report(pFrames));
                 pSim = pRender = pLights = pHud = pFrames = 0;
+                pCpu = 0;
                 pTimer = 0;
             }
         }

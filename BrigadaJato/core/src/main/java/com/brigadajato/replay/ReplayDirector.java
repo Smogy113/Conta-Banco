@@ -164,12 +164,6 @@ public class ReplayDirector implements Disposable {
     }
 
     private void finalizePending(Pending p) {
-        Clip c = recorder.extract(Math.max(p.start, p.keys.size > 0 ? p.keys.first() - 3.2f : p.start), p.end);
-        if (c.frames.size < 20) return;
-        c.focusId = p.focus;
-        c.keyTimes.addAll(p.keys);
-        c.kills = p.kills;
-        c.localPlay = p.local;
         float score = p.kills * 2 + Math.max(0, p.kills - 1) * 4 + p.bonus;
         if (p.head) score += 2;
         if (p.melee) score += 3;
@@ -177,6 +171,15 @@ public class ReplayDirector implements Disposable {
         if (p.longRange) score += 2;
         if (p.air) score += 1;
         if (p.local) score += 3;
+        // so copia os quadros se a jogada entraria nas 5 melhores (evita lixo de memoria a cada abate)
+        if (best.size >= 5 && score <= best.peek().score) return;
+        float t0 = Math.max(p.start, p.keys.size > 0 ? p.keys.first() - 3.2f : p.start);
+        if (recorder.countBetween(t0, p.end) < 20) return;
+        Clip c = recorder.extract(t0, p.end);
+        c.focusId = p.focus;
+        c.keyTimes.addAll(p.keys);
+        c.kills = p.kills;
+        c.localPlay = p.local;
         c.score = score;
         Clip.Who who = c.roster.get(p.focus);
         c.subtitle = who != null ? who.name : "?";

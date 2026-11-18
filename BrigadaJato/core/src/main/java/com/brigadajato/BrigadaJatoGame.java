@@ -37,7 +37,7 @@ public class BrigadaJatoGame extends Game {
         assets = new Assets();
         assets.load();
         audio = new Audio(assets, settings);
-        batch = new SpriteBatch(4000);
+        batch = Perf.ON ? new com.badlogic.gdx.graphics.g2d.BJCountingBatch(4000) : new SpriteBatch(4000);
         draw = new Draw(batch, assets);
         skin = Ui.build(assets);
         menuBg = new MenuBackground(this);
@@ -105,6 +105,7 @@ public class BrigadaJatoGame extends Game {
                 if (p.length > 2 && "rules".equals(p[2])) ss.openRules();
                 return ss;
             }
+            case "rendertest": return new com.brigadajato.screens.RenderTestScreen(this, p[1], Float.parseFloat(p[2]), Float.parseFloat(p[3]));
             case "achievements": return new com.brigadajato.screens.AchievementsScreen(this);
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);
             case "host": {

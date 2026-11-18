@@ -153,6 +153,16 @@ public class ReplayRecorder {
         count = Math.min(count + 1, ring.length);
     }
 
+    /** Quantos quadros gravados estao entre t0 e t1. */
+    public int countBetween(float t0, float t1) {
+        int n = 0;
+        for (int i = 0; i < count; i++) {
+            float t = get(i).time;
+            if (t >= t0 && t <= t1) n++;
+        }
+        return n;
+    }
+
     /** Copia os quadros entre t0 e t1 para um clipe novo. */
     public Clip extract(float t0, float t1) {
         Clip c = new Clip();

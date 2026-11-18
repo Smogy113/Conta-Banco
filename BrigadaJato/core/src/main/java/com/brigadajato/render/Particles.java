@@ -16,14 +16,36 @@ public class Particles {
     private final P[] pool;
     private int cursor;
     public float quality = 1f;
+    /** indices das particulas ativas, em ordem crescente (mesma ordem de desenho do pool) */
+    private final int[] act;
+    private int nAct;
 
     public Particles(int max) {
         pool = new P[max];
         for (int i = 0; i < max; i++) pool[i] = new P();
+        act = new int[max];
+    }
+
+    private void markActive(int idx) {
+        // insere mantendo a ordem (quase sempre no fim)
+        int lo = 0, hi = nAct;
+        if (nAct > 0 && act[nAct - 1] < idx) lo = nAct;
+        else {
+            while (lo < hi) {
+                int mid = (lo + hi) >>> 1;
+                if (act[mid] < idx) lo = mid + 1;
+                else hi = mid;
+            }
+            if (lo < nAct && act[lo] == idx) return; // ja estava ativa (pool cheio)
+        }
+        System.arraycopy(act, lo, act, lo + 1, nAct - lo);
+        act[lo] = idx;
+        nAct++;
     }
 
     public P spawn(int shape, float x, float y, float vx, float vy, float life, float size, float size2, int rgb, float alpha) {
         P p = pool[cursor];
+        if (!p.active) markActive(cursor);
         cursor = (cursor + 1) % pool.length;
         p.active = true;
         p.shape = shape;
@@ -52,13 +74,17 @@ public class Particles {
     }
 
     public void update(float dt) {
-        for (P p : pool) {
+        int w = 0;
+        for (int i = 0; i < nAct; i++) {
+            int idx = act[i];
+            P p = pool[idx];
             if (!p.active) continue;
             p.life -= dt;
             if (p.life <= 0) {
                 p.active = false;
                 continue;
             }
+            act[w++] = idx;
             p.vy -= p.grav * dt;
             if (p.drag > 0) {
                 float k = Math.max(0, 1 - p.drag * dt);
@@ -69,10 +95,12 @@ public class Particles {
             p.y += p.vy * dt;
             p.rot += p.vrot * dt;
         }
+        nAct = w;
     }
 
     public void draw(Draw d, boolean additivePass, float minX, float minY, float maxX, float maxY) {
-        for (P p : pool) {
+        for (int i = 0; i < nAct; i++) {
+            P p = pool[act[i]];
             if (!p.active || p.additive != additivePass) continue;
             if (p.x < minX - 100 || p.x > maxX + 100 || p.y < minY - 100 || p.y > maxY + 100) continue;
             float t = 1 - p.life / p.max;
@@ -106,11 +134,12 @@ public class Particles {
 
     public int activeCount() {
         int n = 0;
-        for (P p : pool) if (p.active) n++;
+        for (int i = 0; i < nAct; i++) if (pool[act[i]].active) n++;
         return n;
     }
 
     public void clear() {
         for (P p : pool) p.active = false;
+        nAct = 0;
     }
 }
