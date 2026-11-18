@@ -224,10 +224,10 @@ public class Assets implements Disposable {
         fontScale = MathUtils.clamp(Gdx.graphics.getHeight() / 720f, 0.5f, 3f);
         FreeTypeFontGenerator ui = new FreeTypeFontGenerator(Gdx.files.internal("fonts/ui.ttf"));
         FreeTypeFontGenerator title = new FreeTypeFontGenerator(Gdx.files.internal("fonts/title.ttf"));
-        small = font(ui, 20, 1.8f, 1.5f);
-        normal = font(ui, 27, 2.2f, 2f);
-        big = font(title, 40, 2.8f, 3f);
-        huge = font(title, 78, 4.5f, 5f);
+        small = font(ui, 20, 1.2f, 1.2f);
+        normal = font(ui, 27, 1.4f, 1.5f);
+        big = font(title, 38, 1.8f, 2f);
+        huge = font(title, 72, 3f, 3.5f);
         ui.dispose();
         title.dispose();
     }

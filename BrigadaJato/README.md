@@ -3,7 +3,7 @@
 Jogo de tiro 2D com jetpack para celular (Android) e PC, feito em **Java + libGDX**.
 Soldadinhos cartoon, duplo joystick, bots com inteligência artificial e **multiplayer no Wi‑Fi local** (sem internet).
 
-Tudo é original: personagens, mapas, sons e música foram gerados por código (pasta `tools/`). Fontes: Lilita One (OFL) e Luckiest Guy (Apache 2.0), licenças em `assets/fonts/`.
+Tudo é original: personagens, mapas, sons e música foram gerados por código (pasta `tools/`). Fontes: Chakra Petch e Russo One (ambas OFL), licenças em `assets/fonts/`.
 
 | | |
 |---|---|
