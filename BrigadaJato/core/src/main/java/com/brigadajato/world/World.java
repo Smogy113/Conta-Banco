@@ -856,6 +856,7 @@ public class World {
         float dmgMul = (p.dmgBoost > 0 ? 2f : 1f) * mode.damageDealtMul(p);
         p.lastShotTime = time;
         statShots++;
+        mode.onShotFired(p);
         float ax = MathUtils.cos(p.aim), ay = MathUtils.sin(p.aim);
         if (w == WeaponType.LASER) {
             laserBeam(sx, sy, p.aim, w.damage * dmgMul, w.range, p.id, p.team, w.ordinal());

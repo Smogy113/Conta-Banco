@@ -12,7 +12,8 @@ public enum ModeType {
     KING_HILL("Rei do Morro", "King of the Hill", true, 120, 480),
     INFECTION("Zumbis", "Infection", true, 0, 180),
     BATTLE_ROYALE("Battle Royale", "Battle Royale", false, 0, 0),
-    DUEL("Duelo", "Duel", false, 3, 0);
+    DUEL("Duelo", "Duel", false, 3, 0),
+    HIDE_SEEK("Pique-Esconde", "Prop Hunt", true, 0, 210);
 
     public final String pt, en;
     public final boolean teams;
@@ -28,7 +29,7 @@ public enum ModeType {
 
     /** Os jogadores escolhem o time? (nos outros modos o proprio modo decide) */
     public boolean chooseTeams() {
-        return teams && this != SURVIVAL && this != TRAINING && this != INFECTION;
+        return teams && this != SURVIVAL && this != TRAINING && this != INFECTION && this != HIDE_SEEK;
     }
 
     public static ModeType of(int ordinal) {

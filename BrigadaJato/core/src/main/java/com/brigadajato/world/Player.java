@@ -40,6 +40,8 @@ public class Player {
     public int smokes, flashes, stickies;
     /** cego pela flashbang (segundos) */
     public float flash;
+    /** disfarce no pique-esconde (-1 = nenhum) */
+    public int disguise = -1;
     /** rolamento/esquiva */
     public float rollTimer, rollCd;
     public int rollDir = 1;

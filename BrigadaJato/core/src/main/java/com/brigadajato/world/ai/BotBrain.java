@@ -244,6 +244,8 @@ public class BotBrain {
             if (d > vision) continue;
             if (!w.lineOfSight(ex, ey, q.x, q.centerY()) && !w.lineOfSight(ex, ey, q.x, q.headY())) continue;
             if (w.smokeBlocks(ex, ey, q.x, q.centerY())) continue;
+            // disfarcado e parado: so e notado de perto
+            if (q.disguise >= 0 && Math.abs(q.vx) < 25 && q.onGround && d > 170 + rng.nextFloat() * 60) continue;
             float score = d - (q == target ? 200 : 0) - (q.carryingFlag != 0 || q.hasBomb ? 250 : 0);
             if (score < bestD) {
                 bestD = score;

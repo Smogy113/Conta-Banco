@@ -222,6 +222,7 @@ public final class Net {
             o.writeByte(p.flashes);
             o.writeByte(p.stickies);
             o.writeByte(clampByte(p.flash * 40));
+            o.writeByte(p.disguise);
             o.writeByte(p.carryingFlag);
             o.writeByte(clampByte(p.health));
             o.writeByte(clampByte(p.armor));
@@ -356,6 +357,7 @@ public final class Net {
             p.flashes = in.readByte();
             p.stickies = in.readByte();
             p.flash = in.readUnsignedByte() / 40f;
+            p.disguise = in.readByte();
             boolean rolling = (flags & 16384) != 0;
             if (rolling && p.rollTimer <= 0) {
                 p.rollTimer = 0.34f;

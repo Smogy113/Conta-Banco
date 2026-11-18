@@ -26,7 +26,7 @@ public class SetupScreen extends BaseScreen {
     private Slider botsSlider;
 
     private static final ModeType[] MODES = {ModeType.DEATHMATCH, ModeType.TEAM_DEATHMATCH, ModeType.CTF, ModeType.BOMB, ModeType.SURVIVAL,
-            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL};
+            ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK};
     private static final int[] TIMES = {0, 120, 180, 300, 420, 600};
 
     public SetupScreen(BrigadaJatoGame game, Kind kind) {
@@ -175,7 +175,7 @@ public class SetupScreen extends BaseScreen {
             case CTF: return new int[]{0, 1, 3, 5, 10};
             case BOMB: return new int[]{3, 5, 8, 10};
             case SURVIVAL: return new int[]{0};
-            case GUN_GAME: case INFECTION: case BATTLE_ROYALE: return new int[]{0};
+            case GUN_GAME: case INFECTION: case BATTLE_ROYALE: case HIDE_SEEK: return new int[]{0};
             case KING_HILL: return new int[]{60, 120, 180, 300};
             case DUEL: return new int[]{1, 2, 3, 5, 7};
             default: return new int[]{0, 10, 15, 20, 30, 50};
@@ -203,6 +203,7 @@ public class SetupScreen extends BaseScreen {
             case INFECTION: return "infection";
             case BATTLE_ROYALE: return "br";
             case DUEL: return "duel";
+            case HIDE_SEEK: return "hideseek";
             default: return "deathmatch";
         }
     }

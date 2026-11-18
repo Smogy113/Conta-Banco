@@ -1575,7 +1575,68 @@ public class WorldRenderer implements Disposable {
         }
     }
 
+    /** Pique-esconde: o jogador aparece como objeto do cenario. */
+    private void drawDisguise(Draw d, Player p) {
+        ShadeKit.load();
+        float x = p.x, y = p.y;
+        float wob = Math.abs(p.vx) > 20 ? MathUtils.sin(time * 18) * 3 : 0;
+        int O = SoldierPainter.OUTLINE;
+        switch (p.disguise) {
+            case 0: { // caixa
+                d.rgb(O, 1);
+                d.rect(x - 16.5f, y - 1, 33, 33, 16.5f, 0, wob);
+                d.rgb(0xb07a3c, 1);
+                d.batch.draw(ShadeKit.box, x - 15, y, 15, 0, 30, 30, 1, 1, wob);
+                d.rgb(0x6d4422, 1);
+                d.rect(x - 15, y + 13.5f, 30, 3, 15, -13.5f, wob + 45);
+                d.rect(x - 15, y + 13.5f, 30, 3, 15, -13.5f, wob - 45);
+                break;
+            }
+            case 1: { // barril
+                d.rgb(O, 1);
+                d.rect(x - 13.5f, y - 1, 27, 36, 13.5f, 0, wob);
+                d.rgb(0x2e7d32, 1);
+                d.batch.draw(ShadeKit.box, x - 12, y, 12, 0, 24, 34, 1, 1, wob);
+                d.rgb(0x1b5e20, 1);
+                d.rect(x - 12, y + 7, 24, 2.5f, 12, -7, wob);
+                d.rect(x - 12, y + 25, 24, 2.5f, 12, -25, wob);
+                break;
+            }
+            case 2: { // arbusto
+                int[] g = {0x2e7d32, 0x388e3c, 0x43a047};
+                float[][] b = {{-9, 9, 11}, {9, 10, 11}, {0, 19, 13}, {-3, 6, 10}};
+                for (int k = 0; k < b.length; k++) {
+                    d.rgb(O, 1);
+                    d.batch.draw(ShadeKit.ball, x + b[k][0] - b[k][2] - 1.5f + wob * 0.3f, y + b[k][1] - b[k][2] - 1.5f, (b[k][2] + 1.5f) * 2, (b[k][2] + 1.5f) * 2);
+                }
+                for (int k = 0; k < b.length; k++) {
+                    d.rgb(g[k % 3], 1);
+                    d.batch.draw(ShadeKit.ball, x + b[k][0] - b[k][2] + wob * 0.3f, y + b[k][1] - b[k][2], b[k][2] * 2, b[k][2] * 2);
+                }
+                break;
+            }
+            default: { // vaso com planta
+                d.rgb(O, 1);
+                d.rect(x - 11.5f, y - 1, 23, 18);
+                d.rgb(0xd84315, 1);
+                d.batch.draw(ShadeKit.box, x - 10, y, 20, 16);
+                for (int k = -1; k <= 1; k++) {
+                    d.rgb(O, 1);
+                    d.rect(x + k * 4, y + 14, 4, 22, 2, 0, k * 22 + wob);
+                    d.rgb(0x66bb6a, 1);
+                    d.rect(x + k * 4 + 0.8f, y + 15, 2.6f, 20, 1.3f, 0, k * 22 + wob);
+                }
+                break;
+            }
+        }
+        d.color(1, 1, 1, 1);
+    }
+
     private void drawPlayer(Draw d, Player p, World w) {
+        if (p.disguise >= 0) {
+            drawDisguise(d, p);
+            return;
+        }
         pose.x = p.x;
         pose.y = p.y;
         pose.aim = p.aim;
@@ -1774,6 +1835,7 @@ public class WorldRenderer implements Disposable {
             Player p = w.players.get(i61_);
             if (!p.alive || p == local) continue;
             if (p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80) continue;
+            if (p.disguise >= 0 && (local == null || local.team != p.team)) continue; // disfarce nao mostra o nome
             boolean ally = local != null && w.config.mode.teams && p.team == local.team;
             float ny = p.y + p.height() + 24;
             if (ally) f.setColor(0.6f, 1f, 0.6f, 1);

@@ -55,6 +55,8 @@ public abstract class GameMode {
                 return new BattleRoyaleMode(w);
             case DUEL:
                 return new DuelMode(w);
+            case HIDE_SEEK:
+                return new HideSeekMode(w);
             default:
                 return new DeathmatchMode(w);
         }
@@ -165,6 +167,10 @@ public abstract class GameMode {
     /** Versao com o codigo da morte (arma/causa); por padrao chama a de dois argumentos. */
     public void onKill(Player victim, Player attacker, int code) {
         onKill(victim, attacker);
+    }
+
+    /** Alguem atirou (usado no pique-esconde). */
+    public void onShotFired(Player p) {
     }
 
     /** Multiplicador do consumo de combustivel do jetpack. */

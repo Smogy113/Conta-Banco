@@ -390,6 +390,16 @@ public final class I18n {
         d("nade_3", "Flashbang", "Flashbang");
         d("nade_4", "Grudenta", "Sticky");
         d("roll", "Rolar", "Roll");
+        d("mode_hideseek", "Pique-Esconde", "Prop Hunt");
+        d("desc_hideseek", "Vire um objeto do cenário e não seja achado. Tiro errado custa vida!", "Turn into a prop and don't get found. Missed shots cost health!");
+        d("hs_hiders", "Escondidos", "Hiders");
+        d("hs_seekers", "Caçadores", "Seekers");
+        d("hs_hide", "ESCONDA-SE! %d", "HIDE! %d");
+        d("hs_wait", "Contando até... %d", "Counting... %d");
+        d("hs_go", "LÁ VAMOS NÓS!", "READY OR NOT, HERE WE COME!");
+        d("hs_found", "%s foi encontrado!", "%s was found!");
+        d("hs_all_found", "Todos foram encontrados!", "Everyone was found!");
+        d("hs_survived", "Os escondidos venceram!", "The hiders won!");
         d("lever", "Alavanca", "Lever");
         d("podium", "Pódio", "Podium");
     }

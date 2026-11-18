@@ -131,7 +131,7 @@ public class WorldSimTest {
 
     @Test
     public void newModes() throws Exception {
-        ModeType[] modes = {ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL};
+        ModeType[] modes = {ModeType.GUN_GAME, ModeType.KING_HILL, ModeType.INFECTION, ModeType.BATTLE_ROYALE, ModeType.DUEL, ModeType.HIDE_SEEK};
         String[] maps = {"fortaleza", "navio", "escola"};
         for (ModeType m : modes) {
             for (String id : maps) {

@@ -215,7 +215,7 @@ public class Hud implements Disposable {
                 else if ("player_left".equals(e.text) || "player_joined".equals(e.text)) text = I18n.f(e.text, name(p));
                 else if ("surv_cleared".equals(e.text) || "surv_boss".equals(e.text)) text = I18n.f(e.text, e.a);
                 else if ("player_back".equals(e.text) || "player_joined_game".equals(e.text) || "gg_knife".equals(e.text)
-                        || "inf_infected".equals(e.text)) text = I18n.f(e.text, name(p));
+                        || "inf_infected".equals(e.text) || "hs_found".equals(e.text)) text = I18n.f(e.text, name(p));
                 else if ("gg_demoted".equals(e.text)) text = I18n.f(e.text, name(p), e.b);
                 else text = I18n.t(e.text);
                 if (e.c == 0 || e.c == 2) big(text, e.c == 2 ? 0x81c784 : 0xffffff, 2.2f);
@@ -309,7 +309,7 @@ public class Hud implements Disposable {
             subText = (((TrainingMode) w.mode).step + 1) + " / " + TrainingMode.STEPS.length;
         } else {
             midText = w.config.timeLimit > 0 ? clock.of(w.mode.timeLeft) : "--:--";
-            boolean custom = w.mode instanceof com.brigadajato.world.modes.GunGameMode || w.mode instanceof com.brigadajato.world.modes.KingHillMode
+            boolean custom = w.mode instanceof com.brigadajato.world.modes.HideSeekMode || w.mode instanceof com.brigadajato.world.modes.GunGameMode || w.mode instanceof com.brigadajato.world.modes.KingHillMode
                     || w.mode instanceof com.brigadajato.world.modes.InfectionMode || w.mode instanceof com.brigadajato.world.modes.BattleRoyaleMode
                     || w.mode instanceof com.brigadajato.world.modes.DuelMode;
             if (custom) {
@@ -518,7 +518,7 @@ public class Hud implements Disposable {
     private void drawTop(Draw d, World w, Player local, float W, float H) {
         float cx = W / 2, y = H - 58;
         if (w.config.mode.teams && !(w.mode instanceof SurvivalMode) && !(w.mode instanceof TrainingMode)
-                && !(w.mode instanceof com.brigadajato.world.modes.InfectionMode)) {
+                && !(w.mode instanceof com.brigadajato.world.modes.InfectionMode) && !(w.mode instanceof com.brigadajato.world.modes.HideSeekMode)) {
             // placar em caixas por time
             float box = 74, mid = 118;
             boolean myRed = local != null && local.team == C.TEAM_RED;
