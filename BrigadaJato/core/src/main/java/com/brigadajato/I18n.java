@@ -250,6 +250,13 @@ public final class I18n {
         d("surv_over", "Fim de jogo! Você chegou à onda %d", "Game over! You reached wave %d");
         d("new_record", "NOVO RECORDE!", "NEW RECORD!");
 
+        // ---- abates em sequencia
+        d("kb_2", "DUPLO", "DOUBLE");
+        d("kb_3", "TRIPLO", "TRIPLE");
+        d("kb_4", "QUÁDRUPLO", "QUADRA");
+        d("kb_5", "IMPARÁVEL", "UNSTOPPABLE");
+        d("kb_6", "LENDÁRIO", "LEGENDARY");
+
         // ---- replays
         d("killcam", "KILLCAM", "KILLCAM");
         d("replay", "REPLAY", "REPLAY");

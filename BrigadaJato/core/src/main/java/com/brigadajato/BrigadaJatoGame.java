@@ -70,6 +70,7 @@ public class BrigadaJatoGame extends Game {
             }
             case "settings": return new com.brigadajato.screens.SettingsScreen(this, p.length > 1 ? Integer.parseInt(p[1]) : 0);
             case "looks": return new com.brigadajato.screens.LooksDebugScreen(this);
+            case "banner": return new com.brigadajato.screens.BannerDebugScreen(this);
             case "soldier": return new com.brigadajato.screens.CustomizeScreen(this);
             case "setup": return new com.brigadajato.screens.SetupScreen(this, com.brigadajato.screens.SetupScreen.Kind.OFFLINE);
             case "multiplayer": return new com.brigadajato.screens.MultiplayerScreen(this);

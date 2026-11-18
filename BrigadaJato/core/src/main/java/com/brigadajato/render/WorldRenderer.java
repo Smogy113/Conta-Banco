@@ -339,7 +339,14 @@ public class WorldRenderer implements Disposable {
                     b.grav = 900;
                 }
                 audio.at("death", e.x, e.y);
-                if (e.a == localId && e.b != localId) audio.vibrate(60);
+                if (e.a == localId && e.b != localId) {
+                    int lvl = MathUtils.clamp(e.d > 0 ? e.d : 1, 1, 5);
+                    if (settings.killBanner && !replayMode) {
+                        audio.ui("kill" + lvl);
+                        if (e.f > 0) audio.ui("headshot");
+                    }
+                    audio.vibrate(40 + lvl * 25);
+                }
                 break;
             }
             case SPARK: {

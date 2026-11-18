@@ -97,6 +97,7 @@ public class SettingsScreen extends BaseScreen {
                 check(I18n.t("auto_aim_help"), s.aimAssist, v -> s.aimAssist = v);
                 check(t2("Killcam (ver quem te matou)", "Killcam (see who killed you)"), s.killcam, v -> s.killcam = v);
                 check(t2("Melhores jogadas no fim da partida", "Best plays at the end of the match"), s.highlights, v -> s.highlights = v);
+                check(t2("Banner e som de abates em sequência", "Kill streak banner and sound"), s.killBanner, v -> s.killBanner = v);
                 break;
             }
             case 1: {

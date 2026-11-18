@@ -257,7 +257,7 @@ public class Assets implements Disposable {
             "pistol", "magnum", "smg", "rifle", "shotgun", "sniper", "lmg", "rocket", "explosion", "explosion_small",
             "bounce", "laser", "flame", "disc", "reload", "empty", "pickup", "health", "powerup", "jetpack", "hit",
             "hitmarker", "death", "melee", "ui_click", "beep", "planted", "defused", "flag", "win", "lose", "wave",
-            "throw", "arm", "streak", "spawn", "step"};
+            "throw", "arm", "streak", "spawn", "step", "kill1", "kill2", "kill3", "kill4", "kill5", "headshot"};
 
     private void loadSounds() {
         for (String n : SOUND_NAMES) {

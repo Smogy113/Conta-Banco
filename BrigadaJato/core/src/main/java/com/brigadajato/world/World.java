@@ -1092,6 +1092,7 @@ public class World {
         e.y = victim.centerY();
         e.x2 = victim.vx;
         e.y2 = victim.vy;
+        e.d = attacker != null && attacker != victim ? attacker.streak : 0;
     }
 
     private void dropStuff(Player p) {

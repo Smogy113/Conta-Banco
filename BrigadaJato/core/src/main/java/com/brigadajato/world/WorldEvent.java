@@ -9,6 +9,8 @@ public class WorldEvent {
 
     public Type type;
     public int a = -1, b = -1, c = -1;
+    /** extra (KILL: abates seguidos do atacante) */
+    public int d = -1;
     public float x, y, x2, y2, f;
     public float[] angles;
     public String text;

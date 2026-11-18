@@ -30,7 +30,7 @@ public class Settings {
     public float cameraZoom = 1f;
     public float hudScale = 1f;
     public int crosshairStyle = 0, crosshairColor = 0;
-    public boolean minimap = true, showNames = true, ambient = true, killcam = true, highlights = true;
+    public boolean minimap = true, showNames = true, ambient = true, killcam = true, highlights = true, killBanner = true;
     /** 0 = 30 fps, 1 = 60 fps, 2 = sem limite */
     public int fpsLimit = 1;
     /** 0 normal, 1 vibrante, 2 retro, 3 noir, 4 sepia, 5 noturno, 6 quente */
@@ -95,6 +95,7 @@ public class Settings {
         ambient = prefs.getBoolean("v.ambient", true);
         killcam = prefs.getBoolean("v.killcam", true);
         highlights = prefs.getBoolean("v.highlights", true);
+        killBanner = prefs.getBoolean("v.killBanner", true);
         fpsLimit = prefs.getInteger("v.fps", 1);
         colorFilter = prefs.getInteger("v.filter", 0);
         outline = prefs.getInteger("v.outline", 2);
@@ -163,6 +164,7 @@ public class Settings {
         prefs.putBoolean("v.ambient", ambient);
         prefs.putBoolean("v.killcam", killcam);
         prefs.putBoolean("v.highlights", highlights);
+        prefs.putBoolean("v.killBanner", killBanner);
         prefs.putInteger("v.fps", fpsLimit);
         prefs.putInteger("v.filter", colorFilter);
         prefs.putInteger("v.outline", outline);

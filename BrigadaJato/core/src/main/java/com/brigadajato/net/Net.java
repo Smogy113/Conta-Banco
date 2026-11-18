@@ -28,7 +28,7 @@ public final class Net {
 
     public static final int TCP_PORT = 47130;
     public static final int UDP_PORT = 47131;
-    public static final int PROTOCOL = 4;
+    public static final int PROTOCOL = 5;
     public static final String DISCOVER = "BRIGADAJATO?";
     public static final String ANSWER = "BRIGADAJATO!";
     public static final int MAX_PLAYERS = 8;
@@ -420,6 +420,7 @@ public final class Net {
             o.writeInt(e.a);
             o.writeInt(e.b);
             o.writeInt(e.c);
+            o.writeShort(e.d);
             o.writeFloat(e.x);
             o.writeFloat(e.y);
             o.writeFloat(e.x2);
@@ -441,6 +442,7 @@ public final class Net {
             e.a = in.readInt();
             e.b = in.readInt();
             e.c = in.readInt();
+            e.d = in.readShort();
             e.x = in.readFloat();
             e.y = in.readFloat();
             e.x2 = in.readFloat();

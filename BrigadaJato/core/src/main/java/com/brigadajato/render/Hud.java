@@ -31,6 +31,7 @@ public class Hud implements Disposable {
     private final Settings settings;
     private final GlyphLayout layout = new GlyphLayout();
     private final SoldierPainter painter = new SoldierPainter();
+    private final KillBanner killBanner;
     public float w = 1280, h = 720;
 
     private static class Feed {
@@ -65,6 +66,7 @@ public class Hud implements Disposable {
     public Hud(Assets a, Settings settings) {
         this.a = a;
         this.settings = settings;
+        this.killBanner = new KillBanner(a);
     }
 
     public void setWorld(World w) {
@@ -160,7 +162,8 @@ public class Hud implements Disposable {
                 if (feed.size > 4) feed.removeIndex(0);
                 if (e.a == lid && e.b != lid) {
                     toast(I18n.f("you_killed", name(v)), 0xffd54f);
-                    if (e.f > 0) big(I18n.t("headshot"), 0xff5252, 1.5f);
+                    if (settings.killBanner) killBanner.trigger(e.d > 0 ? e.d : 1, e.c, e.f > 0);
+                    else if (e.f > 0) big(I18n.t("headshot"), 0xff5252, 1.5f);
                 }
                 if (e.b == lid && k != null && k != v) big(I18n.f("killed_by", name(k)), 0xff8a80, 2.5f);
                 break;
@@ -173,8 +176,9 @@ public class Hud implements Disposable {
                 String key = "streak" + e.b;
                 String t = I18n.t(key);
                 if (t.equals(key)) t = I18n.f("streak", e.b);
-                if (e.a == lid) big(t, 0xffd740, 2f);
-                else toast(name(p) + ": " + t, 0xffd740);
+                if (e.a == lid) {
+                    if (!settings.killBanner) big(t, 0xffd740, 2f);
+                } else toast(name(p) + ": " + t, 0xffd740);
                 break;
             }
             case PICKUP: {
@@ -258,6 +262,7 @@ public class Hud implements Disposable {
         }
         hurt = Math.max(0, hurt - dt);
         refresh -= dt;
+        killBanner.update(dt);
     }
 
     private void text(BitmapFont f, String s, float x, float y, int color, float alpha, int align) {
@@ -324,6 +329,7 @@ public class Hud implements Disposable {
             d.rect(0, 0, W, 10);
             d.rect(0, H - 10, W, 10);
         }
+        killBanner.drawEdgeGlow(d, W, H);
         if (local != null) drawStatus(d, w, local);
         if (settings.minimap && minimap != null) drawMinimap(d, w, local, 16, H - 132);
         drawTop(d, w, local, W, H);
@@ -355,7 +361,8 @@ public class Hud implements Disposable {
             a.big.getData().setScale(1 / a.fontScale);
             cy -= 50;
         }
-        float ty = 200;
+        killBanner.draw(d, W / 2, H * 0.3f);
+        float ty = 112;
         for (int i = toasts.size - 1; i >= 0; i--) {
             Msg m = toasts.get(i);
             text(a.small, m.text, W / 2, ty, m.color, Math.min(1, m.life * 2), Align.center);
