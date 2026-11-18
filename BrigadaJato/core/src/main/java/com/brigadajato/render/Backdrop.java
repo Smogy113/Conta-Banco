@@ -83,6 +83,16 @@ public class Backdrop implements Disposable {
             BackdropArt.Layer l = art.layers[i];
             tex = l.tex != null;
             if (tex) texLayer(d, l, ks[i], i, camX, camY, minX, minY, vw, vh, night);
+            if (tex && i < 2 && !indoor) { // neblina entre as camadas: da profundidade
+                float k2 = ks[i];
+                float baseY = (camY - worldH * 0.5f) * (1 - k2 * 0.7f) + worldH * (0.18f - i * 0.06f);
+                int hz = t.skyBottom;
+                float fade = 1 - night * 0.6f;
+                for (int j = 0; j < 4; j++) {
+                    d.color(((hz >> 16) & 0xff) / 255f * fade, ((hz >> 8) & 0xff) / 255f * fade, (hz & 0xff) / 255f * fade, 0.1f);
+                    d.rect(minX, baseY - 40 + j * 22, vw, 60 - j * 12);
+                }
+            }
             layer(d, lists[i], ks[i], cols[i], i == 0 ? 0.9f : (i == 1 ? 0.95f : 1f), camX, camY, i, time, night);
         }
         if (t.bg == Theme.Bg.UNDERWATER) {
@@ -109,7 +119,17 @@ public class Backdrop implements Disposable {
         for (float x = start; x < minX + vw; x += l.w) d.batch.draw(l.tex, x, y0, l.w, l.h);
         int c = l.bottom;
         d.color(((c >> 16) & 0xff) / 255f * br, ((c >> 8) & 0xff) / 255f * br, (c & 0xff) / 255f * bb, 1);
-        if (y0 > minY) d.rect(minX, minY, vw, y0 - minY + 1);
+        if (y0 > minY) { // preenchimento em degrade (escurece para baixo) em vez de cor chapada
+            float hgt = y0 - minY + 1;
+            float cr = ((c >> 16) & 0xff) / 255f * br, cg = ((c >> 8) & 0xff) / 255f * br, cb = (c & 0xff) / 255f * bb;
+            int steps = 6;
+            for (int i = 0; i < steps; i++) {
+                float kk = 1 - 0.32f * (i + 1) / steps;
+                d.color(cr * kk, cg * kk, cb * kk, 1);
+                float yA = y0 + 1 - hgt * (i + 1) / steps;
+                d.rect(minX, yA, vw, hgt / steps + 1);
+            }
+        }
         if (l.ceiling && y0 + l.h < minY + vh) d.rect(minX, y0 + l.h - 1, vw, minY + vh - (y0 + l.h) + 2);
     }
 

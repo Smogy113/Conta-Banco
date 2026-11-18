@@ -829,21 +829,44 @@ public class WorldRenderer implements Disposable {
                         if ((!lp || !rp || ((tx + 64) % 3 == 0)) && !m.solid(tx, ty - 1)) {
                             int sc = art.theme.platform;
                             d.rgb(SoldierPainter.OUTLINE, 1);
-                            d.rect(x + T / 2 - 2.5f, y + T - 24, 5, 15);
-                            d.rgb(SoldierPainter.darker(sc, 0.7f), 1);
-                            d.rect(x + T / 2 - 1.5f, y + T - 23, 3, 13);
+                            d.rect(x + T / 2 - 3, y + T - 32, 6, 18);
+                            d.rgb(SoldierPainter.darker(sc, 0.65f), 1);
+                            d.rect(x + T / 2 - 2, y + T - 31, 4, 16);
                             d.rgb(SoldierPainter.OUTLINE, 1);
-                            d.rect(x + T / 2, y + T - 22, 14, 3, 0, 1.5f, 40);
-                            d.rect(x + T / 2, y + T - 22, 14, 3, 0, 1.5f, 140);
+                            d.rect(x + T / 2, y + T - 30, 17, 3.5f, 0, 1.75f, 38);
+                            d.rect(x + T / 2, y + T - 30, 17, 3.5f, 0, 1.75f, 142);
                             d.color(1, 1, 1, 1);
                         }
-                        d.batch.draw(art.plat, x - (lp ? 0 : 2), y + T - 12, T + (lp ? 0 : 2) + (rp ? 0 : 2), 12);
-                        if (!lp || !rp) {
-                            d.rgb(SoldierPainter.OUTLINE, 0.9f);
-                            if (!lp) d.rect(x - 3, y + T - 12, 2, 12);
-                            if (!rp) d.rect(x + T + 1, y + T - 12, 2, 12);
-                            d.color(1, 1, 1, 1);
+                        float px0 = x - (lp ? 0 : 3), pw = T + (lp ? 0 : 3) + (rp ? 0 : 3);
+                        float ptop = y + T, ph = 15;
+                        // sombra embaixo da plataforma
+                        d.color(0, 0, 0, 0.22f);
+                        d.rect(px0, ptop - ph - 6, pw, 6);
+                        d.color(0, 0, 0, 0.12f);
+                        d.rect(px0, ptop - ph - 11, pw, 5);
+                        // contorno + textura
+                        d.rgb(SoldierPainter.OUTLINE, 1);
+                        d.rect(px0 - 1, ptop - ph - 1.5f, pw + 2, ph + 2.5f);
+                        d.color(1, 1, 1, 1);
+                        d.batch.draw(art.plat, px0, ptop - ph, pw, ph);
+                        // borda de cima clara e de baixo escura
+                        d.color(1, 1, 1, 0.28f);
+                        d.rect(px0, ptop - 2.5f, pw, 2.5f);
+                        d.color(0, 0, 0, 0.35f);
+                        d.rect(px0, ptop - ph, pw, 3);
+                        if (!lp || !rp) { // ponteiras de metal com parafuso
+                            for (int side = 0; side < 2; side++) {
+                                if (side == 0 ? lp : rp) continue;
+                                float ex = side == 0 ? px0 : px0 + pw - 7;
+                                d.rgb(0x3d4448, 1);
+                                d.rect(ex, ptop - ph, 7, ph);
+                                d.rgb(0x9aa5ab, 1);
+                                d.circle(ex + 3.5f, ptop - ph / 2, 1.6f);
+                                d.color(1, 1, 1, 0.2f);
+                                d.rect(ex, ptop - 2.5f, 7, 2.5f);
+                            }
                         }
+                        d.color(1, 1, 1, 1);
                         break;
                     }
                     case GameMap.SPIKES:

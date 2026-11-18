@@ -283,9 +283,31 @@ public class Hud implements Disposable {
         f.draw(dr.batch, s, x, y, 0, align, false);
     }
 
+    /** Painel tatico: fundo escuro reto, borda fina e faixa clara em cima. */
     private void chip(float x, float y, float w, float h, float alpha) {
-        dr.color(1, 1, 1, alpha);
-        Draw.patch(dr, a.uiChip, x, y, w, h, 14);
+        dr.color(0.04f, 0.05f, 0.07f, 0.72f * alpha);
+        dr.rect(x, y, w, h);
+        dr.color(1, 1, 1, 0.07f * alpha);
+        dr.rect(x, y + h - h * 0.45f, w, h * 0.45f);
+        dr.color(1, 1, 1, 0.16f * alpha);
+        dr.rect(x, y + h - 1.5f, w, 1.5f);
+        dr.color(0, 0, 0, 0.5f * alpha);
+        dr.rect(x, y, w, 1.5f);
+    }
+
+    /** barra reta com divisoes e brilho */
+    private void bar(float x, float y, float w, float h, float frac, int col, int segs) {
+        dr.color(0, 0, 0, 0.55f);
+        dr.rect(x, y, w, h);
+        float fw = w * MathUtils.clamp(frac, 0, 1);
+        dr.rgb(col, 1);
+        dr.rect(x, y, fw, h);
+        dr.color(1, 1, 1, 0.25f);
+        dr.rect(x, y + h * 0.55f, fw, h * 0.45f);
+        if (segs > 1) {
+            dr.color(0, 0, 0, 0.45f);
+            for (int i = 1; i < segs; i++) dr.rect(x + w * i / segs - 0.75f, y, 1.5f, h);
+        }
     }
 
     /** Refaz os textos dinamicos (no maximo 10x por segundo). */
@@ -438,48 +460,47 @@ public class Hud implements Disposable {
     }
 
     private void drawStatus(Draw d, World w, Player local) {
-        float x = 16, top = h - 14;
-        chip(x - 6, top - 112, 314, 118, 1);
-        // vida
-        float y = top - 24;
-        Icons.heart(d, x + 16, y + 2, 24, 0xe53935);
+        float x = 14, top = h - 12;
+        chip(x - 4, top - 100, 300, 104, 1);
         float hp = Math.max(0, local.health) / C.HEALTH_MAX;
-        int hpCol = hp > 0.5f ? 0x5dd35d : (hp > 0.25f ? 0xffc93c : 0xf2453d);
-        Draw.segBar(d, x + 36, y - 8, 214, 17, hp, hpCol, 10);
-        if (local.armor > 0) Draw.segBar(d, x + 36, y + 12, 214 * local.armor / C.ARMOR_MAX, 5, 1, 0x4aa8ff, 0);
-        text(a.small, Num.of((int) Math.ceil(Math.max(0, local.health))), x + 258, y + 10, 0xffffff, 1, Align.left);
+        int hpCol = hp > 0.5f ? 0x4ccf6a : (hp > 0.25f ? 0xffb300 : 0xf2453d);
+        d.rgb(hpCol, 1);
+        d.rect(x - 4, top - 100, 3, 104);
+        // vida: numero grande + barra
+        text(a.big, Num.of((int) Math.ceil(Math.max(0, local.health))), x + 8, top - 8, 0xffffff, 1, Align.left);
+        text(a.small, I18n.pt ? "VIDA" : "HP", x + 86, top - 14, 0x9aa4ad, 1, Align.left);
+        bar(x + 86, top - 40, 194, 12, hp, hpCol, 10);
+        if (local.armor > 0) bar(x + 86, top - 47, 194 * local.armor / C.ARMOR_MAX, 4, 1, 0x4aa8ff, 0);
         // jetpack
-        y -= 34;
+        float y = top - 70;
         int flameCol = local.jetBoost > 0 ? 0x40c4ff : local.look.flameColor(w.time);
-        Icons.flame(d, x + 16, y + 2, 26, local.fuelLocked ? 0x9e9e9e : flameCol);
+        Icons.flame(d, x + 16, y + 4, 20, local.fuelLocked ? 0x9e9e9e : flameCol);
+        text(a.small, "JET", x + 32, y + 12, 0x9aa4ad, 1, Align.left);
         float fuel = local.jetBoost > 0 ? 1 : local.fuel / C.FUEL_MAX;
-        Draw.segBar(d, x + 36, y - 6, 214, 13, fuel, local.fuelLocked ? 0x8a8a8a : 0x4fc3f7, 10);
-        // granadas, minas, dinheiro, power-ups
-        y -= 34;
-        // granada escolhida (Shift/botao troca o tipo) e a quantidade
-        Icons.nade(d, local.grenadeType, x + 16, y + 2, 26);
-        text(a.small, Num.of(local.nades(local.grenadeType)), x + 32, y + 12, 0xffffff, 1, Align.left);
-        text(a.small, I18n.t("nade_" + local.grenadeType), x + 52, y + 12, 0xbdbdbd, 1, Align.left);
-        d.rgb(0xffd54f, 0.9f);
-        d.rect(x + 4, y - 12, 26, 2.5f);
-        float px = x + 128;
+        bar(x + 86, y - 1, 194, 8, fuel, local.fuelLocked ? 0x6d6d6d : 0x4fc3f7, 20);
+        // granadas, dinheiro, power-ups
+        y -= 24;
+        Icons.nade(d, local.grenadeType, x + 16, y + 3, 20);
+        text(a.small, Num.of(local.nades(local.grenadeType)), x + 30, y + 11, 0xffffff, 1, Align.left);
+        text(a.small, I18n.t("nade_" + local.grenadeType).toUpperCase(), x + 48, y + 11, 0x9aa4ad, 1, Align.left);
+        float px = x + 190;
         if (!rightText.isEmpty()) {
-            text(a.small, rightText, px, y + 12, 0x9ccc65, 1, Align.left);
-            px += 70;
+            text(a.small, rightText, px, y + 11, 0x9ccc65, 1, Align.left);
+            px += 64;
         }
         if (local.dmgBoost > 0) {
-            Icons.star(d, px + 8, y + 2, 20, 0xff1744);
-            text(a.small, Num.of((int) Math.ceil(local.dmgBoost)), px + 20, y + 12, 0xff8a80, 1, Align.left);
-            px += 52;
+            Icons.star(d, px + 8, y + 3, 16, 0xff1744);
+            text(a.small, Num.of((int) Math.ceil(local.dmgBoost)), px + 18, y + 11, 0xff8a80, 1, Align.left);
+            px += 44;
         }
         if (local.jetBoost > 0) {
-            Icons.flame(d, px + 8, y + 2, 20, 0x40c4ff);
-            text(a.small, Num.of((int) Math.ceil(local.jetBoost)), px + 20, y + 12, 0x80d8ff, 1, Align.left);
-            px += 52;
+            Icons.flame(d, px + 8, y + 3, 16, 0x40c4ff);
+            text(a.small, Num.of((int) Math.ceil(local.jetBoost)), px + 18, y + 11, 0x80d8ff, 1, Align.left);
+            px += 44;
         }
         if (local.speedBoost > 0) {
-            Icons.bolt(d, px + 8, y + 2, 20, 0xffea00);
-            text(a.small, Num.of((int) Math.ceil(local.speedBoost)), px + 20, y + 12, 0xffff8d, 1, Align.left);
+            Icons.bolt(d, px + 8, y + 3, 16, 0xffea00);
+            text(a.small, Num.of((int) Math.ceil(local.speedBoost)), px + 18, y + 11, 0xffff8d, 1, Align.left);
         }
     }
 
@@ -594,13 +615,24 @@ public class Hud implements Disposable {
 
     private void drawAmmoPc(Draw d, Player local, float W) {
         Gun g = local.gun();
-        Gun o0 = local.otherGun();
-        chip(W - 300, 12, 286, o0 != null ? 112 : 92, 1);
-        painter.drawGun(d, g.type, local.look.gunSkin, W - 236, 66, 0, 1.4f, 1);
-        text(a.big, ammo.of(g.mag, g.reserve), W - 30, 78, g.mag == 0 ? 0xff5252 : 0xffffff, 1, Align.right);
-        text(a.small, I18n.pt ? g.type.pt : g.type.en, W - 30, 38, 0xbdbdbd, 1, Align.right);
         Gun o = local.otherGun();
-        if (o != null) text(a.small, "Q: " + (I18n.pt ? o.type.pt : o.type.en), W - 290, 116, 0x9e9e9e, 1, Align.left);
+        chip(W - 312, 12, 298, 96, 1);
+        d.rgb(0xffb300, 1);
+        d.rect(W - 17, 12, 3, 96);
+        painter.drawGun(d, g.type, local.look.gunSkin, W - 250, 82, 0, 1.15f, 1);
+        int magCol = g.mag == 0 ? 0xff5252 : (g.mag <= g.type.mag / 4 ? 0xffb300 : 0xffffff);
+        text(a.huge, Num.of(g.mag), W - 92, 92, magCol, 1, Align.right);
+        text(a.normal, "/" + Num.of(g.reserve), W - 88, 62, 0x9aa4ad, 1, Align.left);
+        text(a.small, (I18n.pt ? g.type.pt : g.type.en).toUpperCase(), W - 302, 52, 0xd0d6dc, 1, Align.left);
+        // balas no pente
+        int ticks = Math.min(g.type.mag, 30);
+        float tw = Math.min(5, 170f / Math.max(1, ticks));
+        for (int i = 0; i < ticks; i++) {
+            boolean full = i < Math.round(g.mag * ticks / (float) Math.max(1, g.type.mag));
+            d.color(1, full ? 0.85f : 1, full ? 0.4f : 1, full ? 0.95f : 0.18f);
+            d.rect(W - 302 + i * (tw + 1.5f), 20, tw, 10);
+        }
+        if (o != null) text(a.small, "Q  " + (I18n.pt ? o.type.pt : o.type.en), W - 302, 124, 0x9aa4ad, 1, Align.left);
     }
 
     public void drawScoreboard(Draw d, World w, Player local) {

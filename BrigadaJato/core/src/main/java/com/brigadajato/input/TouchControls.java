@@ -538,8 +538,13 @@ public class TouchControls extends InputAdapter {
         if (visible[B_SWAP]) {
             float x = bx[B_SWAP], y = by[B_SWAP];
             float w = 236 * settings.controlsScale, h = 80 * settings.controlsScale;
-            d.color(1, 1, 1, Math.min(1, op + 0.25f));
-            Draw.patch(d, d.a.uiChip, x - w / 2, y - h / 2, w, h, 14);
+            float pa = Math.min(1, op + 0.25f);
+            d.color(0.04f, 0.05f, 0.07f, 0.72f * pa);
+            d.rect(x - w / 2, y - h / 2, w, h);
+            d.color(1, 1, 1, 0.07f * pa);
+            d.rect(x - w / 2, y, w, h / 2);
+            d.color(1, 0.7f, 0, pa);
+            d.rect(x + w / 2 - 3, y - h / 2, 3, h);
             Gun g = p.gun();
             if (g != null) {
                 painter.drawGun(d, g.type, p.look.gunSkin, x - w * 0.22f, y + 4, 0, 1.25f * settings.controlsScale, 1);
@@ -551,8 +556,8 @@ public class TouchControls extends InputAdapter {
             Gun o = p.otherGun();
             if (o != null) {
                 float ow = w * 0.62f, oh = 30 * settings.controlsScale;
-                d.color(1, 1, 1, Math.min(1, op + 0.1f));
-                Draw.patch(d, d.a.uiChip, x - w / 2, y + h / 2 + 6, ow, oh, 12);
+                d.color(0.04f, 0.05f, 0.07f, 0.65f * Math.min(1, op + 0.1f));
+                d.rect(x - w / 2, y + h / 2 + 6, ow, oh);
                 painter.drawGun(d, o.type, p.look.gunSkin, x - w / 2 + ow * 0.4f, y + h / 2 + 6 + oh / 2, 0, 0.75f * settings.controlsScale, 0.95f);
                 Icons.swap(d, x - w / 2 + ow - 16, y + h / 2 + 6 + oh / 2, 22, 0.9f);
             }
