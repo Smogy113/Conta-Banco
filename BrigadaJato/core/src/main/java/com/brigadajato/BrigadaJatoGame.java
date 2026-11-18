@@ -108,7 +108,10 @@ public class BrigadaJatoGame extends Game {
 
     public static GameMap loadMap(String id) {
         String text = Gdx.files.internal("maps/" + id + ".txt").readString("UTF-8");
-        return GameMap.parse(id, text);
+        GameMap m = GameMap.parse(id, text);
+        String force = System.getProperty("brigadajato.theme"); // so para testes no PC
+        if (force != null) m.theme = com.brigadajato.world.Theme.parse(force);
+        return m;
     }
 
     @Override

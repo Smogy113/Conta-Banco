@@ -17,6 +17,9 @@ public class Backdrop implements Disposable {
     private static final float PERIOD = 2400;
     private final float worldH;
     public final boolean indoor;
+    private final BackdropArt art;
+    /** camada atual tem textura pintada (pula as silhuetas simples) */
+    private boolean tex;
 
     public Backdrop(Theme t, String seedKey, float worldH) {
         this.theme = t;
@@ -30,6 +33,7 @@ public class Backdrop implements Disposable {
         sky.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         pm.dispose();
         Random r = new Random(seedKey.hashCode() * 31L + t.ordinal());
+        art = new BackdropArt(t, seedKey);
         for (int i = 0; i < 6; i++) far.add(new float[]{i * PERIOD / 6 + r.nextFloat() * 150, r.nextFloat(), 520 + r.nextFloat() * 380, 230 + r.nextFloat() * 220});
         for (int i = 0; i < 8; i++) mid.add(new float[]{i * PERIOD / 8 + r.nextFloat() * 120, r.nextFloat(), 300 + r.nextFloat() * 220, 90 + r.nextFloat() * 140});
         for (int i = 0; i < 12; i++) near.add(new float[]{i * PERIOD / 12 + r.nextFloat() * 80, r.nextFloat(), 40 + r.nextFloat() * 50, 70 + r.nextFloat() * 110});
@@ -68,9 +72,15 @@ public class Backdrop implements Disposable {
         }
         if (!indoor) drawSky(d, t, minX, minY, vw, vh, time, night, sunPos, camX);
         else drawIndoorWall(d, t, camX, camY, minX, minY, vw, vh, time);
-        layer(d, far, 0.18f, t.far, 0.9f, camX, camY, 0, time, night);
-        layer(d, mid, 0.38f, t.mid, 0.95f, camX, camY, 1, time, night);
-        layer(d, near, 0.6f, t.near, 1f, camX, camY, 2, time, night);
+        float[] ks = {0.18f, 0.38f, 0.6f};
+        Array<float[]>[] lists = new Array[]{far, mid, near};
+        int[] cols = {t.far, t.mid, t.near};
+        for (int i = 0; i < 3; i++) {
+            BackdropArt.Layer l = art.layers[i];
+            tex = l.tex != null;
+            if (tex) texLayer(d, l, ks[i], i, camX, camY, minX, minY, vw, vh, night);
+            layer(d, lists[i], ks[i], cols[i], i == 0 ? 0.9f : (i == 1 ? 0.95f : 1f), camX, camY, i, time, night);
+        }
         if (t.bg == Theme.Bg.UNDERWATER) {
             // raios de luz vindos da superficie
             d.additive(true);
@@ -81,6 +91,22 @@ public class Backdrop implements Disposable {
             }
             d.additive(false);
         }
+    }
+
+    /** Desenha uma camada pintada repetindo na horizontal, com paralaxe. */
+    private void texLayer(Draw d, BackdropArt.Layer l, float k, int depth, float camX, float camY, float minX, float minY, float vw, float vh, float night) {
+        float baseY = (camY - worldH * 0.5f) * (1 - k * 0.7f) + worldH * (0.18f - depth * 0.06f);
+        float y0 = baseY - l.h * 0.12f;
+        float dim = indoor ? 1 : 1 - night * 0.55f;
+        float br = dim * (1 - night * 0.12f), bb = Math.min(1, dim * (1 + night * 0.25f));
+        float xs = camX * (1 - k);
+        float start = xs + (float) Math.floor((minX - xs) / l.w) * l.w;
+        d.color(br, br, bb, 1);
+        for (float x = start; x < minX + vw; x += l.w) d.batch.draw(l.tex, x, y0, l.w, l.h);
+        int c = l.bottom;
+        d.color(((c >> 16) & 0xff) / 255f * br, ((c >> 8) & 0xff) / 255f * br, (c & 0xff) / 255f * bb, 1);
+        if (y0 > minY) d.rect(minX, minY, vw, y0 - minY + 1);
+        if (l.ceiling && y0 + l.h < minY + vh) d.rect(minX, y0 + l.h - 1, vw, minY + vh - (y0 + l.h) + 2);
     }
 
     private void drawSky(Draw d, Theme t, float minX, float minY, float vw, float vh, float time, float night, float sunPos, float camX) {
@@ -208,6 +234,7 @@ public class Backdrop implements Disposable {
                     buildings(d, x, baseY, w, h, depth, s[1], col, time, true);
                     break;
                 case ICE_PEAKS:
+                    if (tex) break;
                     if (depth == 2) d.batch.draw(d.a.tri, x - w * 0.3f, baseY, w * 0.6f, h);
                     else {
                         d.batch.draw(d.a.tri, x - w * (depth == 0 ? 0.5f : 0.25f), baseY, w * (depth == 0 ? 1 : 0.5f), h * (depth == 0 ? 1 : 1.3f));
@@ -220,11 +247,18 @@ public class Backdrop implements Disposable {
                     break;
                 case MOON:
                     if (depth == 2) {
+                        if (tex) {
+                            d.rgb(col, alpha);
+                            d.rect(x - 2, baseY + 60, 4, h * 0.6f);
+                            d.rgb(0xff5252, 0.8f + 0.2f * MathUtils.sin(time * 4 + x));
+                            d.circle(x, baseY + 60 + h * 0.6f, 3);
+                            break;
+                        }
                         d.batch.draw(d.a.half, x - w, baseY, w * 2, w);
                         d.rect(x - 2, baseY + w * 0.9f, 4, h * 0.6f);
                         d.rgb(0xff5252, 0.8f + 0.2f * MathUtils.sin(time * 4 + x));
                         d.circle(x, baseY + w * 0.9f + h * 0.6f, 3);
-                    } else hills(d, x, baseY, w, h, depth, t);
+                    } else if (!tex) hills(d, x, baseY, w, h, depth, t);
                     break;
                 case OCEAN:
                     ocean(d, x, baseY, w, h, depth, s[1], col, time);
@@ -251,6 +285,7 @@ public class Backdrop implements Disposable {
                     market(d, x, baseY, w, h, depth, s[1], col, time);
                     break;
                 default: // MOUNTAINS, ISLANDS, FOREST
+                    if (tex) break;
                     if (depth == 2) {
                         if (t.ambient == Theme.Amb.DUST) cactus(d, x, baseY, h);
                         else tree(d, x, baseY, w, h);
@@ -291,6 +326,19 @@ public class Backdrop implements Disposable {
     }
 
     private void buildings(Draw d, float x, float baseY, float w, float h, int depth, float rnd, int col, float time, boolean night) {
+        if (tex && depth < 2) {
+            if (night && depth == 1 && rnd > 0.55f) { // letreiro neon na frente dos predios
+                int neon = rnd > 0.78f ? 0xff4081 : 0x18ffff;
+                float glow = 0.75f + 0.25f * MathUtils.sin(time * (3 + rnd * 5));
+                d.additive(true);
+                d.rgb(neon, 0.3f * glow);
+                d.soft(x, baseY + h * 1.3f, w * 0.25f);
+                d.additive(false);
+                d.rgb(neon, glow);
+                d.rect(x - w * 0.12f, baseY + h * 1.3f - 4, w * 0.24f, 7);
+            }
+            return;
+        }
         if (depth == 0) {
             d.rect(x - w * 0.3f, baseY - 900, w * 0.45f, h + 900);
             d.rect(x + w * 0.2f, baseY - 900, w * 0.12f, h * 1.4f + 900);
@@ -337,6 +385,7 @@ public class Backdrop implements Disposable {
     }
 
     private void ocean(Draw d, float x, float baseY, float w, float h, int depth, float rnd, int col, float time) {
+        if (depth == 0 && tex) return;
         if (depth == 0) { // ilhas e navios ao longe
             if (rnd < 0.45f) {
                 d.ellipse(x, baseY + 10, w * 0.25f, h * 0.18f, 0);
@@ -388,6 +437,18 @@ public class Backdrop implements Disposable {
     }
 
     private void cave(Draw d, float x, float baseY, float w, float h, int depth, float rnd, int col) {
+        if (tex) return;
+        if (depth == 2) {
+            if (rnd > 0.6f) {
+                d.additive(true);
+                d.color(0.3f, 1f, 0.8f, 0.25f);
+                d.soft(x, baseY + 20, 26);
+                d.additive(false);
+                d.color(0.5f, 1f, 0.9f, 0.8f);
+                d.batch.draw(d.a.tri, x - 5, baseY, 10, 22);
+            }
+            return;
+        }
         float top = baseY + 700 - depth * 120;
         // estalactites de cima
         d.batch.draw(d.a.tri, x - w * 0.08f, top, w * 0.04f + 10, w * 0.04f + 10, w * 0.16f, h * (0.8f + rnd), 1, 1, 180);
@@ -407,6 +468,7 @@ public class Backdrop implements Disposable {
     }
 
     private void volcano(Draw d, float x, float baseY, float w, float h, int depth, float rnd, int col, float time) {
+        if (tex) return;
         if (depth == 0) {
             float vh = h * 1.3f;
             d.batch.draw(d.a.tri, x - w * 0.6f, baseY, w * 1.2f, vh);
@@ -438,6 +500,22 @@ public class Backdrop implements Disposable {
     }
 
     private void underwater(Draw d, float x, float baseY, float w, float h, int depth, float rnd, int col, float time) {
+        if (depth == 0 && tex) return;
+        if (depth == 1 && tex) {
+            kelp(d, x + w * 0.2f, baseY + 40, h * 1.4f, time, rnd, SoldierPainter.mix(col, 0x2e7d32, 0.5f));
+            return;
+        }
+        if (depth == 2 && tex) {
+            kelp(d, x, baseY + 30, h * 1.8f, time, rnd, SoldierPainter.mix(col, 0x43a047, 0.55f));
+            if (rnd > 0.5f) {
+                float fx = x + MathUtils.sin(time * 0.5f + rnd * 9) * 120, fy = baseY + h * 2 + MathUtils.sin(time + rnd * 4) * 30;
+                int dir = MathUtils.cos(time * 0.5f + rnd * 9) > 0 ? 1 : -1;
+                d.rgb(rnd > 0.75f ? 0xffb74d : 0x80deea, 0.85f);
+                d.ellipse(fx, fy, 9, 4.5f, 0);
+                d.batch.draw(d.a.tri, fx - dir * 9 - 4, fy - 4, 4, 4, 8, 8, 1, 1, dir > 0 ? 90 : -90);
+            }
+            return;
+        }
         if (depth == 0) {
             d.ellipse(x, baseY, w * 0.5f, h * 0.7f, 0);
             d.rect(x - w * 0.5f, baseY - 900, w, 900);
@@ -525,6 +603,7 @@ public class Backdrop implements Disposable {
     }
 
     private void market(Draw d, float x, float baseY, float w, float h, int depth, float rnd, int col, float time) {
+        if (depth == 0 && tex) return;
         if (depth == 0) { // casarios coloridos
             int[] colors = {0xef9a9a, 0xfff59d, 0x80cbc4, 0xb39ddb, 0xffcc80};
             d.rgb(colors[(int) (rnd * colors.length) % colors.length], 0.75f);
@@ -565,6 +644,7 @@ public class Backdrop implements Disposable {
 
     @Override
     public void dispose() {
+        art.dispose();
         sky.dispose();
     }
 }
