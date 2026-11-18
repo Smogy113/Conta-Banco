@@ -102,7 +102,7 @@ public class NetLoopbackTest {
                     + ") tiros recebidos=" + shots + " tempo host=" + hw.time + " cliente=" + cw.time);
             assertTrue("comandos do cliente nao chegaram (tiros do cliente no host)", hostView.kills >= 0 && hw.statShots > 0);
             assertTrue("eventos de tiro nao chegaram ao cliente", shots > 10);
-            float dx = Math.abs(hostView.netX - clientView.netX) + Math.abs(hostView.y - clientView.netY);
+            float dx = Math.abs(hostView.x - clientView.netX) + Math.abs(hostView.y - clientView.netY);
             assertTrue("estado divergente: " + dx, dx < 150 || !hostView.alive);
             assertEquals(hw.mode.teamScore[1], cw.mode.teamScore[1]);
 
