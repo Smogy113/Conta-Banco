@@ -201,10 +201,10 @@ public class SetupScreen extends BaseScreen {
         t.pad(5, 12, 5, 8);
         Label tl = label(title, "gray");
         tl.setWrap(true);
-        t.add(tl).width(130).left();
+        t.add(tl).width(160).left();
         t.add(button("<", "gray", prev)).size(46, 38);
         value.setAlignment(Align.center);
-        t.add(value).width(180);
+        t.add(value).width(150);
         t.add(button(">", "gray", next)).size(46, 38);
         return t;
     }

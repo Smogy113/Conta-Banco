@@ -1,7 +1,16 @@
 package com.brigadajato.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.Stack;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.scenes.scene2d.Actor;
@@ -44,57 +53,64 @@ public class MenuScreen extends BaseScreen {
     public MenuScreen(BrigadaJatoGame game, String notice) {
         super(game);
         game.settings.applyFps();
+        stage.addActor(new Shade());
+        root.toFront();
+
+        // ---- coluna da esquerda: logo + lista de opcoes no estilo de console
         Table left = new Table();
-        left.add(new TitleActor()).size(640, 190).left().padBottom(8).row();
-        float bw = 440, bh = 64;
-        left.add(button(I18n.t("play"), "default", () -> go(new ModeSelectScreen(game, SetupScreen.Kind.OFFLINE)))).width(bw).height(bh).padBottom(10).row();
-        left.add(button(I18n.t("multiplayer"), "blue", () -> go(new MultiplayerScreen(game)))).width(bw).height(bh).padBottom(10).row();
-        left.add(button(I18n.t("training"), "green", () -> {
+        left.add(new Logo()).size(465, 165).left().padBottom(18).row();
+        float w = 420;
+        left.add(new Item(I18n.t("play"), 0, 0xeaa233, true, () -> go(new ModeSelectScreen(game, SetupScreen.Kind.OFFLINE)))).width(w + 30).height(66).left().padBottom(10).row();
+        left.add(new Item(I18n.t("multiplayer"), 1, 0x4f9be8, false, () -> go(new MultiplayerScreen(game)))).width(w).height(48).left().padBottom(7).row();
+        left.add(new Item(I18n.t("training"), 2, 0x6cc05a, false, () -> {
             MatchConfig cfg = new MatchConfig();
             cfg.mode = ModeType.TRAINING;
             cfg.applyModeDefaults();
             cfg.bots = 0;
             go(GameScreen.offline(game, cfg));
-        })).width(bw).height(bh).padBottom(10).row();
-        Table row = new Table();
-        row.add(button(I18n.t("soldier"), "purple-small", () -> go(new CustomizeScreen(game)))).width(bw / 2 - 5).height(bh).padRight(10);
-        row.add(button(I18n.t("settings"), "gray-small", () -> go(new SettingsScreen(game)))).width(bw / 2 - 5).height(bh);
-        left.add(row).padBottom(10).row();
-        left.add(button(I18n.t("achievements") + "  " + game.achievements.unlockedCount() + "/" + com.brigadajato.Achievements.DEFS.length, "default-small",
-                () -> go(new AchievementsScreen(game)))).width(bw).height(50).padBottom(10).row();
-        left.add(button(I18n.t("quit"), "red-small", () -> Gdx.app.exit())).width(150).height(46).left().row();
+        })).width(w).height(48).left().padBottom(7).row();
+        left.add(new Item(I18n.t("soldier"), 3, 0xb07ee0, false, () -> go(new CustomizeScreen(game)))).width(w).height(48).left().padBottom(7).row();
+        left.add(new Item(I18n.t("settings"), 4, 0x9fb0bd, false, () -> go(new SettingsScreen(game)))).width(w).height(48).left().padBottom(7).row();
+        left.add(new Item(I18n.t("achievements") + "  " + game.achievements.unlockedCount() + "/" + com.brigadajato.Achievements.DEFS.length, 5, 0xffd04a, false,
+                () -> go(new AchievementsScreen(game)))).width(w).height(48).left().padBottom(7).row();
+        left.add(new Item(I18n.t("quit"), 6, 0xe0594c, false, () -> Gdx.app.exit())).width(190).height(42).left().row();
         if (notice != null) left.add(label(notice, "yellow")).left().padTop(12).row();
 
+        // ---- direita: seu soldado num pedestal com luz, e a ficha
         Table right = new Table();
+        Stack podium = new Stack();
+        podium.add(new Spot());
         SoldierPreview preview = new SoldierPreview(game, game.settings.look);
         preview.autoPose = true;
-        right.add(preview).size(240, 290).row();
+        podium.add(preview);
+        right.add(podium).size(260, 310).row();
         Table card = new Table(skin);
-        card.setBackground("chip");
-        card.pad(8, 18, 8, 18);
+        card.setBackground("plate");
+        card.pad(10, 22, 12, 22);
         card.add(label(game.settings.name, "big")).row();
         card.add(label(I18n.f("level", game.settings.level()) + (game.settings.level() >= com.brigadajato.Progression.MAX_LEVEL ? " (MAX)" : "")
-                + "   ·   " + I18n.f("stat_kills", game.settings.totalKills), "gray")).row();
-        if (com.brigadajato.Progression.TEST_BUILD) card.add(label(I18n.t("unlocked_all"), "small")).row();
-        right.add(card).padTop(4);
+                + "   ·   " + I18n.f("stat_kills", game.settings.totalKills), "gray")).padTop(2).row();
+        if (com.brigadajato.Progression.TEST_BUILD) card.add(label(I18n.t("unlocked_all"), "yellow-small")).padTop(2).row();
+        right.add(card).padTop(14);
 
-        root.add(left).expand().left().padLeft(70);
-        root.add(right).expand().right().padRight(90);
+        root.add(left).expand().left().top().padLeft(56).padTop(26);
+        root.add(right).expand().right().padRight(80);
         root.row();
         tip = label("", "small");
-        tip.setAlignment(Align.center);
         Table bottom = new Table(skin);
         bottom.setBackground("chip");
-        bottom.pad(6, 18, 6, 18);
+        bottom.pad(6, 14, 6, 16);
+        Label tag = label(I18n.pt ? "DICA" : "TIP", "yellow-small");
+        bottom.add(tag).padRight(12);
         bottom.add(tip);
-        root.add(bottom).colspan(2).padBottom(14);
+        root.add(bottom).colspan(2).left().padLeft(56).padBottom(16);
         tipIdx = new Random().nextInt(TIPS.length);
         showTip();
         stage.addActor(new FlyBy());
     }
 
     private void showTip() {
-        tip.setText((I18n.pt ? "Dica: " : "Tip: ") + TIPS[tipIdx][I18n.pt ? 0 : 1]);
+        tip.setText(TIPS[tipIdx][I18n.pt ? 0 : 1]);
     }
 
     @Override
@@ -113,9 +129,200 @@ public class MenuScreen extends BaseScreen {
         Gdx.app.exit();
     }
 
-    /** Logo do jogo, levemente inclinado, com faixa de alerta. */
-    private class TitleActor extends Actor {
-        private final Matrix4 saved = new Matrix4(), tmp = new Matrix4();
+    // ------------------------------------------------------------ icones em pixel art (11x11)
+    private static final String[][] ICONS = {
+            {"##.........", "####.......", "######.....", "########...", "##########.", "###########", "##########.", "########...", "######.....", "####.......", "##........."},
+            {"..#######..", ".#.......#.", "#..#####..#", "..#.....#..", ".#..###..#.", "...#...#...", "....###....", "...........", ".....#.....", "....###....", ".....#....."},
+            {"...#####...", "..#.....#..", ".#..###..#.", "#..#...#..#", "#.#..#..#.#", "#.#.###.#.#", "#.#..#..#.#", "#..#...#..#", ".#..###..#.", "..#.....#..", "...#####..."},
+            {"...#####...", "..#######..", ".#########.", ".##.....##.", "..#.#.#.#..", "..#.....#..", "...#####...", "..#######..", ".#########.", "###########", "###########"},
+            {"....###....", ".#.#####.#.", "..#######..", ".####.####.", "####...####", "###.....###", "####...####", ".####.####.", "..#######..", ".#.#####.#.", "....###...."},
+            {"###########", "#.#######.#", "#.#######.#", ".#.#####.#.", "...#####...", "....###....", ".....#.....", ".....#.....", "....###....", "...#####...", "...#####..."},
+            {"#######....", "#.....#....", "#.....#..#.", "#.....#.##.", "#...######.", "#...#######", "#...######.", "#.....#.##.", "#.....#..#.", "#.....#....", "#######...."}};
+    private static Texture iconTex;
+    private static TextureRegion[] icons;
+
+    /** monta a textura dos icones: branco com contorno escuro (o desenho e tingido na hora) */
+    private static void loadIcons() {
+        if (iconTex != null) return;
+        int S = 13;
+        Pixmap pm = new Pixmap(S * ICONS.length, S, Pixmap.Format.RGBA8888);
+        pm.setBlending(Pixmap.Blending.None);
+        pm.setColor(0, 0, 0, 0);
+        pm.fill();
+        for (int i = 0; i < ICONS.length; i++) {
+            String[] ic = ICONS[i];
+            for (int y = 0; y < 11; y++)
+                for (int x = 0; x < 11; x++) {
+                    if (ic[y].charAt(x) != '#') continue;
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++) {
+                            int px = i * S + 1 + x + dx, py = 1 + y + dy;
+                            if ((pm.getPixel(px, py) & 0xff) == 0) pm.drawPixel(px, py, 0x120e18ff);
+                        }
+                }
+            for (int y = 0; y < 11; y++)
+                for (int x = 0; x < 11; x++) if (ic[y].charAt(x) == '#') pm.drawPixel(i * S + 1 + x, 1 + y, 0xffffffff);
+        }
+        iconTex = new Texture(pm);
+        iconTex.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        pm.dispose();
+        icons = new TextureRegion[ICONS.length];
+        for (int i = 0; i < ICONS.length; i++) icons[i] = new TextureRegion(iconTex, i * S, 0, S, S);
+    }
+
+    /** escurece a esquerda (onde fica o menu) e embaixo, deixando o jogo de fundo aparecer na direita */
+    private class Shade extends Actor {
+        @Override
+        public void draw(Batch batch, float parentAlpha) {
+            Draw d = game.draw;
+            float W = getStage().getViewport().getWorldWidth(), H = getStage().getViewport().getWorldHeight();
+            int n = 24;
+            float band = 760f / n;
+            for (int i = 0; i < n; i++) {
+                float t = i / (float) n;
+                d.color(0.03f, 0.03f, 0.06f, 0.85f * (1 - t) * (1 - t) + 0.12f);
+                d.rect(i * band, 0, band + 1, H);
+            }
+            for (int i = 0; i < 10; i++) {
+                float t = i / 10f;
+                d.color(0.02f, 0.02f, 0.04f, 0.5f * (1 - t) * (1 - t));
+                d.rect(0, i * 9, W, 9);
+                d.rect(0, H - (i + 1) * 9, W, 9);
+            }
+            batch.setColor(1, 1, 1, 1);
+        }
+    }
+
+    /** Logo em pixel art com fagulhas saindo do jato. */
+    private class Logo extends Actor {
+        private float time;
+        private final float[] sx = new float[14], sy = new float[14], sl = new float[14];
+
+        @Override
+        public void act(float delta) {
+            super.act(delta);
+            time += delta;
+            for (int i = 0; i < sx.length; i++) {
+                sl[i] -= delta;
+                if (sl[i] <= 0) {
+                    sl[i] = 0.35f + MathUtils.random(0.5f);
+                    sx[i] = 8 + MathUtils.random(4f);
+                    sy[i] = 13 + MathUtils.random(-1.5f, 1.5f);
+                }
+                sx[i] -= delta * (9 + i * 0.6f);
+                sy[i] += MathUtils.sin(time * 9 + i) * delta * 3;
+            }
+        }
+
+        @Override
+        public void draw(Batch batch, float parentAlpha) {
+            Texture logo = game.assets.logo;
+            if (logo == null) return;
+            Draw d = game.draw;
+            float k = 5;
+            float bob = Math.round(MathUtils.sin(time * 1.8f) * 1.4f) * k * 0.5f;
+            float x = getX(), y = getY() + bob;
+            // brilho quente atras do jato
+            d.additive(true);
+            d.color(1f, 0.6f, 0.2f, (0.16f + 0.06f * MathUtils.sin(time * 14)) * parentAlpha);
+            d.soft(x + 30 * k, y + 13 * k, 90);
+            d.additive(false);
+            // fagulhas (quadradinhos do tamanho de um pixel do logo)
+            for (int i = 0; i < sx.length; i++) {
+                if (sx[i] > 7 || sx[i] < -6 || sl[i] <= 0) continue;
+                float t = MathUtils.clamp(sl[i] / 0.6f, 0, 1);
+                int c = t > 0.6f ? 0xffe27a : (t > 0.3f ? 0xf6a028 : 0xc8461e);
+                d.rgb(c, parentAlpha * Math.min(1, t * 2));
+                d.rect(x + Math.round(sx[i]) * k, y + Math.round(sy[i]) * k, k, k);
+            }
+            batch.setColor(1, 1, 1, parentAlpha);
+            batch.draw(logo, x, y, logo.getWidth() * k, logo.getHeight() * k);
+            batch.setColor(1, 1, 1, 1);
+        }
+    }
+
+    /** Opcao do menu: placa escura com faixa colorida, icone e texto; realca e desliza ao tocar. */
+    private class Item extends Actor {
+        private final String text;
+        private final int icon, color;
+        private final boolean primary;
+        private float hover, press, time;
+        private final ClickListener click;
+
+        Item(String text, int icon, int color, boolean primary, Runnable action) {
+            this.text = text.toUpperCase(java.util.Locale.ROOT);
+            this.icon = icon;
+            this.color = color;
+            this.primary = primary;
+            loadIcons();
+            click = new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    game.audio.ui("ui_click");
+                    action.run();
+                }
+            };
+            addListener(click);
+        }
+
+        @Override
+        public void act(float delta) {
+            super.act(delta);
+            time += delta;
+            boolean on = click.isOver() || click.isPressed();
+            hover += ((on ? 1 : 0) - hover) * Math.min(1, delta * 14);
+            press += ((click.isPressed() ? 1 : 0) - press) * Math.min(1, delta * 20);
+        }
+
+        @Override
+        public void draw(Batch batch, float parentAlpha) {
+            Draw d = game.draw;
+            float slide = Math.round(hover * 10), sink = Math.round(press * 3);
+            float x = getX() + slide, y = getY() - sink, w = getWidth(), h = getHeight();
+            if (primary) {
+                Drawable bg = skin.get("default", TextButton.TextButtonStyle.class).up;
+                batch.setColor(1, 1, 1, parentAlpha);
+                bg.draw(batch, x, y, w, h);
+                if (hover > 0.01f) {
+                    d.color(1, 1, 1, 0.12f * hover * parentAlpha);
+                    d.rect(x + 3, y + 9, w - 6, h - 12);
+                }
+            } else {
+                batch.setColor(1, 1, 1, parentAlpha);
+                skin.getDrawable("plate").draw(batch, x, y, w, h);
+                d.rgb(color, (0.08f + 0.16f * hover) * parentAlpha);
+                d.rect(x + 3, y + 3, w - 6, h - 6);
+                d.rgb(color, parentAlpha);
+                d.rect(x + 3, y + 6, 6, h - 12);
+            }
+            // seta piscando quando selecionado
+            if (hover > 0.05f) {
+                float bl = ((int) (time * 4)) % 2 == 0 ? 1 : 0.6f;
+                d.rgb(primary ? 0xffe27a : color, hover * bl * parentAlpha);
+                d.region(game.assets.tri, getX() - 14 + slide * 0.4f, y + h / 2, 14, 14, -90);
+            }
+            // icone
+            float is = primary ? 39 : 33;
+            float ix = x + (primary ? 16 : 20), iy = y + (h - is) / 2 + (primary ? 2 : 0);
+            batch.setColor(1, 1, 1, parentAlpha);
+            if (primary) batch.setColor(1f, 0.97f, 0.88f, parentAlpha);
+            else {
+                int c = SoldierPainter.mix(color, 0xffffff, 0.25f * hover);
+                batch.setColor(((c >> 16) & 0xff) / 255f, ((c >> 8) & 0xff) / 255f, (c & 0xff) / 255f, parentAlpha);
+            }
+            batch.draw(icons[icon], ix, iy, is, is);
+            // texto
+            BitmapFont f = primary ? game.assets.big : game.assets.normal;
+            f.setColor(1, 1, 1, parentAlpha);
+            float ty = y + h / 2 + f.getCapHeight() / 2 + (primary ? 3 : 1);
+            f.draw(batch, text, ix + is + 16, ty);
+            f.setColor(1, 1, 1, 1);
+            batch.setColor(1, 1, 1, 1);
+        }
+    }
+
+    /** Luz de palco e pedestal atras do seu soldado. */
+    private class Spot extends Actor {
         private float time;
 
         @Override
@@ -127,25 +334,29 @@ public class MenuScreen extends BaseScreen {
         @Override
         public void draw(Batch batch, float parentAlpha) {
             Draw d = game.draw;
-            saved.set(batch.getTransformMatrix());
-            float bounce = MathUtils.sin(time * 2f) * 3;
-            tmp.set(saved).translate(getX() + 10, getY() + 40 + bounce, 0).rotate(0, 0, 1, 4);
-            batch.setTransformMatrix(tmp);
-            d.color(1, 1, 1, parentAlpha);
-            Draw.tiled(d, game.assets.uiStripes, 0, -6, 560, 14);
-            game.assets.huge.getData().setScale(1.25f / game.assets.fontScale);
-            game.assets.huge.setColor(0, 0, 0, 0.45f * parentAlpha);
-            game.assets.huge.draw(batch, "BRIGADA", 8, 150);
-            game.assets.huge.setColor(1f, 0.78f, 0.1f, parentAlpha);
-            game.assets.huge.draw(batch, "BRIGADA", 2, 156);
-            game.assets.huge.getData().setScale(0.95f / game.assets.fontScale);
-            game.assets.huge.setColor(0, 0, 0, 0.45f * parentAlpha);
-            game.assets.huge.draw(batch, "JATO", 306, 84);
-            game.assets.huge.setColor(1f, 0.42f, 0.13f, parentAlpha);
-            game.assets.huge.draw(batch, "JATO", 300, 90);
-            game.assets.huge.getData().setScale(1f / game.assets.fontScale);
-            game.assets.huge.setColor(1, 1, 1, 1);
-            batch.setTransformMatrix(saved);
+            float cx = getX() + getWidth() / 2, by = getY() + 8;
+            d.additive(true);
+            d.color(1f, 0.85f, 0.55f, (0.18f + 0.03f * MathUtils.sin(time * 2)) * parentAlpha);
+            d.soft(cx, by + 120, 170);
+            d.color(1f, 0.9f, 0.7f, 0.1f * parentAlpha);
+            d.soft(cx, by + 10, 120);
+            d.additive(false);
+            // pedestal de pedra em pixels (unidade de 3)
+            float pw = 192, ph = 18, px = cx - pw / 2, py = by - ph + 4;
+            d.rgb(0x120e18, parentAlpha);
+            d.rect(px + 3, py - 3, pw - 6, ph + 6);
+            d.rect(px, py, pw, ph);
+            d.rgb(0x4a5260, parentAlpha);
+            d.rect(px + 3, py + 3, pw - 6, ph - 6);
+            d.rgb(0x6b7585, parentAlpha);
+            d.rect(px + 3, py + ph - 6, pw - 6, 3);
+            d.rgb(0x353b46, parentAlpha);
+            d.rect(px + 3, py + 3, pw - 6, 3);
+            for (int i = 1; i < 6; i++) {
+                d.rgb(0x353b46, parentAlpha);
+                d.rect(px + i * pw / 6, py + 3, 3, ph - 9);
+            }
+            batch.setColor(1, 1, 1, 1);
         }
     }
 

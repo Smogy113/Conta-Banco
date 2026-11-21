@@ -37,7 +37,9 @@ public class MultiplayerScreen extends BaseScreen {
         Table left = new Table();
         left.add(button(I18n.t("create_room"), "green", () -> go(new ModeSelectScreen(game, SetupScreen.Kind.HOST)))).width(340).height(70).row();
         List<String> ips = Net.localIps();
-        left.add(label(I18n.f("local_ip", ips.isEmpty() ? "?" : ips.get(0)), "gray")).width(340).padTop(10).row();
+        Label ipl = label(I18n.f("local_ip", ips.isEmpty() ? "?" : ips.get(0)), "gray");
+        ipl.setWrap(true);
+        left.add(ipl).width(340).padTop(10).row();
         if (!Net.onLocalNetwork()) {
             Label warn = label(I18n.t("no_wifi"), "yellow-small");
             warn.setWrap(true);

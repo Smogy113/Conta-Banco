@@ -146,6 +146,9 @@ public class BrigadaJatoGame extends Game {
         shotPath = null;
         com.badlogic.gdx.graphics.Pixmap pm = com.badlogic.gdx.graphics.Pixmap.createFromFrameBuffer(0, 0,
                 Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
+        // a tela nao tem transparencia: grava opaco (senao o PNG fica "lavado" nos visualizadores)
+        java.nio.ByteBuffer px = pm.getPixels();
+        for (int i = 3; i < px.limit(); i += 4) px.put(i, (byte) 0xff);
         com.badlogic.gdx.graphics.PixmapIO.writePNG(Gdx.files.absolute(path), pm, -1, true);
         pm.dispose();
         Gdx.app.log("BrigadaJato", "screenshot salvo: " + path);

@@ -25,12 +25,13 @@ public final class Ui {
 
     public static Skin build(Assets a) {
         Skin s = new Skin();
-        NinePatch panel = new NinePatch(a.uiPanel, 16, 16, 16, 16);
-        NinePatch btn = new NinePatch(a.uiButton, 16, 16, 12, 22);
-        NinePatch btnDown = new NinePatch(a.uiButtonDown, 16, 16, 18, 14);
-        s.add("chip", new NinePatchDrawable(new NinePatch(a.uiChip, 16, 16, 16, 16)), Drawable.class);
+        NinePatch panel = new NinePatch(a.uiPanel, 15, 15, 15, 15);
+        NinePatch btn = new NinePatch(a.uiButton, 9, 9, 9, 15);
+        NinePatch btnDown = new NinePatch(a.uiButtonDown, 9, 9, 12, 12);
+        s.add("chip", new NinePatchDrawable(new NinePatch(a.uiChip, 9, 9, 9, 9)), Drawable.class);
+        s.add("plate", new NinePatchDrawable(new NinePatch(a.uiPlate, 9, 9, 9, 9)), Drawable.class);
         s.add("stripes", new TextureRegionDrawable(a.uiStripes), Drawable.class);
-        NinePatch field = new NinePatch(a.uiField, 12, 12, 12, 12);
+        NinePatch field = new NinePatch(a.uiField, 9, 9, 9, 9);
         s.add("panel", new NinePatchDrawable(panel), Drawable.class);
         s.add("field", new NinePatchDrawable(field), Drawable.class);
         s.add("white", new TextureRegionDrawable(a.white), Drawable.class);
@@ -41,7 +42,7 @@ public final class Ui {
         s.add("huge", a.huge);
 
         String[] names = {"default", "green", "blue", "red", "gray", "purple"};
-        int[] cols = {0xffb000, 0x5dbb46, 0x3d9be9, 0xe8453c, 0x7d8f99, 0xa24bc4};
+        int[] cols = {0xeaa233, 0x529c45, 0x3a7cc6, 0xc8483c, 0x5c6a76, 0x7d56aa};
         for (int i = 0; i < names.length; i++) {
             TextButton.TextButtonStyle st = new TextButton.TextButtonStyle();
             st.up = new NinePatchDrawable(btn).tint(c(cols[i]));

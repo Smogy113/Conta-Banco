@@ -147,83 +147,111 @@ public class Assets implements Disposable {
     /** Texturas da interface: placas militares com rebites, botoes com relevo, faixa de alerta. */
     public TextureRegion uiStripes;
 
+    /** unidade de pixel da interface (pixels de textura por "pixel" do desenho) */
+    private static final int U = 3;
+    private static final float[] INK = {0.07f, 0.06f, 0.1f};
+
+    /** forma de placa de pixel art: cantos chanfrados e contorno de 1 unidade. 0 fora, 1 contorno, 2 dentro */
+    private static int plateCell(int cx, int cy, int cw, int ch) {
+        boolean ex = cx == 0 || cx == cw - 1, ey = cy == 0 || cy == ch - 1;
+        if (ex && ey) return 0;
+        if (ex || ey) return 1;
+        boolean nx = cx == 1 || cx == cw - 2, ny = cy == 1 || cy == ch - 2;
+        if (nx && ny) return 1; // completa o chanfro
+        return 2;
+    }
+
+    /** Desenha uma placa; shade(cx, cy) devolve {r, g, b, a} do miolo. */
+    private interface Shade {
+        float[] at(int cx, int cy, int cw, int ch);
+    }
+
+    private static void plate(Pixmap pm, int ox, int oy, int cells, float outlineA, Shade sh) {
+        for (int cy = 0; cy < cells; cy++)
+            for (int cx = 0; cx < cells; cx++) {
+                int k = plateCell(cx, cy, cells, cells);
+                if (k == 0) continue;
+                float[] c = k == 1 ? new float[]{INK[0], INK[1], INK[2], outlineA} : sh.at(cx, cy, cells, cells);
+                for (int y = 0; y < U; y++)
+                    for (int x = 0; x < U; x++) pm.drawPixel(ox + cx * U + x, oy + cy * U + y, rgba(c[0], c[1], c[2], c[3]));
+            }
+    }
+
     private void buildUi() {
         Pixmap pm = new Pixmap(512, 64, Pixmap.Format.RGBA8888);
         pm.setBlending(Pixmap.Blending.None);
         pm.setColor(0, 0, 0, 0);
         pm.fill();
-        java.util.Random r = new java.util.Random(7);
-        // painel: placa de metal escura com rebites nos cantos
-        roundRect(pm, 0, 0, 64, 64, 10, 0.06f, 0.07f, 0.09f, 1f);
-        roundRect(pm, 3, 3, 58, 58, 8, 0.17f, 0.21f, 0.23f, 0.95f);
-        for (int y = 6; y < 58; y++)
-            for (int x = 6; x < 58; x++) {
-                int c = pm.getPixel(x, y);
-                float a = (c & 0xff) / 255f;
-                float n = r.nextFloat() * 0.03f;
-                float top = y < 9 ? 0.06f : 0;
-                pm.drawPixel(x, y, rgba(0.17f + n + top, 0.21f + n + top, 0.23f + n + top, a));
-            }
-        int[][] rivets = {{9, 9}, {54, 9}, {9, 54}, {54, 54}};
-        for (int[] rv : rivets) {
-            for (int y = -3; y <= 3; y++)
-                for (int x = -3; x <= 3; x++) {
-                    float dd = (float) Math.sqrt(x * x + y * y);
-                    if (dd > 3.2f) continue;
-                    float light = y < 0 ? 0.62f : 0.42f;
-                    pm.drawPixel(rv[0] + x, rv[1] + y, rgba(light, light, light + 0.03f, 1));
-                }
-        }
-        // botao: contorno grosso + corpo claro com brilho em cima e sombra embaixo
-        roundRect(pm, 64, 0, 64, 64, 12, 0.06f, 0.06f, 0.08f, 1f);
-        roundRect(pm, 68, 4, 56, 52, 9, 1f, 1f, 1f, 1f);
-        for (int y = 4; y < 56; y++)
-            for (int x = 68; x < 124; x++) {
-                int c = pm.getPixel(x, y);
-                float a = (c & 0xff) / 255f;
-                if (a <= 0) continue;
-                float k;
-                if (y < 10) k = 1f;            // brilho
-                else if (y < 30) k = 0.93f;
-                else if (y < 44) k = 0.86f;
-                else k = 0.66f;                // sombra de baixo
-                pm.drawPixel(x, y, rgba(k, k, k, a));
-            }
-        // botao pressionado
-        roundRect(pm, 128, 0, 64, 64, 12, 0.06f, 0.06f, 0.08f, 1f);
-        roundRect(pm, 132, 8, 56, 52, 9, 0.8f, 0.8f, 0.8f, 1f);
-        // campo de texto
-        roundRect(pm, 192, 0, 64, 64, 10, 0.06f, 0.06f, 0.08f, 1f);
-        roundRect(pm, 195, 3, 58, 58, 8, 0.95f, 0.95f, 0.9f, 1f);
-        // faixa de alerta (amarelo/preto diagonal)
+        final int N = 21; // 21 celulas de 3 px = 63 px
+        // painel: placa escura com filete claro em cima e parafusos nos cantos
+        plate(pm, 0, 0, N, 1f, (cx, cy, cw, ch) -> {
+            boolean bolt = (cx == 3 || cx == cw - 4) && (cy == 3 || cy == ch - 4);
+            if (bolt) return new float[]{0.42f, 0.45f, 0.5f, 1};
+            if ((cx == 3 || cx == cw - 4) && (cy == 4 || cy == ch - 3)) return new float[]{0.06f, 0.07f, 0.09f, 1};
+            if (cy == 1) return new float[]{0.24f, 0.27f, 0.33f, 1};
+            if (cy == ch - 2) return new float[]{0.08f, 0.09f, 0.12f, 1};
+            float n = ((cx * 7 + cy * 13) % 5 == 0) ? 0.012f : 0;
+            return new float[]{0.13f + n, 0.15f + n, 0.19f + n, 1};
+        });
+        // botao: brilho em cima, corpo em duas faixas e "beirada" escura embaixo (relevo de pixel art)
+        plate(pm, 64, 0, N, 1f, (cx, cy, cw, ch) -> {
+            float k;
+            if (cy == 1) k = 1f;
+            else if (cy <= 9) k = 0.9f;
+            else if (cy <= ch - 5) k = 0.8f;
+            else if (cy <= ch - 3) k = 0.58f;
+            else k = 0.44f;
+            if (cx == 1 && cy < ch - 4) k = Math.min(1, k + 0.06f);
+            if (cx == cw - 2 && cy < ch - 4) k -= 0.06f;
+            return new float[]{k, k, k, 1};
+        });
+        // botao pressionado: sem beirada, sombra interna em cima
+        plate(pm, 128, 0, N, 1f, (cx, cy, cw, ch) -> {
+            float k = cy <= 2 ? 0.52f : (cy <= ch - 3 ? 0.74f : 0.62f);
+            return new float[]{k, k, k, 1};
+        });
+        // campo de texto: claro com sombra interna em cima
+        plate(pm, 192, 0, N, 1f, (cx, cy, cw, ch) -> cy == 1 ? new float[]{0.7f, 0.7f, 0.66f, 1} : new float[]{0.94f, 0.93f, 0.88f, 1});
+        // faixa de alerta (amarelo/preto diagonal, em pixels)
         for (int y = 0; y < 32; y++)
             for (int x = 0; x < 64; x++) {
-                boolean yellow = ((x + y) / 8) % 2 == 0;
-                pm.drawPixel(256 + x, y, yellow ? rgba(1f, 0.76f, 0.03f, 1) : rgba(0.08f, 0.08f, 0.1f, 1));
+                boolean yellow = ((x / U + y / U) / 3) % 2 == 0;
+                pm.drawPixel(256 + x, y, yellow ? rgba(0.95f, 0.7f, 0.1f, 1) : rgba(0.08f, 0.08f, 0.1f, 1));
             }
-        // aba / chip arredondado escuro (para HUD e listas)
-        roundRect(pm, 320, 0, 64, 64, 14, 0.04f, 0.05f, 0.07f, 0.78f);
+        // aba / chip escuro translucido
+        plate(pm, 320, 0, N, 0.85f, (cx, cy, cw, ch) -> cy == 1 ? new float[]{0.2f, 0.23f, 0.29f, 0.85f} : new float[]{0.06f, 0.07f, 0.1f, 0.76f});
+        // placa de item de menu: escura translucida (o realce e pintado por cima)
+        plate(pm, 384, 0, N, 0.9f, (cx, cy, cw, ch) -> cy == 1 ? new float[]{0.22f, 0.25f, 0.31f, 0.86f} : new float[]{0.07f, 0.08f, 0.11f, 0.8f});
         uiTex = new Texture(pm);
         uiTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         uiTex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.ClampToEdge);
         pm.dispose();
-        uiPanel = new TextureRegion(uiTex, 0, 0, 64, 64);
-        uiButton = new TextureRegion(uiTex, 64, 0, 64, 64);
-        uiButtonDown = new TextureRegion(uiTex, 128, 0, 64, 64);
-        uiField = new TextureRegion(uiTex, 192, 0, 64, 64);
+        uiPanel = new TextureRegion(uiTex, 0, 0, 63, 63);
+        uiButton = new TextureRegion(uiTex, 64, 0, 63, 63);
+        uiButtonDown = new TextureRegion(uiTex, 128, 0, 63, 63);
+        uiField = new TextureRegion(uiTex, 192, 0, 63, 63);
         uiStripes = new TextureRegion(uiTex, 256, 0, 64, 32);
-        uiChip = new TextureRegion(uiTex, 320, 0, 64, 64);
+        uiChip = new TextureRegion(uiTex, 320, 0, 63, 63);
+        uiPlate = new TextureRegion(uiTex, 384, 0, 63, 63);
+        try {
+            logo = new Texture(Gdx.files.internal("ui/logo.png"));
+            logo.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        } catch (Exception e) {
+            Gdx.app.error("Assets", "logo nao carregou", e);
+        }
         uiKnob = circle;
     }
 
-    public TextureRegion uiChip;
+    public TextureRegion uiChip, uiPlate;
+    /** logo em pixel art (assets/ui/logo.png, gerado por tools/make_logo.py) */
+    public Texture logo;
 
     // ------------------------------------------------------------------ fontes
 
     private void loadFonts() {
         fontScale = MathUtils.clamp(Gdx.graphics.getHeight() / 720f, 0.5f, 3f);
-        FreeTypeFontGenerator ui = new FreeTypeFontGenerator(Gdx.files.internal("fonts/ui.ttf"));
-        FreeTypeFontGenerator title = new FreeTypeFontGenerator(Gdx.files.internal("fonts/title.ttf"));
+        FreeTypeFontGenerator ui = new FreeTypeFontGenerator(Gdx.files.internal("fonts/pixel_ui.ttf"));
+        FreeTypeFontGenerator title = new FreeTypeFontGenerator(Gdx.files.internal("fonts/pixel_title.ttf"));
         small = font(ui, 20, 1.2f, 1.2f);
         normal = font(ui, 27, 1.4f, 1.5f);
         big = font(title, 38, 1.8f, 2f);
@@ -286,6 +314,7 @@ public class Assets implements Disposable {
     public void dispose() {
         atlas.dispose();
         uiTex.dispose();
+        if (logo != null) logo.dispose();
         small.dispose();
         normal.dispose();
         big.dispose();

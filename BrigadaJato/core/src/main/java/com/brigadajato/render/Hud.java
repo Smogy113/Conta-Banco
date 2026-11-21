@@ -622,7 +622,10 @@ public class Hud implements Disposable {
         d.rect(W - 17, 12, 3, 96);
         painter.drawGun(d, g.type, local.look.gunSkin, W - 250, 82, 0, 1.15f, 1);
         int magCol = g.mag == 0 ? 0xff5252 : (g.mag <= g.type.mag / 4 ? 0xffb300 : 0xffffff);
-        text(a.huge, Num.of(g.mag), W - 92, 92, magCol, 1, Align.right);
+        float hs = a.huge.getScaleX();
+        a.huge.getData().setScale(hs * 0.72f);
+        text(a.huge, Num.of(g.mag), W - 92, 98, magCol, 1, Align.right);
+        a.huge.getData().setScale(hs);
         text(a.normal, "/" + Num.of(g.reserve), W - 88, 62, 0x9aa4ad, 1, Align.left);
         text(a.small, (I18n.pt ? g.type.pt : g.type.en).toUpperCase(), W - 302, 52, 0xd0d6dc, 1, Align.left);
         // balas no pente
