@@ -162,11 +162,17 @@ public class SoldierPainter {
 
     /** perna do quadril ate o pe, com joelho para a frente */
     private void leg(float hx, float hy, float fx, float fy, int f, int pants, int pad, int boot, float th) {
-        ik(hx, hy, fx, fy + 1.2f, 9.2f, 9.0f, f);
+        // comprimento igual a altura do quadril: em pe a perna fica reta; so dobra andando/agachado/no ar
+        ik(hx, hy, fx, fy + 1.2f, 8.3f, 8.1f, f);
         float kx = jx, ky = jy;
-        seg(hx, hy, kx, ky, th, pants);
-        seg(kx, ky, fx, fy + 1.2f, th * 0.96f, pants);
-        add(T_RECT, kx - 1.4f + f * 0.6f, ky - 0.7f, 2.6f, 1.3f, 0, 0, 0, darker(pants, 0.72f), false); // dobra no joelho
+        float dx = fx - hx, dy = fy + 1.2f - hy;
+        if (dx * dx + dy * dy > 15.6f * 15.6f) { // quase esticada: uma coluna so, sem calombo
+            seg(hx, hy, fx, fy + 1.2f, th, pants);
+        } else {
+            seg(hx, hy, kx, ky, th, pants);
+            seg(kx, ky, fx, fy + 1.2f, th * 0.96f, pants);
+            add(T_BALL, kx, ky, th * 0.5f, th * 0.5f, 0, 0, 0, pants, false); // junta lisa no joelho
+        }
         // tenis: cano escuro, sola clara e detalhe colorido
         float bx = fx - 3.8f + f * 1.4f;
         box(bx, fy - 1.8f, 9.6f, 4.8f, boot);
@@ -291,7 +297,7 @@ public class SoldierPainter {
         jetpack(look, x - f * 7.6f, hipY + 3.5f, f);
 
         // ---- pernas (joelho para a frente, passada alternada)
-        float hipBX = x - f * 2.2f, hipAX = x + f * 2.2f;
+        float hipBX = x - f * 2.7f, hipAX = x + f * 2.7f;
         float legReach = crouch ? 13f : 19.5f;
         float fAx, fAy, fBx, fBy;
         if (!s.onGround) { // no ar: pernas dobradas
@@ -312,9 +318,9 @@ public class SoldierPainter {
             fAy = y + (moving ? Math.max(0, cw) * 4.5f : 0);
             fBx = hipBX - sw * stride;
             fBy = y + (moving ? Math.max(0, -cw) * 4.5f : 0);
-            if (!moving) {
-                fAx = hipAX + f * 2.5f;
-                fBx = hipBX - f * 2f;
+            if (!moving) { // em pe: pernas retas com um vaozinho entre elas
+                fAx = hipAX + f * 1.1f;
+                fBx = hipBX - f * 1.1f;
             }
         }
         if (celebrate || dancing) {
@@ -325,8 +331,8 @@ public class SoldierPainter {
             if (dance == 2) fAx += MathUtils.sin(s.time * 9) * 5;
             if (dance == 4) fAy += (((int) (s.time * 4)) % 2 == 0) ? 6 : 0;
         }
-        leg(hipBX, hipY, fBx, fBy, f, darker(pants, 0.78f), darker(pad, 0.82f), darker(boot, 0.8f), 6.4f);
-        leg(hipAX, hipY, fAx, fAy, f, pants, pad, boot, 6.8f);
+        leg(hipBX, hipY, fBx, fBy, f, darker(pants, 0.78f), darker(pad, 0.82f), darker(boot, 0.8f), 5.8f);
+        leg(hipAX, hipY, fAx, fAy, f, pants, pad, boot, 6.2f);
 
         if (s.carryingFlag) {
             float poleX = x - f * 12;

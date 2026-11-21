@@ -63,8 +63,9 @@ public class LooksDebugScreen extends BaseScreen {
                 l.mouth = q[7];
                 l.jetColor = 0x3a3a40;
                 SoldierPreview p = new SoldierPreview(game, l);
-                p.weapon = null;
-                p.poseType = i == 1 ? SoldierPreview.POSE_WALK : SoldierPreview.POSE_IDLE;
+                int[] poses = {0, 1, 0, 4, 2, 3};
+                p.poseType = poses[i];
+                p.weapon = p.poseType >= 3 ? com.brigadajato.world.WeaponType.RIFLE : null;
                 p.facing = i % 2 == 0 ? 1 : -1;
                 root.add(p).size(200, 420);
             }
