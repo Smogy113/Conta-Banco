@@ -31,6 +31,45 @@ public class LooksDebugScreen extends BaseScreen {
             });
             return;
         }
+        if (System.getProperty("brigadajato.lineup") != null) { // fila de bonecos sem chapeu, fundo claro
+            root.addActor(new com.badlogic.gdx.scenes.scene2d.Actor() {
+                @Override
+                public void draw(com.badlogic.gdx.graphics.g2d.Batch batch, float parentAlpha) {
+                    game.draw.rgb(0xe9e4da, 1);
+                    game.draw.rect(0, 0, 1280, 720);
+                }
+            });
+            int[][] spec = { // hair, hairColor, body, pants, skin, accessoryColor, eyes, mouth
+                    {2, 0x1b1b1b, 0x1e88e5, 0x263238, 0xf1c27d, 0xff5722, 0, 0},
+                    {5, 0x5d2a2a, 0xeeeeee, 0x4e3b30, 0xffdbac, 0x8d6e63, 0, 1},
+                    {3, 0x6d4c41, 0x212121, 0x90a4ae, 0xffdbac, 0x212121, 3, 0},
+                    {1, 0x6d4c41, 0x2e7d32, 0x1b1b1b, 0xf1c27d, 0xeeeeee, 0, 0},
+                    {6, 0xf9a825, 0x8e3b2e, 0x37474f, 0xc68642, 0x263238, 1, 5},
+                    {4, 0x1b1b1b, 0x7d5ba6, 0x2c3e57, 0x8d5524, 0xffeb3b, 2, 1}};
+            root.defaults().pad(2);
+            for (int i = 0; i < spec.length; i++) {
+                int[] q = spec[i];
+                Look l = new Look();
+                l.hat = 6;
+                l.eyewear = 1;
+                l.jetpack = 0;
+                l.hair = q[0];
+                l.hairColor = q[1];
+                l.body = q[2];
+                l.pants = q[3];
+                l.skin = q[4];
+                l.accessoryColor = q[5];
+                l.eyes = q[6];
+                l.mouth = q[7];
+                l.jetColor = 0x3a3a40;
+                SoldierPreview p = new SoldierPreview(game, l);
+                p.weapon = null;
+                p.poseType = i == 1 ? SoldierPreview.POSE_WALK : SoldierPreview.POSE_IDLE;
+                p.facing = i % 2 == 0 ? 1 : -1;
+                root.add(p).size(200, 420);
+            }
+            return;
+        }
         boolean big = System.getProperty("brigadajato.big") != null;
         for (int i = 0; i < (big ? 4 : 24); i++) {
             Look l = Look.random(r);

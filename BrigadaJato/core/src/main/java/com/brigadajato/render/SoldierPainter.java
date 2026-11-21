@@ -15,6 +15,8 @@ public class SoldierPainter {
     public static final int RED = 0xe53935, BLUE = 0x1e88e5;
     /** espessura do contorno (configuravel) */
     public static float outlineWidth = 1.7f;
+    /** contorno interno no modo pixel (~1 pixel) */
+    private static final float PIX_LINE = 0.95f;
 
     private static final int MAX = 160;
     private final int[] type = new int[MAX];
@@ -125,7 +127,7 @@ public class SoldierPainter {
         }
     }
 
-    public static final float HEAD_R = 6.2f;
+    public static final float HEAD_R = 8.2f;
     private final Look costumeLook = new Look();
 
     // articulacao de 2 ossos: cotovelo/joelho
@@ -154,18 +156,22 @@ public class SoldierPainter {
         ik(sx, sy, tx, ty, 7.6f, 7.4f, bend);
         float ex = jx, ey = jy;
         seg(sx, sy, ex, ey, th, sleeve);
-        seg(ex, ey, tx, ty, th * 0.9f, sleeve);
-        ball(tx, ty, th * 0.42f + 0.4f, glove);
+        seg(ex, ey, tx, ty, th * 0.92f, sleeve);
+        ball(tx, ty, th * 0.5f, glove);
     }
 
     /** perna do quadril ate o pe, com joelho para a frente */
     private void leg(float hx, float hy, float fx, float fy, int f, int pants, int pad, int boot, float th) {
-        ik(hx, hy, fx, fy, 10.2f, 9.8f, f);
+        ik(hx, hy, fx, fy + 1.2f, 9.2f, 9.0f, f);
         float kx = jx, ky = jy;
         seg(hx, hy, kx, ky, th, pants);
-        seg(kx, ky, fx, fy, th * 0.88f, pants);
-        add(T_BOX, kx - 2.8f, ky - 2.6f, 5.6f, 5.2f, 0, 0, 0, pad, false); // joelheira
-        box(fx - 4 + f * 1.6f, fy - 2.6f, 9.5f, 5, boot);
+        seg(kx, ky, fx, fy + 1.2f, th * 0.96f, pants);
+        add(T_RECT, kx - 1.4f + f * 0.6f, ky - 0.7f, 2.6f, 1.3f, 0, 0, 0, darker(pants, 0.72f), false); // dobra no joelho
+        // tenis: cano escuro, sola clara e detalhe colorido
+        float bx = fx - 3.8f + f * 1.4f;
+        box(bx, fy - 1.8f, 9.6f, 4.8f, boot);
+        add(T_RECT, bx + 0.2f, fy - 1.8f, 9.2f, 1.4f, 0, 0, 0, pad, false);
+        add(T_RECT, bx + (f > 0 ? 5.0f : 1.4f), fy + 0.6f, 3.2f, 1.3f, 0, 0, 0, mix(boot, 0xffffff, 0.4f), false);
     }
 
     /** onde as maos seguram cada arma (fracao do comprimento: cabo, guarda-mao) */
@@ -184,7 +190,47 @@ public class SoldierPainter {
         }
     }
 
+    /** bonecos em pixel art (pintados numa grade pequena e ampliados) */
+    public static boolean pixelArt = true;
+    /** pintando dentro da grade de pixels agora */
+    private boolean pix;
+
     public void draw(Draw d, Pose s) {
+        if (pixelArt && PixelSoldiers.ready()) {
+            PixelSoldiers.drawNow(d, this, s);
+            return;
+        }
+        drawShadow(d, s);
+        body(d, s);
+        drawFx(d, s);
+    }
+
+    /** So o corpo (usado pela grade de pixels). */
+    public void drawBody(Draw d, Pose s) {
+        pix = true;
+        body(d, s);
+        pix = false;
+    }
+
+    /** sombra no chao */
+    public void drawShadow(Draw d, Pose s) {
+        if (!s.onGround || s.action == 4) return;
+        d.color(0, 0, 0, 0.25f * s.alpha);
+        d.ellipse(s.x, s.y + 0.5f, 12, 2.6f, 0);
+    }
+
+    /** bolha do escudo de nascimento */
+    public void drawFx(Draw d, Pose s) {
+        if (!s.shield) return;
+        d.additive(true);
+        d.color(0.4f, 0.8f, 1f, 0.35f + 0.15f * MathUtils.sin(s.time * 10));
+        d.ring(s.x, s.y + 23, 32);
+        d.color(0.4f, 0.8f, 1f, 0.12f);
+        d.soft(s.x, s.y + 23, 34);
+        d.additive(false);
+    }
+
+    private void body(Draw d, Pose s) {
         ShadeKit.load();
         n = 0;
         Look look = s.look;
@@ -209,14 +255,16 @@ public class SoldierPainter {
         int pants = look.pants;
         int gear = mix(darker(body, 0.55f), 0x3a3d33, 0.5f); // colete / equipamento
         int gearL = mix(gear, 0xffffff, 0.12f);
-        int glove = 0x2b2926, boot = 0x24201d, pad = mix(gear, 0x000000, 0.2f);
+        int glove = skin, boot = mix(0x26262c, look.accessoryColor, 0.3f), pad = 0xe3ddd0; // maos, tenis e sola
+        gx0 = PixelSoldiers.snap(s.x);
+        gy0 = PixelSoldiers.snap(s.y);
         boolean crouch = s.crouch;
         float walk = s.onGround && !crouch ? s.anim * 3.4f : 0;
         float stepBob = s.onGround && !crouch && Math.abs(s.vx) > 20 ? Math.abs(MathUtils.sin(walk)) * 1.2f : 0;
-        float hipY = y + (crouch ? 12.5f : 19.5f) + bob + stepBob;
-        float chestTop = hipY + (crouch ? 11.5f : 13.5f) + breathe;
+        float hipY = y + (crouch ? 11.5f : 17.5f) + bob + stepBob;
+        float chestTop = hipY + (crouch ? 10.5f : 12f) + breathe;
         float headR = HEAD_R;
-        float headX = x + f * 1.6f, headY = chestTop + headR + 0.8f;
+        float headX = gsx(x + f * 1.3f), headY = gsy(chestTop + headR - 0.2f);
         float shoulderX = x + f * 0.5f, shoulderY = chestTop - 2.2f;
         float aim = celebrate ? MathUtils.PI / 2 - f * 0.7f : s.aim;
         if (s.zombie && s.weapon == null && !celebrate && dance == 0) aim = f > 0 ? 0.05f : MathUtils.PI - 0.05f;
@@ -232,22 +280,15 @@ public class SoldierPainter {
         WeaponType weapon = dancing || celebrate && s.weapon != null && s.weapon.isShield() ? null : s.weapon;
         float melee = s.meleeAnim > 0 ? MathUtils.sin(s.meleeAnim / 0.25f * MathUtils.PI) : 0;
 
-        // sombra no chao
-        if (s.onGround && bob < 1) {
-            add(T_ELLIPSE, x, y + 0.5f, 12, 2.6f, 0, 0, 0, 0x000000, false);
-            alphaLast(0.25f);
-        }
         if (look.accessory == 2) { // capa
             float capeLen = crouch ? 15 : 22;
             rect(x - f * 3 - 6, chestTop - capeLen, 12, capeLen, 6, capeLen, f * (12 + sway * 0.8f), look.accessoryColor);
         }
         int hc = look.hairColor;
-        if (look.hair == 3) rect(headX - f * 4 - 4, headY - 11, 8, 12, 4, 12, f * 6, hc);
-        if (look.hair == 4) ball(headX - f, headY + 2, headR + 3.5f, hc);
-        if (look.hair == 5) add(T_ELLIPSE, headX - f * 8, headY + 1, 3.5f, 2.5f, 0, 0, f * (20 + sway), hc, true);
+        hairBack(look, headX, headY, headR, f, sway);
 
         // mochila/jetpack
-        jetpack(look, x - f * 9, hipY + 1, f);
+        jetpack(look, x - f * 7.6f, hipY + 3.5f, f);
 
         // ---- pernas (joelho para a frente, passada alternada)
         float hipBX = x - f * 2.2f, hipAX = x + f * 2.2f;
@@ -284,8 +325,8 @@ public class SoldierPainter {
             if (dance == 2) fAx += MathUtils.sin(s.time * 9) * 5;
             if (dance == 4) fAy += (((int) (s.time * 4)) % 2 == 0) ? 6 : 0;
         }
-        leg(hipBX, hipY, fBx, fBy, f, darker(pants, 0.78f), darker(pad, 0.8f), darker(boot, 0.8f), 6.2f);
-        leg(hipAX, hipY, fAx, fAy, f, pants, pad, boot, 6.6f);
+        leg(hipBX, hipY, fBx, fBy, f, darker(pants, 0.78f), darker(pad, 0.82f), darker(boot, 0.8f), 6.4f);
+        leg(hipAX, hipY, fAx, fAy, f, pants, pad, boot, 6.8f);
 
         if (s.carryingFlag) {
             float poleX = x - f * 12;
@@ -331,25 +372,28 @@ public class SoldierPainter {
             arm(bsx, bsy, hx, hy, bend, bodyDark, darker(glove, 0.85f), 4.6f);
         }
 
-        // ---- tronco: quadril, peito largo, colete com placas e bolsos
-        box(x - 6, hipY - 2.5f, 12, 7, darker(pants, 0.9f));
-        add(T_BOX, x - 7.8f, hipY + 2.5f, 15.6f, chestTop - hipY - 2, 0, 0, 0, body, true);
-        pattern(look, x, hipY + 1, chestTop - hipY - 2);
-        if (look.accessory != 3) {
-            add(T_BOX, x - 6.6f + f * 0.6f, hipY + 4.2f, 13.2f, chestTop - hipY - 6.5f, 0, 0, 0, gear, true);
-            dRect(x - 5.6f + f * 0.6f, chestTop - 5.8f, 11.2f, 1.6f, 0, 0, 0, gearL);
-            for (int i = 0; i < 3; i++) {
-                float px = x - 5.4f + f * 0.6f + i * 3.8f;
-                dRect(px, hipY + 4.6f, 3.2f, 4.2f, 0, 0, 0, darker(gear, 0.72f));
-                dRect(px, hipY + 7.9f, 3.2f, 0.9f, 0, 0, 0, gearL);
-            }
+        // ---- tronco: moletom com capuz (barra, bolso canguru, cordoes) ou colete
+        box(x - 6, hipY - 2.5f, 12, 6, darker(pants, 0.9f));
+        float tH = chestTop - hipY;
+        add(T_BOX, x - 7.6f, hipY - 0.6f, 15.2f, tH + 0.6f, 0, 0, 0, body, true);
+        pattern(look, x, hipY - 1, tH);
+        int hem = darker(body, 0.74f), lite = mix(body, 0xffffff, 0.3f);
+        dRect(x - 7.0f, hipY + 1.8f, 1.3f, tH - 4f, 0, 0, 0, mix(body, 0xffffff, 0.14f)); // luz do lado esquerdo
+        dRect(x - 7.2f, hipY - 0.6f, 14.4f, 2.4f, 0, 0, 0, hem); // barra
+        if (look.accessory == 3) { // colete
+            add(T_BOX, x - 6.6f + f * 0.6f, hipY + 1.6f, 13.2f, tH - 4f, 0, 0, 0, look.accessoryColor, true);
+            for (int i = 0; i < 3; i++) dRect(x - 5.4f + f * 0.6f + i * 3.8f, hipY + 2.2f, 3.2f, 3.6f, 0, 0, 0, darker(look.accessoryColor, 0.72f));
         } else {
-            add(T_BOX, x - 6.6f, hipY + 4.2f, 13.2f, chestTop - hipY - 6.5f, 0, 0, 0, look.accessoryColor, true);
+            float pk = x - 3.8f + f * 1.4f;
+            dRect(pk, hipY + 2.0f, 7.6f, 3.9f, 0, 0, 0, darker(body, 0.86f)); // bolso canguru
+            dRect(pk, hipY + 5.3f, 7.6f, 1.1f, 0, 0, 0, hem);
+            dRect(x + f * 2.6f - 0.6f, hipY + 6.4f, 1.2f, tH - 7.6f, 0, 0, 0, darker(body, 0.7f)); // costura
+            dRect(x + f * 0.4f - 0.6f, chestTop - 6.6f, 1.2f, 4.4f, 0, 0, 0, lite); // cordoes
+            dRect(x + f * 4.2f - 0.6f, chestTop - 5.8f, 1.2f, 3.6f, 0, 0, 0, lite);
+            if (look.jetpack != 3) dRect(x - f * 3.4f - 0.7f, hipY + 3.4f, 1.4f, tH - 3.4f, 0, 0, 0, darker(look.jetColor, 0.62f)); // alca da mochila
         }
-        dRect(x - 6.5f, hipY + 1.8f, 13, 2.4f, 0, 0, 0, 0x2b2620); // cinto
-        dRect(x - 1.3f, hipY + 1.9f, 2.6f, 2.2f, 0, 0, 0, 0x9e8a4a);
-        // ombreira
-        ball(x + f * 0.5f, shoulderY + 1, 3.6f, darker(body, 0.85f));
+        // ombro arredondado
+        ball(x + f * 0.5f, shoulderY + 0.6f, 3.7f, darker(body, 0.9f));
         if (look.accessory == 4) {
             dRect(x + f * 3 - 1.2f, chestTop - 7, 2.4f, 3, 0, 0, 0, look.accessoryColor);
             dCircle(x + f * 3, chestTop - 8.2f, 1.7f, 0xffc107);
@@ -359,19 +403,20 @@ public class SoldierPainter {
             rect(x - f * 5, chestTop - 1.6f, 8, 3, 0, 1.5f, 180 + (f > 0 ? 0 : 180) - f * (10 + sway), look.accessoryColor);
         }
 
-        // ---- pescoco e cabeca
+        // ---- capuz, pescoco e cabeca
+        if (look.accessory != 3) ball(x - f * 2.2f, chestTop + 0.8f, 4.6f, darker(body, 0.8f));
         rect(headX - f * 0.8f - 2, chestTop - 1.5f, 4, 3.2f, 0, 0, 0, darker(skin, 0.85f));
         ball(headX, headY, headR, skin);
-        int from = n;
-        face(look, headX, headY, 8.5f, f, dancing ? (f > 0 ? 0 : MathUtils.PI) : aim, s.time);
-        if (look.costume == 4) dCircle(headX + f * 7.6f, headY - 1.5f, 2.2f, 0xff1744);
+        face(look, headX, headY, headR, f, dancing ? (f > 0 ? 0 : MathUtils.PI) : aim, s.time);
+        if (look.costume == 4) dCircle(headX + f * (headR - 0.4f), headY - 2f, 2.2f, 0xff1744);
         if (s.zombie) {
-            dCircle(headX + f * 3.5f, headY + 1, 2.6f, 0x33691e);
-            alphaLast(0.5f);
-            dRect(headX - f * 2 - 3, headY + 4, 6, 1.4f, 0, 0, f * 25, 0x7b1f1f);
+            px(headX, headY, f, 1, 0, 2, 2, 0x33691e);
+            px(headX, headY, f, -3, 2, 3, 1, 0x7b1f1f);
         }
+        int from = n;
         drawHat(look, headX, headY, 8.5f, f, s.time);
         scaleFrom(from, headX, headY, k);
+        goggles(look, headX, headY, f);
         add(T_GLOSS, headX - f * 1.5f - 3, headY + headR * 0.4f - 1.8f, 5, 2.6f, 0, 0, 0, 0xffffff, false);
         alphaLast(0.2f);
 
@@ -396,15 +441,6 @@ public class SoldierPainter {
         }
 
         flush(d, s.alpha, s.hurtFlash > 0);
-
-        if (s.shield) {
-            d.additive(true);
-            d.color(0.4f, 0.8f, 1f, 0.35f + 0.15f * MathUtils.sin(s.time * 10));
-            d.ring(x, y + 23, 32);
-            d.color(0.4f, 0.8f, 1f, 0.12f);
-            d.soft(x, y + 23, 34);
-            d.additive(false);
-        }
     }
 
     private void jetpack(Look look, float jx, float jy, int f) {
@@ -433,10 +469,12 @@ public class SoldierPainter {
                 dRect(jx - 0.4f, jy + 13, 0.8f, 2, 0, 0, 30, 0xd32f2f);
                 rect(jx - 2.5f, jy - 5, 5, 4, 0, 0, 0, 0x4a4a4a);
                 break;
-            default:
-                rrect(jx - 4.5f, jy, 9, 15, 4.5f, 0, 0, c);
-                dRect(jx - 3, jy + 10, 6, 2, 0, 0, 0, 0xc0392b);
-                rect(jx - 3, jy - 3, 6, 4, 0, 0, 0, 0x4a4a4a);
+            default: // mochila-jato: aba, fivela e bocal embaixo
+                rect(jx - 2.6f, jy - 2.6f, 5.2f, 3.2f, 0, 0, 0, 0x3a3a40);
+                box(jx - 3.6f, jy + 0.5f, 7.6f, 11.5f, c);
+                dRect(jx - 3.2f, jy + 7.6f, 6.4f, 3.9f, 0, 0, 0, darker(c, 0.8f));
+                dRect(jx - 0.7f, jy + 6.6f, 1.4f, 2.2f, 0, 0, 0, mix(c, 0xffffff, 0.45f));
+                dRect(jx - 3.2f, jy + 1.5f, 1.3f, 5f, 0, 0, 0, mix(c, 0xffffff, 0.18f));
                 break;
         }
     }
@@ -476,151 +514,241 @@ public class SoldierPainter {
         }
     }
 
-    private void face(Look look, float hx, float hy, float r, int f, float aim, float time) {
-        int ink = 0x1b1b1b;
-        float ex = hx + f * 4.4f, ey = hy + 0.6f;
-        float ex2 = hx + f * 0.4f;
-        float lx = MathUtils.cos(aim) * 0.9f, ly = MathUtils.sin(aim) * 0.9f;
-        boolean blink = (time % 4f) < 0.12f;
-        // barba (embaixo da boca)
-        int hc = look.hairColor;
-        switch (look.beard) {
+    // ---- grade de pixels: o rosto e desenhado em pixels inteiros a partir do centro da cabeca
+    private float gx0, gy0;
+    private static final float T = PixelSoldiers.TEXEL;
+
+    private float gsx(float v) {
+        return gx0 + Math.round((v - gx0) / T) * T;
+    }
+
+    private float gsy(float v) {
+        return gy0 + Math.round((v - gy0) / T) * T;
+    }
+
+    /** retangulo de w x h pixels em (tx, ty) pixels a partir do centro da cabeca (espelhado quando f = -1) */
+    private void px(float hx, float hy, int f, int tx, int ty, int w, int h, int col) {
+        float x0 = f > 0 ? hx + tx * T : hx - (tx + w) * T;
+        add(T_RECT, x0, hy + ty * T, w * T, h * T, 0, 0, 0, col, false);
+    }
+
+    /** cabelo de tras (volume atras da cabeca, rabo de cavalo, cabelo comprido) */
+    private void hairBack(Look look, float hx, float hy, float r, int f, float sway) {
+        int hc = look.hairColor, hd = darker(hc, 0.78f);
+        switch (look.hair) {
             case 1:
-                add(T_HALF_DOWN, hx - r * 0.95f, hy - r * 0.95f, r * 1.9f, r * 0.85f, 0, 0, 0, darker(look.skin, 0.75f), false);
-                alphaLast(0.6f);
+            case 6:
+                ball(hx - f * 1.3f, hy + 1.3f, r + 0.9f, hc);
                 break;
             case 2:
-                add(T_HALF_DOWN, hx - r * 1.02f, hy - r * 1.08f, r * 2.04f, r * 1.15f, 0, 0, 0, hc, true);
+                for (int i = 0; i < 3; i++) {
+                    float ang = 120 + i * 28;
+                    float cx = hx - f * 1.5f + f * MathUtils.cosDeg(ang) * r, cy = hy + 1 + MathUtils.sinDeg(ang) * r;
+                    add(T_TRI, cx - 3.5f, cy - 2, 7, 8, 3.5f, 2, f * (ang - 90), hc, true);
+                }
+                ball(hx - f * 1.5f, hy + 1.4f, r + 1.2f, hc);
+                break;
+            case 3: // comprido ate o ombro
+                add(T_BOX, hx - f * 2.4f - r, hy - r - 7, r * 2 - 1, r + 8, 0, 0, 0, hc, true);
+                add(T_RECT, hx - f * 2.4f - r * 0.3f, hy - r - 6, 1.3f, r + 4, 0, 0, 0, hd, false);
+                ball(hx - f * 1.2f, hy + 1.2f, r + 1.1f, hc);
+                break;
+            case 4: // black power
+                ball(hx - f * 1.2f, hy + 2.6f, r + 4.2f, hc);
+                break;
+            case 5: { // rabo de cavalo
+                ball(hx - f * 1.3f, hy + 1.3f, r + 0.9f, hc);
+                float tx = hx - f * (r + 2.5f), ty = hy + 2.5f;
+                add(T_ELLIPSE, tx - f * 2.5f, ty - 3.5f, 3.2f, 6f, 0, 0, f * (-25 + sway), hc, true);
+                ball(tx, ty, 2.2f, look.accessoryColor);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    /** franja: tufos pontudos caindo na testa */
+    private void tuft(float cx, float topY, float w, float h, float deg, int col) {
+        add(T_TRI, cx - w / 2, topY - h, w, h, w / 2, h / 2, 180 + deg, col, true);
+    }
+
+    private void face(Look look, float hx, float hy, float r, int f, float aim, float time) {
+        int ink = 0x1a1418;
+        int skin = look.skin;
+        int lip = darker(skin, 0.62f), blush = mix(skin, 0xff6f6f, 0.32f);
+        int hc = look.hairColor;
+        boolean blink = (time % 4f) < 0.12f;
+        // barba
+        switch (look.beard) {
+            case 1:
+                add(T_HALF_DOWN, hx - r * 0.95f, hy - r * 0.95f, r * 1.9f, r * 0.8f, 0, 0, 0, mix(skin, hc, 0.3f), false);
+                break;
+            case 2:
+                add(T_HALF_DOWN, hx - r * 1.02f, hy - r * 1.08f, r * 2.04f, r * 1.1f, 0, 0, 0, hc, true);
                 break;
             case 4:
-                dRect(hx + f * 3.5f - 2, hy - r - 1.5f, 4, 4, 0, 0, 0, hc);
+                px(hx, hy, f, 2, -6, 2, 2, hc);
                 break;
             default:
                 break;
         }
-        // olhos
-        if (look.eyewear != 3 && look.eyewear != 5) {
-            switch (look.eyes) {
-                case 2: // feliz ^^
-                    dRect(ex - 2, ey - 0.5f, 3, 1.2f, 0, 0.6f, 40, ink);
-                    dRect(ex - 0.2f, ey + 1.4f, 3, 1.2f, 0, 0.6f, -40, ink);
-                    break;
-                case 4: // robo
-                    dRect(hx + f * 1, ey - 1, f * 7.5f, 2.4f, 0, 0, 0, 0xff1744);
-                    break;
-                default: {
-                    // olhos pequenos e escuros, com sobrancelha (cara de adulto)
-                    float ey2 = ey + 0.4f;
-                    if (blink) {
-                        dRect(ex - 1.6f, ey2 - 0.4f, 3.2f, 0.9f, 0, 0, 0, ink);
-                        dRect(ex2 - 1.2f, ey2 - 0.4f, 2.4f, 0.9f, 0, 0, 0, ink);
-                    } else {
-                        float lx2 = lx * 0.35f, ly2 = ly * 0.35f;
-                        dEllipse(ex + lx2, ey2 + ly2, 1.15f, 1.55f, 0, ink);
-                        dEllipse(ex2 + lx2 * 0.8f, ey2 + ly2 * 0.8f, 0.95f, 1.4f, 0, ink);
-                        dCircle(ex + lx2 - 0.35f, ey2 + ly2 + 0.55f, 0.32f, 0xffffff);
-                    }
-                    if (look.eyes == 3) { // sonolento: palpebra
-                        dRect(ex - 1.7f, ey2 + 0.1f, 3.4f, 1.6f, 0, 0, 0, darker(look.skin, 0.8f));
-                        dRect(ex2 - 1.4f, ey2 + 0.1f, 2.8f, 1.5f, 0, 0, 0, darker(look.skin, 0.8f));
-                    }
-                    // sobrancelhas (mais grossas e inclinadas no "bravo" e no "focado")
-                    float ang = look.eyes == 1 || look.eyes == 5 ? 18 : 6;
-                    int brow = darker(look.hairColor, 0.8f);
-                    dRect(ex - 1.9f, ey2 + 2.3f, 3.8f, 1.05f, 1.9f, 0.5f, -f * ang, brow);
-                    dRect(ex2 - 1.6f, ey2 + 2.2f, 3.2f, 1.0f, 1.6f, 0.5f, f * ang * 0.6f, brow);
-                    // nariz
-                    dRect(hx + f * 5.6f - 0.6f, ey2 - 2.6f, 1.4f, 2.2f, 0.7f, 1.1f, -f * 10, darker(look.skin, 0.82f));
-                    break;
+        // olhos (pixels escuros, estilo anime) e bochechas
+        boolean covered = look.eyewear == 3 || look.eyewear == 5 || look.eyewear == 2;
+        int e = look.eyes;
+        if (look.eyewear != 5) {
+            px(hx, hy, f, 4, -3, 1, 1, blush);
+            px(hx, hy, f, -1, -3, 1, 1, blush);
+        }
+        if (!covered || look.eyewear == 3) {
+            boolean showBack = look.eyewear != 3;
+            if (e == 4) { // robo
+                px(hx, hy, f, -1, -2, 7, 2, 0xff1744);
+                px(hx, hy, f, 3, -1, 2, 1, 0xffcdd2);
+            } else if (e == 2) { // feliz ^^
+                px(hx, hy, f, 2, -2, 1, 1, ink);
+                px(hx, hy, f, 3, -1, 1, 1, ink);
+                px(hx, hy, f, 4, -2, 1, 1, ink);
+                if (showBack) {
+                    px(hx, hy, f, -1, -2, 1, 1, ink);
+                    px(hx, hy, f, 0, -1, 1, 1, ink);
+                    px(hx, hy, f, 1, -2, 1, 1, ink);
+                }
+            } else if (blink || e == 3) { // piscando / sonolento
+                px(hx, hy, f, 3, -2, 2, 1, ink);
+                if (showBack) px(hx, hy, f, 0, -2, 2, 1, ink);
+                if (e == 3) {
+                    px(hx, hy, f, 3, -1, 2, 1, darker(skin, 0.8f));
+                    if (showBack) px(hx, hy, f, 0, -1, 2, 1, darker(skin, 0.8f));
+                }
+            } else {
+                int tall = e == 5 ? 3 : 2;
+                // olho da frente: escuro com brilho em cima
+                px(hx, hy, f, 3, -2, 1, tall, ink);
+                px(hx, hy, f, 4, -2, 1, tall - 1, ink);
+                px(hx, hy, f, 4, -2 + tall - 1, 1, 1, 0xffffff);
+                if (showBack) px(hx, hy, f, 0, -2, 1, tall, ink);
+                // sobrancelhas: bravo/surpreso
+                int brow = darker(hc, 0.75f);
+                if (e == 1) {
+                    px(hx, hy, f, 2, 1, 1, 1, brow);
+                    px(hx, hy, f, 3, 1, 2, 1, brow);
+                    px(hx, hy, f, 2, 0, 1, 1, brow);
+                    if (showBack) px(hx, hy, f, -1, 1, 2, 1, brow);
+                } else if (e == 5) {
+                    px(hx, hy, f, 3, 2, 2, 1, brow);
+                    if (showBack) px(hx, hy, f, -1, 2, 2, 1, brow);
                 }
             }
         }
         // boca
-        float mx = hx + f * 3.8f, my = hy - 4.2f;
         if (look.eyewear != 4 && look.eyewear != 5) {
-            int lip = darker(look.skin, 0.55f);
             switch (look.mouth) {
-                case 1: // meio sorriso
-                    dRect(mx - 1.6f, my - 0.4f, 3.2f, 0.9f, 0, 0, 0, lip);
-                    dRect(mx + f * 1.2f - 0.5f, my - 0.1f, 1.2f, 0.9f, 0.6f, 0.45f, f * 35, lip);
+                case 1: // sorriso
+                    px(hx, hy, f, 2, -5, 2, 1, lip);
+                    px(hx, hy, f, 4, -4, 1, 1, lip);
                     break;
                 case 2: // dentes cerrados
-                    dRect(mx - 1.8f, my - 0.8f, 3.6f, 1.6f, 0, 0, 0, lip);
-                    dRect(mx - 1.4f, my - 0.4f, 2.8f, 0.8f, 0, 0, 0, 0xeeeeee);
+                    px(hx, hy, f, 1, -6, 4, 2, 0x4a1c1c);
+                    px(hx, hy, f, 1, -5, 4, 1, 0xf2f2f2);
                     break;
                 case 3: // grito
-                    dEllipse(mx, my - 0.3f, 1.2f, 1.4f, 0, 0x3a1010);
+                    px(hx, hy, f, 2, -6, 2, 2, 0x4a1418);
                     break;
                 case 4: // assobio
-                    add(T_RING, mx + f * 0.5f, my, 0.9f, 0.9f, 0, 0, 0, lip, false);
+                    px(hx, hy, f, 3, -5, 1, 1, lip);
                     break;
                 case 5: // sorriso de lado
-                    dRect(mx - 1.6f, my - 0.5f, 3.2f, 0.9f, 1.6f, 0.45f, -f * 12, lip);
+                    px(hx, hy, f, 1, -5, 2, 1, lip);
+                    px(hx, hy, f, 3, -4, 1, 1, lip);
                     break;
                 default:
-                    dRect(mx - 1.5f, my - 0.4f, 3f, 0.85f, 0, 0, 0, lip);
+                    px(hx, hy, f, 2, -5, 2, 1, lip);
                     break;
             }
         }
-        if (look.beard == 3) dRect(mx - 3, my + 0.8f, 6, 2.2f, 0, 0, 0, hc); // bigode
-        // oculos / mascaras
+        if (look.beard == 3) px(hx, hy, f, 1, -4, 4, 1, hc); // bigode
+        // oculos / mascaras (os de protecao ficam na testa, desenhados depois do chapeu)
         int v = look.visor;
         switch (look.eyewear) {
-            case 0: // oculos de protecao
-                dRect(hx + f * 1.2f - (f > 0 ? 0 : 8.5f), ey - 2.2f, 8.5f, 4.6f, 0, 0, 0, v);
-                alphaLast(0.92f);
-                dRect(hx + f * 3.5f - (f > 0 ? 0 : 2), ey + 0.6f, 2, 1.2f, 0, 0, 0, 0xffffff);
-                dRect(hx - f * r * 0.9f - (f > 0 ? 0 : 3), ey - 1, 3, 1.6f, 0, 0, 0, darker(v, 0.4f));
-                break;
             case 2: // oculos escuros
-                dRect(hx + f * 0.5f - (f > 0 ? 0 : 9), ey - 1.8f, 9, 3.6f, 0, 0, 0, 0x111111);
-                dRect(hx + f * 4.5f - (f > 0 ? 0 : 1.6f), ey + 0.3f, 1.6f, 0.8f, 0, 0, 0, 0x90a4ae);
+                px(hx, hy, f, -1, -2, 7, 1, 0x111111);
+                px(hx, hy, f, -1, -3, 2, 1, 0x111111);
+                px(hx, hy, f, 3, -3, 3, 1, 0x111111);
+                px(hx, hy, f, 4, -2, 1, 1, 0x90a4ae);
                 break;
             case 3: // tapa-olho
-                dRect(hx - r, ey + 2.2f, r * 2, 1.1f, r, 0.55f, f * -18, 0x111111);
-                dEllipse(ex, ey, 2.6f, 2.4f, 0, 0x111111);
-                dEllipse(ex2, ey + 0.4f, 0.95f, 1.4f, 0, 0x111111);
+                dRect(hx - r, hy + 1.6f, r * 2, 1.3f, r, 0.65f, f * -18, 0x111111);
+                px(hx, hy, f, 3, -3, 2, 3, 0x111111);
                 break;
             case 4: // mascara ninja
-                add(T_HALF_DOWN, hx - r * 1.02f, hy - r * 1.04f, r * 2.04f, r - 1.2f, 0, 0, 0, v, false);
-                dRect(hx - r, hy - 3.6f, r * 2, 1.8f, 0, 0, 0, v);
-                dRect(hx - f * r - (f > 0 ? 4 : 0), hy - 4.5f, 4, 2.2f, 0, 1.1f, f * 25 + MathUtils.sin(time * 9) * 10, v);
+                add(T_HALF_DOWN, hx - r * 1.02f, hy - r * 1.04f, r * 2.04f, r - 2.4f, 0, 0, 0, v, false);
+                dRect(hx - f * r - (f > 0 ? 4 : 0), hy - 3.2f, 4, 2.2f, 0, 1.1f, f * 25 + MathUtils.sin(time * 9) * 10, v);
                 break;
             case 5: // mascara de gas
-                dEllipse(ex, ey, 2.6f, 2.6f, 0, 0x263238);
-                dEllipse(ex, ey, 1.6f, 1.6f, 0, v);
-                dEllipse(ex2, ey, 2.2f, 2.4f, 0, 0x263238);
-                circle(hx + f * 5, hy - 4, 3.2f, 0x546e7a);
-                dCircle(hx + f * 7, hy - 5, 1.6f, 0x263238);
+                px(hx, hy, f, 2, -3, 3, 3, 0x263238);
+                px(hx, hy, f, 3, -2, 1, 1, v);
+                px(hx, hy, f, -1, -3, 2, 3, 0x263238);
+                circle(hx + f * 4.6f, hy - 5.2f, 2.8f, 0x546e7a);
+                px(hx, hy, f, 5, -6, 1, 1, 0x263238);
                 break;
             case 6: // monoculo
-                add(T_RING, ex, ey, 3.4f, 3.4f, 0, 0, 0, 0xffc107, false);
-                dRect(ex, ey - 3, 0.7f, 6, 0, 0, -f * 15, 0xffc107);
+                add(T_RING, hx + f * 4.6f, hy - 1.2f, 2.8f, 2.8f, 0, 0, 0, 0xffc107, false);
                 break;
             default:
                 break;
         }
-        // cabelo da frente (aparece fora do chapeu)
+        // cabelo da frente: topo com brilho e franja em tufos
+        int hl = mix(hc, 0xffffff, 0.28f);
         switch (look.hair) {
             case 1:
             case 3:
             case 5:
-                add(T_HALF, hx - r * 1.04f, hy + 1.5f, r * 2.08f, r * 0.95f, 0, 0, 0, hc, true);
-                break;
-            case 2:
-                for (int i = 0; i < 4; i++) {
-                    float ang = 150 - i * 32;
-                    float cx = hx + MathUtils.cosDeg(ang) * r * 0.8f, cy = hy + MathUtils.sinDeg(ang) * r * 0.8f;
-                    add(T_TRI, cx - 3, cy - 1, 6, 7, 3, 1, ang - 90, hc, true);
-                }
-                break;
             case 6:
-                add(T_HALF, hx - r * 1.04f, hy + 1.5f, r * 2.08f, r * 0.95f, 0, 0, 0, hc, true);
-                add(T_ELLIPSE, hx + f * 5, hy + r * 0.85f, 5, 3, 0, 0, f * -20, hc, true);
+            case 2: {
+                add(T_HALF, hx - r * 1.08f, hy + r * 0.24f, r * 2.16f, r * 0.98f, 0, 0, 0, hc, true);
+                float top = hy + r * 0.36f;
+                for (int i = 0; i < 3; i++) tuft(hx + f * (r * 0.02f + i * r * 0.34f), top, 3.6f, look.hair == 2 ? 4.2f : 3.2f, f * (i - 1) * 8, hc);
+                // costeleta atras do olho
+                add(T_RECT, hx - f * r * 0.45f - 1.3f, hy - 2.6f, 2.6f, r * 0.36f + 2.6f, 0, 0, 0, hc, false);
+                if (look.hair == 2) {
+                    for (int i = 0; i < 4; i++) {
+                        float ang = 150 - i * 32;
+                        float cx = hx + f * MathUtils.cosDeg(ang) * r * 0.82f * (f > 0 ? 1 : -1) * f, cy = hy + MathUtils.sinDeg(ang) * r * 0.82f;
+                        cx = hx + MathUtils.cosDeg(f > 0 ? ang : 180 - ang) * r * 0.82f;
+                        add(T_TRI, cx - 3, cy - 1, 6, 7, 3, 1, (f > 0 ? ang : 180 - ang) - 90, hc, true);
+                    }
+                }
+                if (look.hair == 6) add(T_ELLIPSE, hx + f * 4.5f, hy + r * 0.82f, 5, 2.8f, 0, 0, f * -18, hc, true);
+                // reflexo no cabelo
+                px(hx, hy, f, -3, 5, 3, 1, hl);
+                px(hx, hy, f, -4, 4, 1, 1, hl);
+                break;
+            }
+            case 4:
+                px(hx, hy, f, -3, 6, 3, 1, hl);
+                break;
+            case 0:
+                px(hx, hy, f, -2, 4, 2, 1, mix(skin, 0xffffff, 0.35f));
                 break;
             default:
                 break;
         }
+    }
+
+    /** oculos de protecao levantados na testa (por cima do capacete/bone) */
+    private void goggles(Look look, float hx, float hy, int f) {
+        if (look.eyewear != 0) return;
+        int hat = look.hat;
+        if (!(hat == 0 || hat == 1 || hat == 2 || hat == 6 || hat == 8 || hat == 11 || hat == 12)) return;
+        int v = look.visor;
+        int ty = hat == 6 || hat == 2 ? 2 : 1;
+        px(hx, hy, f, -6, ty, 13, 1, 0x2a2a30);
+        px(hx, hy, f, 0, ty - 1, 3, 3, 0x2a2a30);
+        px(hx, hy, f, 3, ty - 1, 3, 3, 0x2a2a30);
+        px(hx, hy, f, 1, ty, 1, 1, v);
+        px(hx, hy, f, 4, ty, 1, 1, v);
+        px(hx, hy, f, 4, ty + 1, 1, 1, 0xffffff);
     }
 
     private void drawHat(Look look, float hx, float hy, float r, int f, float time) {
@@ -942,12 +1070,13 @@ public class SoldierPainter {
 
     private void flush(Draw d, float alpha, boolean flash) {
         ShadeKit.load();
-        float o = outlineWidth;
+        float o = pix ? PIX_LINE : outlineWidth;
         for (int pass = 0; pass < 2; pass++) {
             if (pass == 0 && o <= 0.01f) continue;
             for (int i = 0; i < n; i++) {
                 if (pass == 0 && !pline[i]) continue;
-                int col = pass == 0 ? OUTLINE : pcol[i];
+                if (pix && type[i] == T_GLOSS) continue;
+                int col = pass == 0 ? (pix ? mix(darker(pcol[i], 0.38f), OUTLINE, 0.35f) : OUTLINE) : pcol[i];
                 if (pass == 1 && flash && pline[i]) col = 0xffffff;
                 d.rgb(col, alpha * palpha[i]);
                 float e = pass == 0 ? o : 0;

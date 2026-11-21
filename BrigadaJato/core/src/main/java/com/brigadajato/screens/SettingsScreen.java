@@ -112,6 +112,7 @@ public class SettingsScreen extends BaseScreen {
                 });
                 choice(t2("Sangue", "Blood"), new String[]{t2("Vermelho", "Red"), t2("Tinta verde", "Green paint"), t2("Desligado", "Off")}, s.blood, v -> s.blood = v);
                 cycle(t2("Filtro de cor", "Color filter"), I18n.pt ? ColorFilter.NAMES_PT : ColorFilter.NAMES_EN, s.colorFilter, v -> s.colorFilter = v);
+                cycle(t2("Estilo dos bonecos", "Character style"), new String[]{t2("Pixel art", "Pixel art"), t2("Desenho liso", "Smooth")}, s.pixelChars ? 0 : 1, v -> { s.pixelChars = v == 0; com.brigadajato.render.SoldierPainter.pixelArt = s.pixelChars; });
                 cycle(t2("Contorno dos bonecos", "Character outline"), new String[]{t2("Sem", "None"), t2("Fino", "Thin"), t2("Normal", "Normal"), t2("Grosso", "Thick")}, s.outline, v -> s.outline = v);
                 cycle(t2("Estilo da mira", "Crosshair style"), new String[]{t2("Clássica", "Classic"), t2("Ponto", "Dot"), t2("Cruz", "Cross"), t2("Círculo", "Circle"), "Chevron"}, s.crosshairStyle, v -> s.crosshairStyle = v);
                 cycle(t2("Cor da mira", "Crosshair color"), new String[]{t2("Branca", "White"), t2("Verde", "Green"), t2("Vermelha", "Red"), t2("Ciano", "Cyan"), t2("Amarela", "Yellow"), t2("Rosa", "Pink")}, s.crosshairColor, v -> s.crosshairColor = v);

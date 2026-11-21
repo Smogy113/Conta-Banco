@@ -33,6 +33,7 @@ public class BrigadaJatoGame extends Game {
     public void create() {
         Gdx.input.setCatchKey(Input.Keys.BACK, true);
         settings = new Settings();
+        com.brigadajato.render.SoldierPainter.pixelArt = settings.pixelChars;
         achievements = new Achievements(settings);
         assets = new Assets();
         assets.load();

@@ -149,6 +149,7 @@ public class WorldRenderer implements Disposable {
         Backdrop.quality = settings.quality;
         float q = settings.quality == 0 ? 0.35f : (settings.quality == 1 ? 0.65f : (settings.quality == 2 ? 1f : 1.25f));
         fx.quality = Math.min(1f, q * settings.particles);
+        SoldierPainter.pixelArt = settings.pixelChars;
         SoldierPainter.outlineWidth = settings.outline == 0 ? 0.6f : (settings.outline == 1 ? 1.2f : (settings.outline == 2 ? 1.7f : 2.4f));
     }
 
@@ -831,6 +832,8 @@ public class WorldRenderer implements Disposable {
         viewH = vh;
         cam_zoom = cam.zoom;
         com.brigadajato.Perf.mark(d.batch, "pre");
+        if (!prepared) paintSoldiers(d, w, minX, minY, maxX, maxY);
+        prepared = false;
         drawBackground(d, cam, minX, minY, vw, vh);
         com.brigadajato.Perf.mark(d.batch, "bg");
         drawZones(d, w);
@@ -1926,11 +1929,71 @@ public class WorldRenderer implements Disposable {
         d.color(1, 1, 1, 1);
     }
 
-    private void drawPlayer(Draw d, Player p, World w) {
-        if (p.disguise >= 0) {
-            drawDisguise(d, p);
+    /** grade de pixels dos bonecos (uma so para todos os renderizadores: e usada e desenhada dentro do mesmo render) */
+    private static PixelSoldiers pixels;
+    private final com.badlogic.gdx.utils.IntIntMap cellOf = new com.badlogic.gdx.utils.IntIntMap();
+
+    private boolean prepared;
+
+    /**
+     * Pinta os bonecos antes de abrir o framebuffer do quadro (no celular, trocar de framebuffer no
+     * meio do quadro custa caro). Chamar com o batch fechado e a camera ja posicionada.
+     */
+    public void prepareSoldiers(Draw d, OrthographicCamera cam, World w) {
+        float vw = cam.viewportWidth * cam.zoom, vh = cam.viewportHeight * cam.zoom;
+        float minX = cam.position.x - vw / 2, minY = cam.position.y - vh / 2;
+        paintSoldiers(d, w, minX, minY, minX + vw, minY + vh);
+        prepared = true;
+    }
+
+    /** Pinta todos os bonecos visiveis na grade de pixels (uma vez por quadro, antes do resto). */
+    private void paintSoldiers(Draw d, World w, float minX, float minY, float maxX, float maxY) {
+        cellOf.clear();
+        if (!SoldierPainter.pixelArt) return;
+        int count = 0;
+        for (int i = 0; i < w.players.size; i++) {
+            Player p = w.players.get(i);
+            if (p.alive && p.disguise < 0 && !(p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80)) count++;
+        }
+        if (count == 0) return;
+        if (pixels == null) pixels = new PixelSoldiers(10, 5);
+        boolean drawing = d.batch.isDrawing();
+        if (drawing) d.batch.end();
+        pixels.begin(d.batch, d);
+        for (int i = 0; i < w.players.size && !pixels.full(); i++) {
+            Player p = w.players.get(i);
+            if (!p.alive || p.disguise >= 0) continue;
+            if (p.x < minX - 60 || p.x > maxX + 60 || p.y < minY - 80 || p.y > maxY + 80) continue;
+            setupPose(p, w);
+            cellOf.put(p.id, pixels.paint(painter, d, pose));
+        }
+        pixels.end(d.batch);
+        if (drawing) d.batch.begin();
+    }
+
+    /** desenha o boneco ja pintado (ou pinta vetorial se nao tiver celula) */
+    private void soldier(Draw d, Player p, float scale, float rot, float ox, float oy) {
+        int c = cellOf.get(p.id, -1);
+        if (c < 0) {
+            com.badlogic.gdx.math.Matrix4 m = d.batch.getTransformMatrix();
+            boolean tr = scale != 1 || rot != 0;
+            if (tr) {
+                m.idt().translate(p.x + ox, p.y + oy, 0).rotate(0, 0, 1, rot).scale(scale, scale, 1).translate(-p.x - ox, -p.y - oy, 0);
+                d.batch.setTransformMatrix(m);
+            }
+            boolean keep = SoldierPainter.pixelArt;
+            SoldierPainter.pixelArt = false;
+            painter.draw(d, pose);
+            SoldierPainter.pixelArt = keep;
+            if (tr) d.batch.setTransformMatrix(m.idt());
             return;
         }
+        if (rot == 0) painter.drawShadow(d, pose);
+        pixels.draw(d.batch, c, p.x, p.y, pose.alpha, scale, rot, ox, oy);
+        painter.drawFx(d, pose);
+    }
+
+    private void setupPose(Player p, World w) {
         pose.x = p.x;
         pose.y = p.y;
         pose.aim = p.aim;
@@ -1955,6 +2018,14 @@ public class WorldRenderer implements Disposable {
         pose.action = 0;
         pose.zombie = p.zombie;
         if (p.emoteTimer > 0 && p.emote >= C.EMOTE_DANCE_FIRST) pose.action = 2 + (p.emote - C.EMOTE_DANCE_FIRST);
+    }
+
+    private void drawPlayer(Draw d, Player p, World w) {
+        if (p.disguise >= 0) {
+            drawDisguise(d, p);
+            return;
+        }
+        setupPose(p, w);
         if (p.dmgBoost > 0) {
             d.additive(true);
             d.color(1, 0.2f, 0.2f, 0.35f + 0.1f * MathUtils.sin(time * 12));
@@ -1983,23 +2054,14 @@ public class WorldRenderer implements Disposable {
         }
         if (p.rollTimer > 0) { // rolamento: gira o boneco inteiro em volta do centro
             float spin = (1 - p.rollTimer / 0.34f) * 360 * -p.rollDir;
-            float cx = p.x, cy = p.y + 14;
-            com.badlogic.gdx.math.Matrix4 m = d.batch.getTransformMatrix();
-            m.idt().translate(cx, cy, 0).rotate(0, 0, 1, spin).translate(-cx, -cy, 0);
-            d.batch.setTransformMatrix(m);
-            painter.draw(d, pose);
-            d.batch.setTransformMatrix(m.idt());
+            soldier(d, p, 1, spin, 0, 14);
             if (!fx.skip()) {
                 Particles.P dust = fx.spawn(Particles.SOFT, p.x - p.rollDir * 10, p.y + 3, -p.rollDir * 40, 20, 0.5f, 5, 14, 0xbcaaa4, 0.4f);
                 dust.drag = 3;
             }
         } else if (p.juggernaut) { // tanque gigante: desenha maior a partir dos pes
-            com.badlogic.gdx.math.Matrix4 m = d.batch.getTransformMatrix();
-            m.idt().translate(p.x, p.y, 0).scale(1.32f, 1.32f, 1).translate(-p.x, -p.y, 0);
-            d.batch.setTransformMatrix(m);
-            painter.draw(d, pose);
-            d.batch.setTransformMatrix(m.idt());
-        } else painter.draw(d, pose);
+            soldier(d, p, 1.32f, 0, 0, 0);
+        } else soldier(d, p, 1, 0, 0, 0);
         if (p.frozen > 0) { // bloco de gelo
             float h = p.height() + 10;
             d.color(0.75f, 0.92f, 1f, 0.5f);

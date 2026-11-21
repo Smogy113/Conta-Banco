@@ -43,6 +43,8 @@ public class Settings {
     public int colorFilter = 0;
     /** espessura do contorno dos personagens (0..3) */
     public int outline = 2;
+    /** bonecos em pixel art (false = desenho liso antigo) */
+    public boolean pixelChars = true;
     /** 0 sempre dia, 1 ciclo dia/noite, 2 sempre noite */
     public int dayNight = 1;
     /** luzes dinamicas (explosoes, lampadas, tiros iluminam o escuro) */
@@ -131,6 +133,7 @@ public class Settings {
         fpsLimit = prefs.getInteger("v.fps", 1);
         colorFilter = prefs.getInteger("v.filter", 0);
         outline = prefs.getInteger("v.outline", 2);
+        pixelChars = prefs.getBoolean("v.pixelChars", true);
         highQuality = quality >= 2;
         lastMatch.mode = ModeType.of(prefs.getInteger("m.mode", 0));
         lastMatch.mapId = prefs.getString("m.map", "fortaleza");
@@ -216,6 +219,7 @@ public class Settings {
         prefs.putInteger("v.fps", fpsLimit);
         prefs.putInteger("v.filter", colorFilter);
         prefs.putInteger("v.outline", outline);
+        prefs.putBoolean("v.pixelChars", pixelChars);
         highQuality = quality >= 2;
         prefs.putInteger("m.mode", lastMatch.mode.ordinal());
         prefs.putString("m.map", lastMatch.mapId);

@@ -130,7 +130,7 @@ public class Look {
 
     public static Look random(java.util.Random r) {
         int[] o = OUTFITS[r.nextInt(OUTFITS.length)];
-        Look l = new Look(o[0], o[2], 0x37474f, SKINS[r.nextInt(6)], r.nextInt(HAT_COUNT));
+        Look l = new Look(o[0], o[2], 0x37474f, SKINS[r.nextInt(6)], r.nextFloat() < 0.4f ? 6 : r.nextInt(HAT_COUNT));
         l.visor = r.nextFloat() < 0.5f ? 0x263238 : mixc(o[3], 0x263238, 0.3f);
         l.hair = r.nextInt(HAIR_COUNT);
         l.hairColor = HAIR_COLORS[r.nextInt(6)];

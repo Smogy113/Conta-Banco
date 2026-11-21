@@ -347,7 +347,9 @@ public class GameScreen extends ScreenAdapter {
         updateBuyMenu();
         game.audio.jetpack(local != null && local.alive && local.jetting && !paused);
 
-        // ---- desenho
+        // ---- desenho (bonecos em pixel art pintados antes de limpar a tela)
+        game.batch.setProjectionMatrix(cam.combined);
+        renderer.prepareSoldiers(game.draw, cam, world);
         ScreenUtils.clear(0, 0, 0, 1);
         int fmode = game.settings.colorFilter;
         if (director.active()) {
