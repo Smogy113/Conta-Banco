@@ -283,7 +283,7 @@ public class Assets implements Disposable {
 
     private static final String[] SOUND_NAMES = {
             "pistol", "magnum", "smg", "rifle", "shotgun", "sniper", "lmg", "rocket", "explosion", "explosion_small",
-            "bounce", "laser", "flame", "disc", "reload", "empty", "pickup", "health", "powerup", "jetpack", "hit",
+            "bounce", "laser", "flame", "disc", "reload", "empty", "pickup", "health", "powerup", "jetpack", "hit", "hit1", "hit2", "hit3", "hurt", "hithead", "killhit",
             "hitmarker", "death", "melee", "ui_click", "beep", "planted", "defused", "flag", "win", "lose", "wave",
             "throw", "arm", "streak", "spawn", "step", "kill1", "kill2", "kill3", "kill4", "kill5", "headshot",
             "bow", "boomerang", "catch", "frost", "freeze", "tesla", "gravity", "harpoon", "harpoon_pull", "hook", "hook_hit",

@@ -89,6 +89,8 @@ public class Player {
     public float netX, netY;
     public float meleeAnim;
     public float hurtFlash;
+    /** recuo visual ao levar tiro (so desenho): 1 -> 0 e o lado */
+    public float flinch, flinchDir;
     public boolean recentlyFired;
     public float spikeTimer;
     public int spawnIndex = -1;

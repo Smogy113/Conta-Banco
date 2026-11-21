@@ -157,8 +157,15 @@ public class WorldRenderer implements Disposable {
         return settings.blood == 1 ? 0x76c442 : 0xb71c1c;
     }
 
-    /** Marcador de acerto na mira (0..1). */
-    public float hitMarker;
+    /** Marcador de acerto na mira (0..1); cabeca (dourado) e abate (vermelho). */
+    public float hitMarker, hitHead, hitKill;
+    /** coice da camera (tiro/levar tiro), micro-pausa no impacto, zoom do abate e borda vermelha de dano */
+    public float kickX, kickY, hitStop, zoomKick, hurtPulse;
+
+    private String hitSound() {
+        int r = MathUtils.random(2);
+        return r == 0 ? "hit1" : (r == 1 ? "hit2" : "hit3");
+    }
 
     // ------------------------------------------------------------------ eventos -> efeitos
 
@@ -197,7 +204,17 @@ public class WorldRenderer implements Disposable {
                 float vol = e.a == localId ? 0.75f : 1f;
                 // cada disparo com o tom um pouco diferente (rajadas nao soam como maquina)
                 audio.play(wt.sound, e.x, e.y, vol, MathUtils.random(0.95f, 1.05f));
+                if (wt.kind == Projectile.Kind.BULLET && !fx.skip()) { // clarao em estrela na boca do cano
+                    for (int i = -1; i <= 1; i++) {
+                        float ra = ang + i * 0.5f;
+                        Particles.P r = fx.spawn(Particles.LINE, mx, my, MathUtils.cos(ra) * 260, MathUtils.sin(ra) * 260, 0.05f, wt.gunH * (i == 0 ? 1.4f : 0.8f), 0.5f, 0xfff3c4, 1);
+                        r.additive = true;
+                    }
+                }
                 if (e.a == localId) {
+                    float kick = wt.isExplosive() ? 9 : (wt.recoil > 60 ? 7 : (wt.kind == Projectile.Kind.FLAME ? 0.6f : 2.6f));
+                    kickX -= MathUtils.cos(ang) * kick;
+                    kickY -= MathUtils.sin(ang) * kick;
                     shake = Math.max(shake, wt.recoil > 60 ? 6 : (wt.kind == Projectile.Kind.FLAME ? 0.5f : 1.8f));
                     // coice das armas pesadas no celular
                     if (wt.recoil > 60 || wt.isExplosive()) audio.vibrate(wt.isExplosive() ? 45 : 30, wt.isExplosive() ? 0.7f : 0.45f);
@@ -228,28 +245,69 @@ public class WorldRenderer implements Disposable {
                 lighting.flash(e.x, e.y, e.f * 3.2f, 0xffa040, 1.3f, 0.6f);
                 break;
             case HIT: {
-                int n = settings.blood == 2 ? 0 : (settings.highQuality ? 6 : 3);
-                if (e.b == localId) hitMarker = 1f;
+                Player v = w.player(e.a), sh = w.player(e.b);
+                boolean head = e.c == 1;
+                // direcao do tiro (de quem atirou para quem levou)
+                float dx = 1, dy = 0.1f;
+                if (v != null && sh != null && sh != v) {
+                    dx = v.x - sh.x;
+                    dy = v.centerY() - sh.shoulderY();
+                    float l = (float) Math.sqrt(dx * dx + dy * dy);
+                    if (l > 0.01f) {
+                        dx /= l;
+                        dy /= l;
+                    }
+                }
+                float power = MathUtils.clamp(e.f / 40f, 0.4f, 2.2f);
+                float dirAng = MathUtils.atan2(dy, dx);
+                // jato de sangue saindo do lado oposto ao tiro + nevoa
+                int n = settings.blood == 2 ? 0 : (settings.highQuality ? 10 : 5);
+                for (int i = 0; i < n; i++) {
+                    float ang = dirAng + MathUtils.random(-0.6f, 0.6f);
+                    float sp = MathUtils.random(140, 380) * (0.7f + power * 0.4f);
+                    Particles.P b = fx.spawn(Particles.CIRCLE, e.x + dx * 6, e.y + MathUtils.random(-4, 4), MathUtils.cos(ang) * sp, MathUtils.sin(ang) * sp + 60,
+                            0.55f, MathUtils.random(1.6f, 3.8f), 0.7f, bloodColor(), 1);
+                    b.grav = 900;
+                    b.a2 = 0.8f;
+                }
+                if (settings.blood != 2) for (int i = 0; i < 2 && !fx.skip(); i++) {
+                    Particles.P m = fx.spawn(Particles.SOFT, e.x + dx * 8, e.y, dx * 70 + MathUtils.random(-20, 20), dy * 70 + MathUtils.random(0, 30), 0.3f, 6, 16, bloodColor(), 0.35f);
+                    m.drag = 4;
+                }
                 if (settings.blood == 2 && !fx.skip()) {
                     Particles.P sp = fx.spawn(Particles.LINE, e.x, e.y, MathUtils.random(-200, 200), MathUtils.random(-50, 200), 0.18f, 2.5f, 0.5f, 0xffffff, 1);
                     sp.additive = true;
                 }
-                for (int i = 0; i < n; i++) {
-                    Particles.P b = fx.spawn(Particles.CIRCLE, e.x, e.y, MathUtils.random(-160, 160), MathUtils.random(-30, 220), 0.6f, MathUtils.random(1.8f, 3.6f), 0.8f, bloodColor(), 1);
-                    b.grav = 900;
-                    b.a2 = 0.8f;
+                // clarao branco no ponto do impacto (e faiscas douradas no tiro na cabeca)
+                Particles.P fl = fx.spawn(Particles.SOFT, e.x - dx * 4, e.y, 0, 0, 0.07f, 9 + 5 * power, 5, 0xffffff, 0.9f);
+                fl.additive = true;
+                if (head) for (int i = 0; i < 6; i++) {
+                    float ang = i / 6f * MathUtils.PI2;
+                    Particles.P g = fx.spawn(Particles.LINE, e.x, e.y + 8, MathUtils.cos(ang) * 240, MathUtils.sin(ang) * 240, 0.16f, 5, 1, 0xffd54f, 1);
+                    g.additive = true;
+                    g.drag = 5;
                 }
-                if (e.b == localId) {
-                    audio.ui("hitmarker");
-                    if (settings.damageStyle > 0) floatDamage(e.a, e.f, e.c == 1, e.x, e.y + 26);
+                if (v != null) {
+                    v.hurtFlash = 0.12f;
+                    v.flinch = 1;
+                    v.flinchDir = dx >= 0 ? 1 : -1;
                 }
-                Player v = w.player(e.a);
-                if (v != null) v.hurtFlash = 0.12f;
-                if (e.a == localId) {
-                    audio.ui("hit");
+                if (e.b == localId) { // voce acertou
+                    hitMarker = 1f;
+                    if (head) hitHead = 1f;
+                    audio.ui(head ? "hithead" : "hitmarker");
+                    audio.play(hitSound(), e.x, e.y, 0.85f, MathUtils.random(0.94f, 1.06f));
+                    if (settings.damageStyle > 0) floatDamage(e.a, e.f, head, e.x, e.y + 26);
+                    if (e.f >= 45 || head) hitStop = Math.max(hitStop, 0.035f);
+                }
+                if (e.a == localId) { // voce levou
+                    audio.ui("hurt");
                     audio.vibrate(25 + (int) Math.min(70, e.f * 0.8f), 0.35f + Math.min(0.65f, e.f / 80f));
-                    shake = Math.max(shake, 3);
-                } else audio.play("hit", e.x, e.y, 0.5f, 1f);
+                    shake = Math.max(shake, 3 + power * 2.5f);
+                    kickX += dx * 6 * power;
+                    kickY += dy * 6 * power;
+                    hurtPulse = Math.min(1, hurtPulse + 0.35f + power * 0.2f);
+                } else if (e.b != localId) audio.play(hitSound(), e.x, e.y, 0.6f, MathUtils.random(0.94f, 1.06f));
                 break;
             }
             case KILL: {
@@ -273,6 +331,19 @@ public class WorldRenderer implements Disposable {
                 Player killer = w.player(e.a);
                 if (killer != null && e.a != e.b) killEffect(killer.look.killFx, e.x, e.y);
                 if (e.a == localId && e.b != localId) {
+                    // impacto do abate: baque, micro-pausa, zoom rapido, onda de choque e X vermelho
+                    audio.ui("killhit");
+                    hitKill = 1f;
+                    hitMarker = 1f;
+                    hitStop = Math.max(hitStop, 0.07f);
+                    zoomKick = 0.045f;
+                    lighting.flash(e.x, e.y, 160, 0xffe0c0, 1f, 0.12f);
+                    for (int i = 0; i < 14; i++) {
+                        float ang = i / 14f * MathUtils.PI2;
+                        Particles.P r = fx.spawn(Particles.LINE, e.x, e.y + 6, MathUtils.cos(ang) * 420, MathUtils.sin(ang) * 420, 0.18f, 7, 1, 0xffffff, 0.9f);
+                        r.additive = true;
+                        r.drag = 6;
+                    }
                     int lvl = MathUtils.clamp(e.d > 0 ? e.d : 1, 1, 5);
                     if (settings.killBanner && !replayMode) {
                         audio.ui("kill" + lvl);
@@ -740,6 +811,16 @@ public class WorldRenderer implements Disposable {
         }
         shake = Math.max(0, shake - dt * 30);
         hitMarker = Math.max(0, hitMarker - dt * 5);
+        hitHead = Math.max(0, hitHead - dt * 3.5f);
+        hitKill = Math.max(0, hitKill - dt * 2.2f);
+        float kd = (float) Math.exp(-dt * 16);
+        kickX *= kd;
+        kickY *= kd;
+        hurtPulse = Math.max(0, hurtPulse - dt * 1.4f);
+        if (world != null) for (int i = 0; i < world.players.size; i++) {
+            Player fp = world.players.get(i);
+            fp.flinch = Math.max(0, fp.flinch - dt * 9);
+        }
         lighting.update(dt);
         if (world != null) debris.update(dt, world.map);
         updateDayNight();
@@ -1989,7 +2070,8 @@ public class WorldRenderer implements Disposable {
             return;
         }
         if (rot == 0) painter.drawShadow(d, pose);
-        pixels.draw(d.batch, c, p.x, p.y, pose.alpha, scale, rot, ox, oy);
+        float fl = p.flinch * p.flinch * 3.5f * p.flinchDir; // recua um pouco ao levar tiro
+        pixels.draw(d.batch, c, p.x + fl, p.y, pose.alpha, scale, rot, ox, oy);
         painter.drawFx(d, pose);
     }
 
@@ -2233,8 +2315,9 @@ public class WorldRenderer implements Disposable {
         float size = 18 * cam_zoom;
         Icons.crosshair(d, cx, cy, size, settings.crosshairStyle, settings.crosshairRgb(), 0.95f);
         if (hitMarker > 0) {
-            float o = size * 0.45f, l = size * 0.4f;
-            d.rgb(0xffffff, hitMarker);
+            float big = 1 + 0.5f * hitKill;
+            float o = size * 0.45f * big, l = size * 0.4f * big;
+            d.rgb(hitKill > 0.05f ? 0xff3b30 : (hitHead > 0.05f ? 0xffd54f : 0xffffff), Math.max(hitMarker, hitKill));
             d.line(cx - o, cy - o, cx - o - l, cy - o - l, 2.5f * cam_zoom);
             d.line(cx + o, cy - o, cx + o + l, cy - o - l, 2.5f * cam_zoom);
             d.line(cx - o, cy + o, cx - o - l, cy + o + l, 2.5f * cam_zoom);

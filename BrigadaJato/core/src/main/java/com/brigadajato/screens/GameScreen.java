@@ -222,6 +222,15 @@ public class GameScreen extends ScreenAdapter {
             }
         }
         float simDt = dt;
+        // micro-pausa no impacto (so offline: online cada um ve o seu tempo)
+        if (renderer.hitStop > 0) {
+            if (client == null && host == null && finalSlow <= 0) simDt = 0;
+            renderer.hitStop -= dt;
+        }
+        if (renderer.zoomKick > 0) {
+            zoomPunch = Math.max(zoomPunch, renderer.zoomKick);
+            renderer.zoomKick = 0;
+        }
         if (finalSlow > 0) {
             finalSlow -= dt;
             simDt = dt * 0.22f;
@@ -399,6 +408,7 @@ public class GameScreen extends ScreenAdapter {
         com.brigadajato.Perf.mark(game.batch, "hudPrep");
         hud.draw(game.draw, world, local, fpsSmooth, controls.scoreboardVisible() || (world.mode.over && !resultsShown && overTimer > 0.5f), mobile);
         game.batch.setProjectionMatrix(hudCam.combined);
+        drawHurt();
         if (finalSlow > 0) drawFinalKill();
         AchievementToast.draw(game, dt, hudCam.viewportWidth, 720);
         if (!paused && !resultsShown && local != null && finalSlow <= 0) controls.draw(game.draw, game.assets.small, game.assets.normal, local, painter);
@@ -444,6 +454,24 @@ public class GameScreen extends ScreenAdapter {
             if (!statsSaved) saveStats();
             if (overTimer > 2.5f && !resultsShown && director.reelDone && !director.active()) showResults();
         }
+    }
+
+    /** borda vermelha quando voce leva tiro */
+    private void drawHurt() {
+        float a = renderer.hurtPulse;
+        if (a <= 0.01f) return;
+        float W = hudCam.viewportWidth, H = 720;
+        int n = 8;
+        for (int i = 0; i < n; i++) {
+            float t = i / (float) n, k = a * 0.55f * (1 - t) * (1 - t);
+            game.draw.color(0.75f, 0.04f, 0.04f, k);
+            float s = 9;
+            game.draw.rect(0, i * s, W, s);
+            game.draw.rect(0, H - (i + 1) * s, W, s);
+            game.draw.rect(i * s, n * s, s, H - 2 * n * s);
+            game.draw.rect(W - (i + 1) * s, n * s, s, H - 2 * n * s);
+        }
+        game.batch.setColor(1, 1, 1, 1);
     }
 
     private void drawFinalKill() {
@@ -724,7 +752,7 @@ public class GameScreen extends ScreenAdapter {
         float cx = hw * 2 >= mw + margin * 2 ? mw / 2 : MathUtils.clamp(camX, hw - margin, mw - hw + margin);
         float cy = hh * 2 >= mh + margin * 2 ? mh / 2 : MathUtils.clamp(camY, hh - margin, mh - hh + margin);
         float s = renderer.shake * game.settings.shake;
-        cam.position.set(cx + MathUtils.random(-s, s), cy + MathUtils.random(-s, s), 0);
+        cam.position.set(cx + MathUtils.random(-s, s) + renderer.kickX * game.settings.shake, cy + MathUtils.random(-s, s) + renderer.kickY * game.settings.shake, 0);
         cam.update();
         // mira
         if (local != null) {
