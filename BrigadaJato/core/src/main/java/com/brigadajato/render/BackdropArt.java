@@ -32,6 +32,8 @@ public class BackdropArt implements Disposable {
         public float solidFrac = 0, topFrac = 1;
         /** imagem pronta esperando virar textura (gerada fora da thread do OpenGL) */
         Pixmap pending;
+        /** textura de pixel art (filtro sem suavizar) */
+        boolean nearest;
     }
 
     /** gerar so as imagens (sem OpenGL): as texturas sao criadas depois em {@link #upload()} */
@@ -152,11 +154,94 @@ public class BackdropArt implements Disposable {
 
     /** Cria as texturas das imagens geradas em segundo plano (chamar na thread do OpenGL). */
     public void upload() {
+        uploadPainted();
         for (Layer l : layers)
             if (l.pending != null) {
-                l.tex = texture(l.pending);
+                if (l.nearest) { // pixel art: sem suavizar e sem mipmap
+                    l.tex = new Texture(l.pending);
+                    l.tex.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+                    l.tex.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.ClampToEdge);
+                    l.pending.dispose();
+                } else l.tex = texture(l.pending);
                 l.pending = null;
             }
+    }
+
+    // ---- fundos pintados (assets/backdrops, gerados por tools/paint_backdrops.py)
+
+    /** o tema tem fundo pintado em pixel art (ceu + 3 camadas) */
+    public boolean painted;
+    public Texture sky;
+    private Pixmap skyPending;
+
+    public static String paintedName(Theme t) {
+        return t.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private boolean loadPainted(Theme t, Layer far, Layer mid, Layer near) {
+        String base = "backdrops/" + paintedName(t);
+        try {
+            if (!com.badlogic.gdx.Gdx.files.internal(base + "_far.png").exists()) return false;
+            skyPending = new Pixmap(com.badlogic.gdx.Gdx.files.internal(base + "_sky.png"));
+            Layer[] ls = {far, mid, near};
+            String[] names = {"far", "mid", "near"};
+            for (int i = 0; i < 3; i++) {
+                Pixmap pm = new Pixmap(com.badlogic.gdx.Gdx.files.internal(base + "_" + names[i] + ".png"));
+                measurePixmap(ls[i], pm);
+                ls[i].pending = pm;
+                ls[i].nearest = true;
+            }
+            painted = true;
+            if (!defer) uploadPainted();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** mesma medicao das camadas geradas: parte opaca embaixo, parte vazia em cima e cor da base */
+    private static void measurePixmap(Layer l, Pixmap pm) {
+        int w = pm.getWidth(), h = pm.getHeight();
+        ByteBuffer b = pm.getPixels();
+        int topRow = h, solidRow = h;
+        for (int y = 0; y < h && topRow == h; y++)
+            for (int x = 0; x < w; x++)
+                if ((b.get((y * w + x) * 4 + 3) & 0xff) != 0) {
+                    topRow = y;
+                    break;
+                }
+        for (int y = h - 1; y >= 0; y--) {
+            boolean full = true;
+            for (int x = 0; x < w; x++)
+                if ((b.get((y * w + x) * 4 + 3) & 0xff) != 0xff) {
+                    full = false;
+                    break;
+                }
+            if (!full) break;
+            solidRow = y;
+        }
+        // sem mipmap: folga de 1 pixel basta (filtro "nearest")
+        l.topFrac = Math.min(1f, (h - Math.max(0, topRow - 1)) / (float) h);
+        l.solidFrac = Math.max(0f, (h - Math.min(h, solidRow + 1)) / (float) h);
+        if (l.solidFrac > l.topFrac) l.solidFrac = l.topFrac;
+        long rr = 0, gg = 0, bb = 0;
+        int row = (h - 1) * w;
+        for (int x = 0; x < w; x++) {
+            rr += b.get((row + x) * 4) & 0xff;
+            gg += b.get((row + x) * 4 + 1) & 0xff;
+            bb += b.get((row + x) * 4 + 2) & 0xff;
+        }
+        l.bottom = (int) (rr / w) << 16 | (int) (gg / w) << 8 | (int) (bb / w);
+        b.position(0);
+    }
+
+    private void uploadPainted() {
+        if (skyPending != null) {
+            sky = new Texture(skyPending);
+            sky.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+            skyPending.dispose();
+            skyPending = null;
+        }
     }
 
     private static Texture texture(Pixmap pm) {
@@ -374,6 +459,10 @@ public class BackdropArt implements Disposable {
         mid.h = 750;
         near.w = 1200;
         near.h = 600;
+        if (loadPainted(t, far, mid, near)) {
+            layers = new Layer[]{far, mid, near};
+            return;
+        }
 
         // ---- camada de longe
         px = new int[TW * TH];
@@ -534,6 +623,10 @@ public class BackdropArt implements Disposable {
 
     @Override
     public void dispose() {
+        if (sky != null) sky.dispose();
+        if (skyPending != null) skyPending.dispose();
+        sky = null;
+        skyPending = null;
         for (Layer l : layers) {
             if (l.tex != null) l.tex.dispose();
             if (l.pending != null) l.pending.dispose();

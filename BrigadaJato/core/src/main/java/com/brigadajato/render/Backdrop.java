@@ -68,10 +68,21 @@ public class Backdrop implements Disposable {
         }
         coverAll = Math.min(coverAll, minY + vh);
         d.color(1, 1, 1, 1);
-        if (coverAll < minY + vh) {
+        boolean painted = art.painted && art.sky != null;
+        if (painted && indoor) {
+            // parede pintada: repete na horizontal e anda devagar (paralaxe)
+            float dim = 1;
+            d.color(dim, dim, dim, 1);
+            float tw = vh * art.sky.getWidth() / (float) art.sky.getHeight();
+            float xs = camX * 0.88f;
+            float start = xs + (float) Math.floor((minX - xs) / tw) * tw;
+            d.batch.disableBlending();
+            for (float x = start; x < minX + vw; x += tw) d.batch.draw(art.sky, x, minY, tw, vh);
+            d.batch.enableBlending();
+        } else if (coverAll < minY + vh) {
             float f = (coverAll - minY) / vh;
             d.batch.disableBlending();
-            d.batch.draw(sky, minX, coverAll, vw, vh * (1 - f), 0, 1 - f, 1, 0);
+            d.batch.draw(painted ? art.sky : sky, minX, coverAll, vw, vh * (1 - f), 0, 1 - f, 1, 0);
             d.batch.enableBlending();
         }
         com.brigadajato.Perf.mark(d.batch, "b.sky");
@@ -80,7 +91,7 @@ public class Backdrop implements Disposable {
             if (coverAll < minY + vh) d.rect(minX, coverAll, vw, minY + vh - coverAll);
         }
         // estrelas
-        float starA = t.bg == Theme.Bg.MOON || t.bg == Theme.Bg.CITY_NIGHT ? 1 : (indoor ? 0 : night);
+        float starA = painted ? 0 : (t.bg == Theme.Bg.MOON || t.bg == Theme.Bg.CITY_NIGHT ? 1 : (indoor ? 0 : night));
         if (t.bg == Theme.Bg.ICE_PEAKS) starA = Math.max(starA, 0.6f);
         if (starA > 0.05f) {
             for (int i = 0; i < stars.size; i++) {
@@ -92,7 +103,9 @@ public class Backdrop implements Disposable {
             }
         }
         com.brigadajato.Perf.mark(d.batch, "b.stars");
-        if (!indoor) drawSky(d, t, minX, minY, vw, vh, time, night, sunPos, camX);
+        if (painted) {
+            // o ceu pintado ja tem sol/lua/nuvens
+        } else if (!indoor) drawSky(d, t, minX, minY, vw, vh, time, night, sunPos, camX);
         else drawIndoorWall(d, t, camX, camY, minX, minY, vw, vh, time);
         com.brigadajato.Perf.mark(d.batch, "b.sun");
         lists[0] = far;
@@ -107,7 +120,7 @@ public class Backdrop implements Disposable {
             tex = l.tex != null;
             if (tex) texLayer(d, l, KS[i], i, camX, camY, minX, minY, vw, vh, night, coverAbove[i]);
             if (com.brigadajato.Perf.ON) com.brigadajato.Perf.mark(d.batch, "b.tex" + i);
-            if (tex && i < 2 && !indoor) { // neblina entre as camadas: da profundidade
+            if (tex && i < 2 && !indoor && !painted) { // neblina entre as camadas: da profundidade
                 float k2 = KS[i];
                 float baseY = (camY - worldH * 0.5f) * (1 - k2 * 0.7f) + worldH * (0.18f - i * 0.06f);
                 int hz = t.skyBottom;
@@ -125,10 +138,10 @@ public class Backdrop implements Disposable {
                 }
             }
             if (com.brigadajato.Perf.ON) com.brigadajato.Perf.mark(d.batch, "b.haze" + i);
-            layer(d, lists[i], KS[i], cols[i], i == 0 ? 0.9f : (i == 1 ? 0.95f : 1f), camX, camY, i, time, night);
+            if (!painted) layer(d, lists[i], KS[i], cols[i], i == 0 ? 0.9f : (i == 1 ? 0.95f : 1f), camX, camY, i, time, night);
             if (com.brigadajato.Perf.ON) com.brigadajato.Perf.mark(d.batch, "b.shapes" + i);
         }
-        if (t.bg == Theme.Bg.UNDERWATER) {
+        if (t.bg == Theme.Bg.UNDERWATER && !painted) {
             // raios de luz vindos da superficie
             d.additive(true);
             for (int i = 0; i < 5; i++) {
